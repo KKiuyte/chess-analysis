@@ -56,6 +56,10 @@ footer {{ font-size: 13px; color: var(--muted); border-top: 1px solid var(--line
 
 def build(root, players, months):
     docs = root / "docs"
+    # Un joueur retiré de la config disparaît aussi du site.
+    for d in docs.glob("*/"):
+        if d.is_dir() and d.name not in players:
+            shutil.rmtree(d)
     cards = []
     for user in players:
         src = root / "output" / user

@@ -27,10 +27,6 @@ min_games = 3                        # peu de parties en daily : seuil « ouvert
 time_classes.rapid = { depth = 16 }
 time_classes.daily = { depth = 18, min_games = 3 }
 
-[players.liavek]
-time_classes.blitz = { depth = 14 }
-time_classes.bullet = { depth = 12 }
-
 [engine]
 path = "bin/stockfish"
 processes = 2                        # nombre de process Stockfish en parallèle
@@ -56,7 +52,6 @@ low_score = 45                       # « faible score » = score < 45 %
 
 [output]
 dir = "output"
-top_positions = 10
 
 # Exercices sur échiquier tirés de mes erreurs et gaffes (étape "exercises")
 [exercises]

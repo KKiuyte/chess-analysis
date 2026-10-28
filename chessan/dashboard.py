@@ -7,7 +7,6 @@ from . import insights
 PHASES = ["opening", "middlegame", "endgame"]
 RESULT = {"win": "W", "draw": "D", "loss": "L"}
 TC_LABELS = {"bullet": "Bullet", "blitz": "Blitz", "rapid": "Rapide", "daily": "Daily"}
-WORST_KEPT = 300  # le navigateur garde les 10 pires parmi celles qui passent les filtres
 
 
 def classify(loss, cls):
@@ -44,7 +43,6 @@ def build_data(cfg, con, tc):
             "s": [[0, 0, 0, 0] for _ in PHASES],
         })
 
-    worst = []
     for r in con.execute(
             """SELECT m.* FROM moves m JOIN games g ON g.id = m.game_id
                WHERE g.time_class = ? AND m.is_mine = 1 AND m.win_before IS NOT NULL""", (tc,)):
@@ -58,13 +56,6 @@ def build_data(cfg, con, tc):
         k = classify(loss, cls)
         if k:
             stats[k] += 1
-        if k >= 2:
-            worst.append({"k": insights.BLUNDER_KINDS[insights.blunder_kind(
-                              r["fen_before"], r["uci"], r["best_uci"], r["cp_before"], r["cp_after"])],"g": index[r["game_id"]], "fen": r["fen_before"], "san": r["san"], "uci": r["uci"],
-                          "best": r["best_san"], "buci": r["best_uci"], "l": round(loss, 1),
-                          "wb": round(wb, 1), "wa": round(wa, 1), "p": PHASES.index(r["phase"]),
-                          "n": r["move_no"]})
-    worst.sort(key=lambda w: -w["l"])
 
     return {
         "player": cfg["username"].capitalize(),
@@ -76,10 +67,8 @@ def build_data(cfg, con, tc):
         "thresholds": {k: cls[k] for k in ("inaccuracy", "mistake", "blunder")},
         "openings": {"minGames": tc_cfg.get("min_games", cfg["openings"]["min_games"]),
                      "lowScore": cfg["openings"]["low_score"]},
-        "topN": cfg["output"]["top_positions"],
         "diag": insights.compute(cfg, con, tc, rows),
         "games": games,
-        "worst": worst[:WORST_KEPT],
     }
 
 

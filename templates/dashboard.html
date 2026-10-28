@@ -11,7 +11,6 @@
   --s1: #2a78d6; --s2: #eb6834; --s3: #1baf7a;
   --win: #0ca30c; --draw: #b4b9b1; --loss: #d03b3b;
   --inacc: #fab219; --mistake: #ec835a; --blunder: #d03b3b;
-  --sq-light: #ebecd0; --sq-dark: #739552; --hl-played: rgba(208, 59, 59, .55); --hl-best: rgba(42, 120, 214, .5);
   --f-display: "Bricolage Grotesque", "Segoe UI", system-ui, sans-serif;
   --f-body: "Atkinson Hyperlegible", system-ui, -apple-system, sans-serif;
   --f-mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
@@ -132,24 +131,6 @@ tr.fam[aria-expanded="true"] .caret { transform: rotate(90deg); }
 .sev { display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-right: 6px; vertical-align: -1px; }
 .note { font-size: 13px; color: var(--muted); max-width: 75ch; }
 
-/* Pires positions */
-.worst { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 300px), 1fr)); gap: 16px; }
-.pos { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); padding: 14px; display: flex; flex-direction: column; gap: 12px; min-width: 0; }
-.pos-head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
-.pos-head .rank { font-family: var(--f-display); font-size: 22px; font-weight: 700; }
-.board { display: grid; grid-template-columns: repeat(8, minmax(0, 1fr)); grid-template-rows: repeat(8, minmax(0, 1fr)); aspect-ratio: 1; width: 100%; max-width: 100%; border-radius: 4px; overflow: hidden; container-type: inline-size; }
-.board div { position: relative; aspect-ratio: 1; min-width: 0; min-height: 0; overflow: hidden; display: flex; align-items: center; justify-content: center; font-size: 10.5cqi; line-height: 1; user-select: none; }
-.board .l { background: var(--sq-light); } .board .d { background: var(--sq-dark); }
-.board .hp::after, .board .hb::after { content: ""; position: absolute; inset: 0; }
-.board .hp::after { background: var(--hl-played); } .board .hb::after { background: var(--hl-best); }
-.board .pc { position: relative; z-index: 1; font-family: "Segoe UI Symbol", "DejaVu Sans", "Noto Sans Symbols 2", sans-serif; }
-.board .pw { color: #fff; text-shadow: 0 0 1px #000, 0 0 1px #000, 0 1px 1px #000; }
-.board .pb { color: #111; text-shadow: 0 0 1px #fff8; }
-.moves { display: grid; grid-template-columns: auto 1fr; gap: 4px 12px; font-size: 14px; align-items: baseline; }
-.moves dt { color: var(--muted); font-size: 13px; }
-.moves dd { margin: 0; font-family: var(--f-mono); font-weight: 600; }
-.mv-played { color: var(--loss); } .mv-best { color: var(--s1); }
-.swatch { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 6px; vertical-align: 0; }
 .pos-links { display: flex; gap: 16px; flex-wrap: wrap; font-size: 14px; }
 .empty { background: var(--surface); border: 1px dashed var(--line); border-radius: var(--r); padding: 20px; color: var(--muted); }
 /* Diagnostic */
@@ -174,7 +155,6 @@ tr.fam[aria-expanded="true"] .caret { transform: rotate(90deg); }
 .hbar .track { height: 10px; background: var(--line); border-radius: 4px; overflow: hidden; }
 .hbar .fill { height: 100%; background: var(--s1); border-radius: 4px; }
 .hbar .val { font-variant-numeric: tabular-nums; color: var(--muted); white-space: nowrap; }
-.pos .kind { font-size: 13px; color: var(--muted); }
 footer { font-size: 13px; color: var(--muted); border-top: 1px solid var(--line); padding-top: 16px; }
 @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
 </style>
@@ -210,7 +190,7 @@ footer { font-size: 13px; color: var(--muted); border-top: 1px solid var(--line)
       </div>
     </div>
     <div class="row jump">
-      <a href="#diag">Conseils</a><a href="#overview">Vue d'ensemble</a><a href="#openings">Ouvertures</a><a href="#errors">Erreurs par phase</a><a href="#worst">Pires positions</a>
+      <a href="#diag">Conseils</a><a href="#overview">Vue d'ensemble</a><a href="#openings">Ouvertures</a><a href="#errors">Erreurs par phase</a>
     </div>
   </nav>
 
@@ -245,14 +225,6 @@ footer { font-size: 13px; color: var(--muted); border-top: 1px solid var(--line)
       <p id="errIntro"></p>
     </div>
     <div id="errBody"></div>
-  </section>
-
-  <section id="worst">
-    <div class="sec-head">
-      <h2>Pires positions</h2>
-      <p id="worstIntro"></p>
-    </div>
-    <div class="worst" id="worstList"></div>
   </section>
 
   <footer id="foot"></footer>
@@ -514,46 +486,6 @@ function renderErrors(list) {
   });
 }
 
-// ---------- Pires positions ----------
-const GLYPH = { k: "♚", q: "♛", r: "♜", b: "♝", n: "♞", p: "♟" };
-function boardHTML(fen, flip, played, best) {
-  const rows = fen.split(" ")[0].split("/");
-  const sq = [];
-  rows.forEach((row, r) => { let f = 0; for (const ch of row) { if (/\d/.test(ch)) { for (let i = 0; i < +ch; i++) sq.push({ r, f: f++, p: null }); } else sq.push({ r, f: f++, p: ch }); } });
-  const name = s => "abcdefgh"[s.f] + (8 - s.r);
-  const hp = played ? [played.slice(0, 2), played.slice(2, 4)] : [], hb = best ? [best.slice(0, 2), best.slice(2, 4)] : [];
-  const order = flip ? sq.slice().reverse() : sq;
-  return `<div class="board" role="img" aria-label="Position ${esc(fen)}">` + order.map(s => {
-    const n = name(s), cls = ((s.r + s.f) % 2 ? "d" : "l") + (hp.includes(n) ? " hp" : hb.includes(n) ? " hb" : "");
-    const pc = s.p ? `<span class="pc ${s.p === s.p.toUpperCase() ? "pw" : "pb"}">${GLYPH[s.p.toLowerCase()]}︎</span>` : "";
-    return `<div class="${cls}">${pc}</div>`;
-  }).join("") + `</div>`;
-}
-function renderWorst(list) {
-  const ok = new Set(list.map(g => D.games.indexOf(g)));
-  const top = D.worst.filter(w => ok.has(w.g)).slice(0, D.topN);
-  $("worstIntro").textContent = `Les ${D.topN} coups qui m'ont fait perdre le plus de % de gain sur la sélection. `
-    + `Case rouge : mon coup ; case bleue : le meilleur coup selon Stockfish.`;
-  if (!top.length) { $("worstList").innerHTML = `<div class="empty">Aucune erreur ni gaffe analysée sur cette sélection.</div>`; return; }
-  $("worstList").innerHTML = top.map((w, i) => {
-    const g = D.games[w.g], black = g.c === "b";
-    const lichess = "https://lichess.org/analysis/" + w.fen.replace(/ /g, "_") + "?color=" + (black ? "black" : "white");
-    const kind = w.l >= D.thresholds.blunder ? "Gaffe" : "Erreur";
-    return `<article class="pos">
-      <div class="pos-head"><span class="rank">${i + 1}</span><span class="muted">Coup ${w.n} · ${PH[w.p]}</span></div>
-      <span class="kind">${esc(w.k)}</span>
-      ${boardHTML(w.fen, black, w.uci, w.buci)}
-      <dl class="moves">
-        <dt><span class="swatch" style="background:var(--hl-played)"></span>Joué</dt><dd class="mv-played">${black ? w.n + "…" : w.n + "."} ${esc(w.san)} <span class="chip low">${kind}</span></dd>
-        <dt><span class="swatch" style="background:var(--hl-best)"></span>Meilleur</dt><dd class="mv-best">${esc(w.best || "–")}</dd>
-        <dt>% de gain</dt><dd class="num">${Math.round(w.wb)} % → ${Math.round(w.wa)} % <span class="muted">(−${Math.round(w.l)})</span></dd>
-        <dt>Partie</dt><dd style="font-family:var(--f-body);font-weight:400">${black ? "Noirs" : "Blancs"} contre ${esc(g.o)} (${g.oe}), ${dateLabel(g.d)} · ${{ W: "gagnée", D: "nulle", L: "perdue" }[g.r]}</dd>
-      </dl>
-      <div class="pos-links"><a href="${esc(lichess)}" target="_blank" rel="noopener">Analyser sur Lichess ↗</a><a href="${esc(g.u)}" target="_blank" rel="noopener">Voir la partie ↗</a></div>
-    </article>`;
-  }).join("");
-}
-
 // ---------- Diagnostic (toute la période, non filtré) ----------
 const LVL = { priority: "Priorité", info: "À surveiller", good: "Point fort" };
 function renderDiag() {
@@ -593,7 +525,7 @@ function render() {
   requestAnimationFrame(() => {
     pending = false;
     const list = D.games.filter(inScope);
-    renderOverview(list); renderOpenings(list); renderErrors(list); renderWorst(list);
+    renderOverview(list); renderOpenings(list); renderErrors(list);
   });
 }
 render();
