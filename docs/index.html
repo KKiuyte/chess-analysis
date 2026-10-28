@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Analyses d'échecs</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,700&family=Atkinson+Hyperlegible:wght@400;700&display=swap">
+<style>
+:root { --bg: #f4f5f1; --surface: #fcfcfa; --fg: #171a17; --muted: #586058; --line: #dde1d9; --accent: #3b6a44; }
+@media (prefers-color-scheme: dark) {
+  :root { --bg: #121513; --surface: #1a1d1b; --fg: #edefeb; --muted: #a4aca5; --line: #2b312d; --accent: #86b98e; color-scheme: dark; }
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--fg); font: 15px/1.5 "Atkinson Hyperlegible", system-ui, sans-serif; padding: 32px 16px 48px; }
+.wrap { max-width: 860px; margin: 0 auto; display: flex; flex-direction: column; gap: 28px; }
+h1, h2 { font-family: "Bricolage Grotesque", system-ui, sans-serif; margin: 0; line-height: 1.15; }
+h1 { font-size: clamp(28px, 6vw, 40px); }
+h2 { font-size: 20px; }
+p { margin: 0; }
+.muted { color: var(--muted); }
+.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 12px; }
+.card { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 16px; display: flex; flex-direction: column; gap: 10px; }
+.card ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+a { color: var(--accent); font-weight: 700; }
+footer { font-size: 13px; color: var(--muted); border-top: 1px solid var(--line); padding-top: 16px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>Analyses d'échecs</h1>
+    <p class="muted" style="margin-top:8px">Parties chess.com des 6 derniers mois analysées par Stockfish : résultats par ouverture,
+    erreurs par phase de jeu, conseils, et exercices tirés des erreurs de chaque joueur. Mis à jour le 28/10/2026.</p>
+  </header>
+  <div class="grid">
+    <div class="card"><h2>Kiuyte</h2>
+    <ul>
+      <li><a href="kiuyte/dashboard-blitz.html">Dashboard Blitz</a></li>
+      <li><a href="kiuyte/dashboard-daily.html">Dashboard Daily</a></li>
+      <li><a href="kiuyte/exercises.html">Exercices</a></li>
+    </ul></div>
+    <div class="card"><h2>Yoy008</h2>
+    <ul>
+      <li><a href="yoy008/dashboard-rapid.html">Dashboard Rapide</a></li>
+      <li><a href="yoy008/dashboard-daily.html">Dashboard Daily</a></li>
+      <li><a href="yoy008/exercises.html">Exercices</a></li>
+    </ul></div>
+    <div class="card"><h2>Liavek</h2>
+    <ul>
+      <li><a href="liavek/dashboard-bullet.html">Dashboard Bullet</a></li>
+      <li><a href="liavek/dashboard-blitz.html">Dashboard Blitz</a></li>
+    </ul></div>
+  </div>
+  <footer>Site personnel, non affilié à chess.com. Données issues de l'API publique de chess.com.
+  Sur cette version, la progression des exercices est gardée dans le navigateur.</footer>
+</div>
+</body>
+</html>

@@ -1,0 +1,601 @@
+<title>__TITLE__</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700&family=Atkinson+Hyperlegible:wght@400;700&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+/* Layout : une colonne sur mobile, barre de filtres collante, graphiques en grille 2 colonnes au-delà de 860px. */
+:root {
+  --bg: #f4f5f1; --surface: #fcfcfa; --fg: #171a17; --muted: #586058; --faint: #8a918a;
+  --line: #dde1d9; --accent: #3b6a44; --accent-soft: #e3ece2;
+  --s1: #2a78d6; --s2: #eb6834; --s3: #1baf7a;
+  --win: #0ca30c; --draw: #b4b9b1; --loss: #d03b3b;
+  --inacc: #fab219; --mistake: #ec835a; --blunder: #d03b3b;
+  --sq-light: #ebecd0; --sq-dark: #739552; --hl-played: rgba(208, 59, 59, .55); --hl-best: rgba(42, 120, 214, .5);
+  --f-display: "Bricolage Grotesque", "Segoe UI", system-ui, sans-serif;
+  --f-body: "Atkinson Hyperlegible", system-ui, -apple-system, sans-serif;
+  --f-mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
+  --r: 10px;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #121513; --surface: #1a1d1b; --fg: #edefeb; --muted: #a4aca5; --faint: #747c75;
+    --line: #2b312d; --accent: #86b98e; --accent-soft: #223026;
+    --s1: #3987e5; --s2: #d95926; --s3: #199e70;
+    --draw: #5b615c; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #121513; --surface: #1a1d1b; --fg: #edefeb; --muted: #a4aca5; --faint: #747c75;
+  --line: #2b312d; --accent: #86b98e; --accent-soft: #223026;
+  --s1: #3987e5; --s2: #d95926; --s3: #199e70;
+  --draw: #5b615c; color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+body {
+  background: var(--bg); color: var(--fg); font-family: var(--f-body); font-size: 15px; line-height: 1.5;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 0 48px;
+}
+body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px); z-index: 10; background: var(--bg); }
+.wrap { max-width: 1120px; margin: 0 auto; display: flex; flex-direction: column; gap: 40px; }
+h1, h2, h3 { font-family: var(--f-display); text-wrap: balance; margin: 0; line-height: 1.15; }
+h1 { font-size: clamp(28px, 6vw, 40px); font-weight: 700; letter-spacing: -.01em; }
+h2 { font-size: 24px; font-weight: 700; }
+h3 { font-size: 17px; font-weight: 600; }
+p { margin: 0; }
+a { color: var(--accent); }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.eyebrow { font-size: 12px; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); font-weight: 700; }
+.muted { color: var(--muted); }
+.mono { font-family: var(--f-mono); }
+.num { font-variant-numeric: tabular-nums; }
+
+/* En-tête */
+.top { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; padding-top: 28px; flex-wrap: wrap; }
+.top .meta { color: var(--muted); max-width: 62ch; margin-top: 8px; }
+.theme-btn { font: inherit; font-size: 13px; color: var(--fg); background: var(--surface); border: 1px solid var(--line); border-radius: 999px; padding: 6px 12px; cursor: pointer; }
+
+/* Barre de filtres */
+.filters {
+  position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5; background: var(--bg);
+  margin: 0 calc(-1 * max(16px, env(safe-area-inset-left, 0px))); padding: 10px max(16px, env(safe-area-inset-left, 0px));
+  border-bottom: 1px solid var(--line); display: flex; flex-direction: column; gap: 8px;
+}
+.filters .row { display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: center; max-width: 1120px; margin: 0 auto; width: 100%; }
+.seg { display: inline-flex; border: 1px solid var(--line); border-radius: 999px; overflow: hidden; background: var(--surface); }
+.seg button { font: inherit; font-size: 14px; border: 0; background: none; color: var(--fg); padding: 6px 12px; cursor: pointer; }
+.seg button[aria-pressed="true"] { background: var(--accent); color: var(--bg); font-weight: 700; }
+.period { display: flex; gap: 6px; align-items: center; font-size: 14px; }
+select { font: inherit; font-size: 14px; color: var(--fg); background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 5px 8px; }
+.jump { display: flex; gap: 14px; font-size: 14px; overflow-x: auto; white-space: nowrap; scrollbar-width: none; }
+.jump a { color: var(--muted); text-decoration: none; }
+.jump a:hover { color: var(--fg); }
+
+section { display: flex; flex-direction: column; gap: 18px; scroll-margin-top: 110px; }
+.sec-head { display: flex; flex-direction: column; gap: 4px; }
+.sec-head p { color: var(--muted); max-width: 68ch; }
+
+/* Tuiles */
+.tiles { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
+@media (max-width: 720px) { .tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.tile { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); padding: 14px; display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.tile .v { font-family: var(--f-display); font-size: 30px; font-weight: 700; line-height: 1.1; font-variant-numeric: tabular-nums; }
+.tile .sub { font-size: 13px; color: var(--muted); }
+.delta-up { color: var(--win); } .delta-down { color: var(--loss); }
+
+/* Barre V/N/D */
+.wdl { display: flex; height: 10px; border-radius: 4px; overflow: hidden; gap: 2px; background: var(--surface); min-width: 60px; }
+.wdl span { display: block; height: 100%; }
+.wdl .w { background: var(--win); } .wdl .d { background: var(--draw); } .wdl .l { background: var(--loss); }
+.legend { display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: 13px; color: var(--muted); }
+.legend i { display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-right: 6px; vertical-align: -1px; }
+
+/* Graphiques */
+.charts { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+@media (max-width: 860px) { .charts { grid-template-columns: minmax(0, 1fr); } }
+.card { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); padding: 16px; display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+.card .cap { font-size: 13px; color: var(--muted); }
+.chart-box { position: relative; height: 240px; }
+
+/* Ouvertures */
+.alert { border: 1px solid var(--line); border-left: 4px solid var(--loss); background: var(--surface); border-radius: var(--r); padding: 14px 16px; display: flex; flex-direction: column; gap: 10px; }
+.alert ul { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 6px; }
+.alert li { display: flex; gap: 8px; flex-wrap: wrap; align-items: baseline; }
+.chip { display: inline-flex; align-items: center; gap: 4px; font-size: 12px; font-weight: 700; padding: 1px 8px; border-radius: 999px; border: 1px solid currentColor; white-space: nowrap; }
+.chip.low { color: var(--loss); }
+.chip.c-w { color: var(--fg); background: var(--surface); }
+.chip.c-b { color: var(--surface); background: var(--fg); border-color: var(--fg); }
+.op-cols { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+@media (max-width: 960px) { .op-cols { grid-template-columns: minmax(0, 1fr); } }
+.op-cols.single { grid-template-columns: minmax(0, 1fr); }
+.tbl-wrap { overflow-x: auto; }
+table { border-collapse: collapse; width: 100%; font-size: 14px; }
+th { text-align: left; font-size: 12px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); font-weight: 700; padding: 6px 8px; border-bottom: 1px solid var(--line); white-space: nowrap; }
+td { padding: 8px; border-bottom: 1px solid var(--line); vertical-align: middle; }
+td.r, th.r { text-align: right; font-variant-numeric: tabular-nums; }
+td.bar { width: 26%; min-width: 70px; }
+tr.fam { cursor: pointer; }
+tr.fam:hover td { background: var(--accent-soft); }
+tr.fam td:first-child { font-weight: 700; }
+tr.var td { font-size: 13px; color: var(--muted); }
+tr.var td:first-child { padding-left: 24px; }
+tr.flag td.score { color: var(--loss); font-weight: 700; }
+.caret { display: inline-block; width: 1em; color: var(--faint); transition: transform .15s; }
+tr.fam[aria-expanded="true"] .caret { transform: rotate(90deg); }
+.more { font: inherit; font-size: 14px; background: none; border: 1px solid var(--line); color: var(--fg); border-radius: 8px; padding: 6px 12px; cursor: pointer; align-self: flex-start; }
+@media (max-width: 480px) { .col-elo { display: none; } }
+
+/* Erreurs */
+.rate { font-weight: 700; }
+.sev { display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-right: 6px; vertical-align: -1px; }
+.note { font-size: 13px; color: var(--muted); max-width: 75ch; }
+
+/* Pires positions */
+.worst { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 300px), 1fr)); gap: 16px; }
+.pos { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); padding: 14px; display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+.pos-head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+.pos-head .rank { font-family: var(--f-display); font-size: 22px; font-weight: 700; }
+.board { display: grid; grid-template-columns: repeat(8, minmax(0, 1fr)); grid-template-rows: repeat(8, minmax(0, 1fr)); aspect-ratio: 1; width: 100%; max-width: 100%; border-radius: 4px; overflow: hidden; container-type: inline-size; }
+.board div { position: relative; aspect-ratio: 1; min-width: 0; min-height: 0; overflow: hidden; display: flex; align-items: center; justify-content: center; font-size: 10.5cqi; line-height: 1; user-select: none; }
+.board .l { background: var(--sq-light); } .board .d { background: var(--sq-dark); }
+.board .hp::after, .board .hb::after { content: ""; position: absolute; inset: 0; }
+.board .hp::after { background: var(--hl-played); } .board .hb::after { background: var(--hl-best); }
+.board .pc { position: relative; z-index: 1; font-family: "Segoe UI Symbol", "DejaVu Sans", "Noto Sans Symbols 2", sans-serif; }
+.board .pw { color: #fff; text-shadow: 0 0 1px #000, 0 0 1px #000, 0 1px 1px #000; }
+.board .pb { color: #111; text-shadow: 0 0 1px #fff8; }
+.moves { display: grid; grid-template-columns: auto 1fr; gap: 4px 12px; font-size: 14px; align-items: baseline; }
+.moves dt { color: var(--muted); font-size: 13px; }
+.moves dd { margin: 0; font-family: var(--f-mono); font-weight: 600; }
+.mv-played { color: var(--loss); } .mv-best { color: var(--s1); }
+.swatch { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 6px; vertical-align: 0; }
+.pos-links { display: flex; gap: 16px; flex-wrap: wrap; font-size: 14px; }
+.empty { background: var(--surface); border: 1px dashed var(--line); border-radius: var(--r); padding: 20px; color: var(--muted); }
+/* Diagnostic */
+.diag { display: flex; flex-direction: column; gap: 14px; }
+.adv { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); padding: 16px; display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+.adv-head { display: flex; flex-direction: column; gap: 6px; }
+.lvl { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); }
+.lvl::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: var(--dot); }
+.lvl-priority { --dot: var(--loss); } .lvl-info { --dot: var(--inacc); } .lvl-good { --dot: var(--win); }
+.adv-body { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 16px 28px; }
+@media (max-width: 760px) { .adv-body { grid-template-columns: minmax(0, 1fr); } }
+.adv-metric { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+.adv-metric .v { font-family: var(--f-display); font-size: 34px; font-weight: 700; line-height: 1; font-variant-numeric: tabular-nums; }
+.adv-metric .l { color: var(--muted); font-size: 14px; }
+.adv ul { margin: 0; padding-left: 18px; display: flex; flex-direction: column; gap: 6px; }
+.adv .todo { background: var(--accent-soft); border-radius: 8px; padding: 12px 14px; display: flex; flex-direction: column; gap: 8px; }
+.adv .todo h4 { margin: 0; font-size: 13px; text-transform: uppercase; letter-spacing: .06em; color: var(--accent); }
+.adv .todo ul { padding-left: 18px; }
+.hbars { display: flex; flex-direction: column; gap: 6px; font-size: 13px; }
+.hbars .t { color: var(--muted); }
+.hbar { display: grid; grid-template-columns: minmax(0, 9em) minmax(0, 1fr) auto; gap: 8px; align-items: center; }
+.hbar .track { height: 10px; background: var(--line); border-radius: 4px; overflow: hidden; }
+.hbar .fill { height: 100%; background: var(--s1); border-radius: 4px; }
+.hbar .val { font-variant-numeric: tabular-nums; color: var(--muted); white-space: nowrap; }
+.pos .kind { font-size: 13px; color: var(--muted); }
+footer { font-size: 13px; color: var(--muted); border-top: 1px solid var(--line); padding-top: 16px; }
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+
+<div class="wrap">
+  <header class="top">
+    <div>
+      <div class="eyebrow" id="eyebrow">Analyse chess.com</div>
+      <h1 id="title">Kiuyte</h1>
+      <p class="meta" id="meta"></p>
+    </div>
+    <button class="theme-btn" id="themeBtn" type="button">Thème : auto</button>
+  </header>
+
+  <section id="diag">
+    <div class="sec-head">
+      <h2>Diagnostic et conseils</h2>
+      <p id="diagIntro"></p>
+    </div>
+    <div class="diag" id="diagList"></div>
+  </section>
+
+  <nav class="filters" aria-label="Filtres">
+    <div class="row">
+      <div class="seg" role="group" aria-label="Couleur" id="colorSeg">
+        <button type="button" data-v="all" aria-pressed="true">Toutes</button>
+        <button type="button" data-v="w" aria-pressed="false">Blancs</button>
+        <button type="button" data-v="b" aria-pressed="false">Noirs</button>
+      </div>
+      <div class="period">
+        <label for="from">Du</label><select id="from"></select>
+        <label for="to">au</label><select id="to"></select>
+      </div>
+    </div>
+    <div class="row jump">
+      <a href="#diag">Conseils</a><a href="#overview">Vue d'ensemble</a><a href="#openings">Ouvertures</a><a href="#errors">Erreurs par phase</a><a href="#worst">Pires positions</a>
+    </div>
+  </nav>
+
+  <section id="overview">
+    <div class="sec-head"><h2>Vue d'ensemble</h2></div>
+    <div class="tiles" id="tiles"></div>
+    <div class="charts">
+      <div class="card">
+        <h3>Elo partie après partie</h3>
+        <div class="chart-box"><canvas id="cElo" aria-label="Évolution de l'Elo"></canvas></div>
+      </div>
+      <div class="card">
+        <h3>Résultats par mois</h3>
+        <div class="legend"><span><i style="background:var(--win)"></i>Victoires</span><span><i style="background:var(--draw)"></i>Nulles</span><span><i style="background:var(--loss)"></i>Défaites</span></div>
+        <div class="chart-box"><canvas id="cMonths" aria-label="Résultats par mois"></canvas></div>
+      </div>
+    </div>
+  </section>
+
+  <section id="openings">
+    <div class="sec-head">
+      <h2>Ouvertures</h2>
+      <p id="opIntro"></p>
+    </div>
+    <div id="opAlert"></div>
+    <div class="op-cols" id="opCols"></div>
+  </section>
+
+  <section id="errors">
+    <div class="sec-head">
+      <h2>Erreurs par phase</h2>
+      <p id="errIntro"></p>
+    </div>
+    <div id="errBody"></div>
+  </section>
+
+  <section id="worst">
+    <div class="sec-head">
+      <h2>Pires positions</h2>
+      <p id="worstIntro"></p>
+    </div>
+    <div class="worst" id="worstList"></div>
+  </section>
+
+  <footer id="foot"></footer>
+</div>
+
+<script id="data" type="application/json">__DATA__</script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<script>
+(() => {
+const D = JSON.parse(document.getElementById("data").textContent);
+const PH = ["Ouverture", "Milieu de partie", "Finale"];
+const PH_SHORT = ["Ouverture", "Milieu", "Finale"];
+const MOIS = ["janv.", "févr.", "mars", "avr.", "mai", "juin", "juil.", "août", "sept.", "oct.", "nov.", "déc."];
+const MOIS_LONG = ["janvier", "février", "mars", "avril", "mai", "juin", "juillet", "août", "septembre", "octobre", "novembre", "décembre"];
+const $ = id => document.getElementById(id);
+const esc = s => String(s ?? "").replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+const pct = x => (x * 100).toFixed(0) + " %";
+const fmt1 = x => x.toLocaleString("fr-FR", { minimumFractionDigits: 1, maximumFractionDigits: 1 });
+const monthLabel = m => MOIS[+m.slice(5) - 1] + " " + m.slice(2, 4);
+const dateLabel = d => (+d.slice(8)) + " " + MOIS[+d.slice(5, 7) - 1];
+
+const months = [...new Set(D.games.map(g => g.m))].sort();
+const state = { color: "all", from: months[0], to: months[months.length - 1] };
+const charts = {};
+
+// ---------- En-tête ----------
+const engineTxt = D.engine.depth ? `profondeur ${D.engine.depth}` : `${D.engine.time} s par position`;
+$("eyebrow").textContent = `Analyse chess.com · ${D.tcLabel}`;
+$("title").textContent = `${D.player} · ${D.tcLabel}`;
+document.title = `Échecs ${D.player} ${D.tcLabel}`;
+const nAn = D.games.filter(g => g.a).length;
+const sinceD = new Date(D.since);
+$("meta").textContent = `${D.games.length} parties classées depuis ${MOIS_LONG[sinceD.getMonth()]} ${sinceD.getFullYear()}. `
+  + `Mes coups analysés par Stockfish 19 (${engineTxt}) dans ${nAn} parties. Données du ${D.generated.replace(" ", " à ")}.`;
+$("foot").innerHTML = `Source : API publique chess.com (site non affilié à chess.com). Le % de gain vient de l'évaluation en centipawns : `
+  + `50 + 50 × (2 / (1 + e<sup>−0,00368 × cp</sup>) − 1). Une imprécision coûte au moins ${D.thresholds.inaccuracy} points de % de gain, `
+  + `une erreur ${D.thresholds.mistake}, une gaffe ${D.thresholds.blunder}.`;
+
+// ---------- Thème ----------
+const THEMES = ["auto", "clair", "sombre"];
+let theme = "auto";
+try { theme = localStorage.getItem("theme") || "auto"; } catch (e) {}
+function applyTheme() {
+  const r = document.documentElement;
+  if (theme === "clair") r.setAttribute("data-theme", "light");
+  else if (theme === "sombre") r.setAttribute("data-theme", "dark");
+  else r.removeAttribute("data-theme");
+  $("themeBtn").textContent = "Thème : " + theme;
+}
+$("themeBtn").addEventListener("click", () => {
+  theme = THEMES[(THEMES.indexOf(theme) + 1) % 3];
+  try { localStorage.setItem("theme", theme); } catch (e) {}
+  applyTheme(); render();
+});
+if (theme !== "auto") applyTheme();
+matchMedia("(prefers-color-scheme: dark)").addEventListener("change", () => render());
+new MutationObserver(() => render()).observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
+
+// ---------- Filtres ----------
+for (const id of ["from", "to"]) {
+  $(id).innerHTML = months.map(m => `<option value="${m}">${monthLabel(m)}</option>`).join("");
+}
+$("from").value = state.from; $("to").value = state.to;
+$("from").addEventListener("change", e => { state.from = e.target.value; if (state.to < state.from) { state.to = state.from; $("to").value = state.to; } render(); });
+$("to").addEventListener("change", e => { state.to = e.target.value; if (state.from > state.to) { state.from = state.to; $("from").value = state.from; } render(); });
+$("colorSeg").addEventListener("click", e => {
+  const b = e.target.closest("button"); if (!b) return;
+  state.color = b.dataset.v;
+  for (const x of $("colorSeg").children) x.setAttribute("aria-pressed", String(x === b));
+  render();
+});
+const inScope = g => g.m >= state.from && g.m <= state.to && (state.color === "all" || g.c === state.color);
+
+// ---------- Utilitaires ----------
+const css = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+function tally(list) {
+  const t = { n: list.length, W: 0, D: 0, L: 0, oe: 0 };
+  for (const g of list) { t[g.r]++; t.oe += g.oe || 0; }
+  t.score = t.n ? (t.W + t.D / 2) / t.n : 0;
+  t.oeAvg = t.n ? Math.round(t.oe / t.n) : 0;
+  return t;
+}
+const wdlBar = t => t.n ? `<div class="wdl" role="img" aria-label="${t.W} victoires, ${t.D} nulles, ${t.L} défaites">`
+  + `<span class="w" style="width:${t.W / t.n * 100}%"></span><span class="d" style="width:${t.D / t.n * 100}%"></span>`
+  + `<span class="l" style="width:${t.L / t.n * 100}%"></span></div>` : "";
+function phaseStats(list) {
+  const s = [0, 1, 2].map(() => [0, 0, 0, 0]);
+  for (const g of list) if (g.a) g.s.forEach((p, i) => p.forEach((v, k) => s[i][k] += v));
+  return s;
+}
+function mkChart(id, cfg) {
+  if (charts[id]) charts[id].destroy();
+  charts[id] = new Chart($(id), cfg);
+}
+function baseOpts() {
+  const fg = css("--muted"), grid = css("--line");
+  Chart.defaults.font.family = css("--f-body");
+  Chart.defaults.color = fg;
+  return {
+    responsive: true, maintainAspectRatio: false, animation: false,
+    plugins: {
+      legend: { display: false },
+      tooltip: { backgroundColor: css("--fg"), titleColor: css("--bg"), bodyColor: css("--bg"), padding: 10, cornerRadius: 6, boxPadding: 4 },
+    },
+    scales: {
+      x: { grid: { display: false }, border: { color: grid }, ticks: { color: fg, maxRotation: 0, autoSkipPadding: 12 } },
+      y: { grid: { color: grid }, border: { display: false }, ticks: { color: fg } },
+    },
+  };
+}
+
+// ---------- Vue d'ensemble ----------
+function renderOverview(list) {
+  const t = tally(list);
+  const withElo = list.filter(g => g.me);
+  const last = withElo.length ? withElo[withElo.length - 1].me : null;
+  const delta = withElo.length > 1 ? last - withElo[0].me : 0;
+  const ps = phaseStats(list).reduce((a, p) => a.map((v, k) => v + p[k]), [0, 0, 0, 0]);
+  const deltaTxt = delta ? `<span class="${delta > 0 ? "delta-up" : "delta-down"}">${delta > 0 ? "▲ +" : "▼ "}${delta}</span> sur la période` : "stable sur la période";
+  $("tiles").innerHTML = [
+    `<div class="tile"><span class="eyebrow">Parties</span><span class="v">${t.n}</span>${wdlBar(t)}<span class="sub num">${t.W} V · ${t.D} N · ${t.L} D</span></div>`,
+    `<div class="tile"><span class="eyebrow">Score</span><span class="v">${t.n ? pct(t.score) : "–"}</span><span class="sub">victoire = 1, nulle = ½</span></div>`,
+    `<div class="tile"><span class="eyebrow">Elo actuel</span><span class="v">${last ?? "–"}</span><span class="sub">${deltaTxt} · adv. moyen ${t.oeAvg || "–"}</span></div>`,
+    `<div class="tile"><span class="eyebrow">Gaffes / 100 coups</span><span class="v">${ps[0] ? fmt1(ps[3] / ps[0] * 100) : "–"}</span><span class="sub">erreurs : ${ps[0] ? fmt1(ps[2] / ps[0] * 100) : "–"} · sur ${ps[0]} coups</span></div>`,
+  ].join("");
+
+  const o = baseOpts();
+  mkChart("cElo", {
+    type: "line",
+    data: { labels: withElo.map(g => dateLabel(g.d)), datasets: [{ data: withElo.map(g => g.me), borderColor: css("--s1"), borderWidth: 2, pointRadius: 0, pointHoverRadius: 5, pointHitRadius: 8, tension: .2, fill: false }] },
+    options: { ...o, interaction: { mode: "index", intersect: false },
+      plugins: { ...o.plugins, tooltip: { ...o.plugins.tooltip, callbacks: {
+        label: c => { const g = withElo[c.dataIndex]; return [`Elo ${g.me}`, `${{ W: "Victoire", D: "Nulle", L: "Défaite" }[g.r]} contre ${g.o} (${g.oe})`]; } } } },
+      scales: { ...o.scales, x: { ...o.scales.x, ticks: { ...o.scales.x.ticks, maxTicksLimit: 6 } } } },
+  });
+
+  const ms = months.filter(m => m >= state.from && m <= state.to);
+  const byM = ms.map(m => tally(list.filter(g => g.m === m)));
+  const surf = css("--surface");
+  const ds = (k, label, col) => ({ label, data: byM.map(t => t[k]), backgroundColor: css(col), borderColor: surf, borderWidth: { top: 2 }, borderRadius: 4, borderSkipped: "bottom", maxBarThickness: 44 });
+  mkChart("cMonths", {
+    type: "bar",
+    data: { labels: ms.map(monthLabel), datasets: [ds("W", "Victoires", "--win"), ds("D", "Nulles", "--draw"), ds("L", "Défaites", "--loss")] },
+    options: { ...o, interaction: { mode: "index", intersect: false },
+      plugins: { ...o.plugins, tooltip: { ...o.plugins.tooltip, callbacks: { footer: items => { const t = byM[items[0].dataIndex]; return `${t.n} parties · score ${pct(t.score)}`; } } } },
+      scales: { x: { ...o.scales.x, stacked: true }, y: { ...o.scales.y, stacked: true, ticks: { ...o.scales.y.ticks, precision: 0 } } } },
+  });
+}
+
+// ---------- Ouvertures ----------
+const expanded = new Set(), showAll = new Set();
+function groupOpenings(list) {
+  const fams = new Map();
+  for (const g of list) {
+    if (!fams.has(g.f)) fams.set(g.f, { name: g.f, games: [], vars: new Map() });
+    const f = fams.get(g.f); f.games.push(g);
+    const v = g.v || "";
+    if (!f.vars.has(v)) f.vars.set(v, []);
+    f.vars.get(v).push(g);
+  }
+  return [...fams.values()].map(f => ({ name: f.name, t: tally(f.games),
+    vars: [...f.vars.entries()].map(([v, gs]) => ({ name: v, t: tally(gs) })).sort((a, b) => b.t.n - a.t.n) }))
+    .sort((a, b) => b.t.n - a.t.n);
+}
+const isLow = t => t.n >= D.openings.minGames && t.score * 100 < D.openings.lowScore;
+function renderOpenings(list) {
+  const { minGames, lowScore } = D.openings;
+  $("opIntro").textContent = `Regroupées par famille, puis par variante (touchez une famille pour voir ses variantes). `
+    + `En rouge : jouée au moins ${minGames} fois avec un score sous ${lowScore} %.`;
+  const colors = state.color === "all" ? ["w", "b"] : [state.color];
+  const low = [];
+  const cols = colors.map(c => {
+    const fams = groupOpenings(list.filter(g => g.c === c));
+    for (const f of fams) {
+      if (isLow(f.t)) low.push({ c, name: f.name, t: f.t });
+      for (const v of f.vars) if (v.name && isLow(v.t) && v.t.n < f.t.n) low.push({ c, name: `${f.name} · ${v.name}`, t: v.t });
+    }
+    const key = c, limit = showAll.has(key) ? fams.length : 12;
+    const rows = fams.slice(0, limit).map(f => {
+      const id = c + "|" + f.name, open = expanded.has(id);
+      const multi = f.vars.length > 1 || f.vars[0].name;
+      let h = `<tr class="fam${isLow(f.t) ? " flag" : ""}" data-id="${esc(id)}" aria-expanded="${open}" tabindex="0">`
+        + `<td><span class="caret">${multi ? "›" : ""}</span>${esc(f.name)}</td><td class="r">${f.t.n}</td><td class="bar">${wdlBar(f.t)}</td>`
+        + `<td class="r score">${pct(f.t.score)}</td><td class="r col-elo">${f.t.oeAvg || "–"}</td></tr>`;
+      if (open && multi) h += f.vars.map(v => `<tr class="var${isLow(v.t) ? " flag" : ""}"><td>${esc(v.name || "Sans variante nommée")}</td>`
+        + `<td class="r">${v.t.n}</td><td class="bar">${wdlBar(v.t)}</td><td class="r score">${pct(v.t.score)}</td><td class="r col-elo">${v.t.oeAvg || "–"}</td></tr>`).join("");
+      return h;
+    }).join("");
+    const n = fams.reduce((s, f) => s + f.t.n, 0);
+    return `<div class="card"><h3>Avec les ${c === "w" ? "blancs" : "noirs"} <span class="muted num" style="font-weight:400">· ${n} parties</span></h3>`
+      + (fams.length ? `<div class="tbl-wrap"><table><thead><tr><th>Ouverture</th><th class="r">Parties</th><th>V / N / D</th><th class="r">Score</th><th class="r col-elo">Elo adv.</th></tr></thead><tbody>${rows}</tbody></table></div>`
+        + (fams.length > 12 ? `<button class="more" type="button" data-more="${key}">${showAll.has(key) ? "Afficher moins" : `Afficher les ${fams.length} familles`}</button>` : "")
+        : `<p class="muted">Aucune partie sur cette période.</p>`) + `</div>`;
+  });
+  $("opCols").className = "op-cols" + (colors.length === 1 ? " single" : "");
+  $("opCols").innerHTML = cols.join("");
+  low.sort((a, b) => b.t.n - a.t.n);
+  $("opAlert").innerHTML = low.length
+    ? `<div class="alert"><h3>À travailler en priorité</h3><ul>${low.slice(0, 8).map(x =>
+        `<li><span class="chip c-${x.c}">${x.c === "w" ? "Blancs" : "Noirs"}</span><strong>${esc(x.name)}</strong>`
+        + `<span class="muted num">${x.t.n} parties · score ${pct(x.t.score)} · ${x.t.W} V ${x.t.D} N ${x.t.L} D</span></li>`).join("")}</ul></div>`
+    : `<div class="empty">Aucune ouverture jouée au moins ${minGames} fois avec un score sous ${lowScore} % sur cette sélection.</div>`;
+}
+$("opCols").addEventListener("click", e => {
+  const more = e.target.closest("[data-more]");
+  if (more) { const k = more.dataset.more; showAll.has(k) ? showAll.delete(k) : showAll.add(k); renderOpenings(D.games.filter(inScope)); return; }
+  const tr = e.target.closest("tr.fam"); if (!tr) return;
+  const id = tr.dataset.id; expanded.has(id) ? expanded.delete(id) : expanded.add(id);
+  renderOpenings(D.games.filter(inScope));
+});
+$("opCols").addEventListener("keydown", e => { if ((e.key === "Enter" || e.key === " ") && e.target.matches("tr.fam")) { e.preventDefault(); e.target.click(); } });
+
+// ---------- Erreurs par phase ----------
+function renderErrors(list) {
+  const analyzed = list.filter(g => g.a);
+  const th = D.thresholds;
+  $("errIntro").textContent = `Mes coups seulement, classés selon le % de gain perdu : imprécision ≥ ${th.inaccuracy} points, erreur ≥ ${th.mistake}, gaffe ≥ ${th.blunder}. `
+    + `Ouverture = 12 premiers coups ; finale = un camp n'a plus que 13 points de pièces ou moins (hors pions).`;
+  if (!analyzed.length) { $("errBody").innerHTML = `<div class="empty">Aucune partie analysée par le moteur sur cette sélection. L'analyse se complète à chaque relance de <span class="mono">run.py</span>.</div>`; return; }
+  const s = phaseStats(analyzed);
+  const rate = (p, k) => p[0] ? p[k] / p[0] * 100 : 0;
+  $("errBody").innerHTML = `<div class="charts">
+    <div class="card"><h3>Pour 100 coups, par phase</h3>
+      <div class="legend"><span><i style="background:var(--inacc)"></i>Imprécisions</span><span><i style="background:var(--mistake)"></i>Erreurs</span><span><i style="background:var(--blunder)"></i>Gaffes</span></div>
+      <div class="chart-box"><canvas id="cPhase" aria-label="Erreurs pour 100 coups par phase"></canvas></div>
+      <div class="tbl-wrap"><table><thead><tr><th>Phase</th><th class="r">Coups</th><th class="r">Impr.</th><th class="r">Erreurs</th><th class="r">Gaffes</th></tr></thead><tbody>
+      ${s.map((p, i) => `<tr><td>${PH[i]}</td><td class="r">${p[0]}</td><td class="r">${fmt1(rate(p, 1))}</td><td class="r">${fmt1(rate(p, 2))}</td><td class="r rate">${fmt1(rate(p, 3))}</td></tr>`).join("")}
+      </tbody></table></div>
+      <p class="cap">Taux pour 100 de mes coups dans la phase.</p></div>
+    <div class="card"><h3>Erreurs + gaffes pour 100 coups, mois par mois</h3>
+      <div class="legend"><span><i style="background:var(--s1)"></i>Ouverture</span><span><i style="background:var(--s2)"></i>Milieu</span><span><i style="background:var(--s3)"></i>Finale</span></div>
+      <div class="chart-box"><canvas id="cTrend" aria-label="Évolution mensuelle des erreurs par phase"></canvas></div>
+      <p class="cap">Un point n'est tracé que si le mois compte au moins 30 de mes coups dans la phase.</p></div>
+  </div>
+  <p class="note">${analyzed.length} parties analysées sur ${list.length}. Les coups joués dans une position déjà perdue (moins de 5 % de gain) ou déjà gagnée et qui le reste (plus de 95 %, puis plus de 90 % après le coup) ne sont pas comptés.</p>`;
+
+  const o = baseOpts(), surf = css("--surface");
+  const bar = (k, label, col) => ({ label, data: s.map(p => +rate(p, k).toFixed(1)), backgroundColor: css(col), borderColor: surf, borderWidth: 1, borderRadius: { topLeft: 4, topRight: 4 }, borderSkipped: "bottom", maxBarThickness: 36 });
+  mkChart("cPhase", {
+    type: "bar",
+    data: { labels: PH_SHORT, datasets: [bar(1, "Imprécisions", "--inacc"), bar(2, "Erreurs", "--mistake"), bar(3, "Gaffes", "--blunder")] },
+    options: { ...o, interaction: { mode: "index", intersect: false },
+      plugins: { ...o.plugins, tooltip: { ...o.plugins.tooltip, callbacks: {
+        label: c => `${c.dataset.label} : ${fmt1(c.parsed.y)} / 100 coups (${s[c.dataIndex][c.datasetIndex + 1]})`,
+        footer: items => `${s[items[0].dataIndex][0]} coups analysés` } } } },
+  });
+
+  const ms = months.filter(m => m >= state.from && m <= state.to);
+  const byM = ms.map(m => phaseStats(analyzed.filter(g => g.m === m)));
+  const line = (i, col) => ({ label: PH[i], data: byM.map(st => st[i][0] >= 30 ? +((st[i][2] + st[i][3]) / st[i][0] * 100).toFixed(1) : null),
+    borderColor: css(col), backgroundColor: css(col), borderWidth: 2, pointRadius: 4, pointHoverRadius: 6, pointBorderColor: surf, pointBorderWidth: 2, spanGaps: true, tension: .2 });
+  mkChart("cTrend", {
+    type: "line",
+    data: { labels: ms.map(monthLabel), datasets: [line(0, "--s1"), line(1, "--s2"), line(2, "--s3")] },
+    options: { ...o, interaction: { mode: "index", intersect: false },
+      plugins: { ...o.plugins, tooltip: { ...o.plugins.tooltip, callbacks: {
+        label: c => { const st = byM[c.dataIndex][c.datasetIndex]; return `${PH[c.datasetIndex]} : ${fmt1(c.parsed.y)} (${st[2] + st[3]} sur ${st[0]} coups)`; } } } },
+      scales: { ...o.scales, y: { ...o.scales.y, beginAtZero: true } } },
+  });
+}
+
+// ---------- Pires positions ----------
+const GLYPH = { k: "♚", q: "♛", r: "♜", b: "♝", n: "♞", p: "♟" };
+function boardHTML(fen, flip, played, best) {
+  const rows = fen.split(" ")[0].split("/");
+  const sq = [];
+  rows.forEach((row, r) => { let f = 0; for (const ch of row) { if (/\d/.test(ch)) { for (let i = 0; i < +ch; i++) sq.push({ r, f: f++, p: null }); } else sq.push({ r, f: f++, p: ch }); } });
+  const name = s => "abcdefgh"[s.f] + (8 - s.r);
+  const hp = played ? [played.slice(0, 2), played.slice(2, 4)] : [], hb = best ? [best.slice(0, 2), best.slice(2, 4)] : [];
+  const order = flip ? sq.slice().reverse() : sq;
+  return `<div class="board" role="img" aria-label="Position ${esc(fen)}">` + order.map(s => {
+    const n = name(s), cls = ((s.r + s.f) % 2 ? "d" : "l") + (hp.includes(n) ? " hp" : hb.includes(n) ? " hb" : "");
+    const pc = s.p ? `<span class="pc ${s.p === s.p.toUpperCase() ? "pw" : "pb"}">${GLYPH[s.p.toLowerCase()]}︎</span>` : "";
+    return `<div class="${cls}">${pc}</div>`;
+  }).join("") + `</div>`;
+}
+function renderWorst(list) {
+  const ok = new Set(list.map(g => D.games.indexOf(g)));
+  const top = D.worst.filter(w => ok.has(w.g)).slice(0, D.topN);
+  $("worstIntro").textContent = `Les ${D.topN} coups qui m'ont fait perdre le plus de % de gain sur la sélection. `
+    + `Case rouge : mon coup ; case bleue : le meilleur coup selon Stockfish.`;
+  if (!top.length) { $("worstList").innerHTML = `<div class="empty">Aucune erreur ni gaffe analysée sur cette sélection.</div>`; return; }
+  $("worstList").innerHTML = top.map((w, i) => {
+    const g = D.games[w.g], black = g.c === "b";
+    const lichess = "https://lichess.org/analysis/" + w.fen.replace(/ /g, "_") + "?color=" + (black ? "black" : "white");
+    const kind = w.l >= D.thresholds.blunder ? "Gaffe" : "Erreur";
+    return `<article class="pos">
+      <div class="pos-head"><span class="rank">${i + 1}</span><span class="muted">Coup ${w.n} · ${PH[w.p]}</span></div>
+      <span class="kind">${esc(w.k)}</span>
+      ${boardHTML(w.fen, black, w.uci, w.buci)}
+      <dl class="moves">
+        <dt><span class="swatch" style="background:var(--hl-played)"></span>Joué</dt><dd class="mv-played">${black ? w.n + "…" : w.n + "."} ${esc(w.san)} <span class="chip low">${kind}</span></dd>
+        <dt><span class="swatch" style="background:var(--hl-best)"></span>Meilleur</dt><dd class="mv-best">${esc(w.best || "–")}</dd>
+        <dt>% de gain</dt><dd class="num">${Math.round(w.wb)} % → ${Math.round(w.wa)} % <span class="muted">(−${Math.round(w.l)})</span></dd>
+        <dt>Partie</dt><dd style="font-family:var(--f-body);font-weight:400">${black ? "Noirs" : "Blancs"} contre ${esc(g.o)} (${g.oe}), ${dateLabel(g.d)} · ${{ W: "gagnée", D: "nulle", L: "perdue" }[g.r]}</dd>
+      </dl>
+      <div class="pos-links"><a href="${esc(lichess)}" target="_blank" rel="noopener">Analyser sur Lichess ↗</a><a href="${esc(g.u)}" target="_blank" rel="noopener">Voir la partie ↗</a></div>
+    </article>`;
+  }).join("");
+}
+
+// ---------- Diagnostic (toute la période, non filtré) ----------
+const LVL = { priority: "Priorité", info: "À surveiller", good: "Point fort" };
+function renderDiag() {
+  $("diagIntro").textContent = `Calculé sur toutes tes parties ${D.tcLabel.toLowerCase()} depuis ${MOIS_LONG[sinceD.getMonth()]} ${sinceD.getFullYear()}, `
+    + `blancs et noirs confondus : les filtres plus bas ne s'appliquent pas ici. Les priorités sont classées par nombre de parties en jeu.`;
+  if (!D.diag.length) { $("diagList").innerHTML = `<div class="empty">Pas encore assez de parties analysées pour un diagnostic.</div>`; return; }
+  let p = 0;
+  $("diagList").innerHTML = D.diag.map(c => {
+    const lvl = c.level === "priority" ? `${LVL.priority} ${++p}` : LVL[c.level];
+    const max = Math.max(...c.bars.map(b => b.value), 1);
+    const bars = c.bars.length ? `<div class="hbars"><span class="t">${esc(c.barsTitle)}</span>${c.bars.map(b =>
+      `<div class="hbar"><span>${esc(b.label)}</span><span class="track"><span class="fill" style="width:${b.value / max * 100}%;display:block"></span></span><span class="val">${esc(b.text)}</span></div>`).join("")}</div>` : "";
+    const links = c.links.length ? `<div class="pos-links">${c.links.map(l => `<a href="${esc(l.url)}" target="_blank" rel="noopener">${esc(l.label)} ↗</a>`).join("")}</div>` : "";
+    return `<article class="adv">
+      <div class="adv-head"><span class="lvl lvl-${c.level}">${lvl}</span><h3>${esc(c.title)}</h3></div>
+      <div class="adv-body">
+        <div style="display:flex;flex-direction:column;gap:12px;min-width:0">
+          <div class="adv-metric"><span class="v">${esc(c.metric.value)}</span><span class="l">${esc(c.metric.label)}</span></div>
+          <ul>${c.facts.map(f => `<li>${esc(f)}</li>`).join("")}</ul>
+          ${bars}
+        </div>
+        <div style="display:flex;flex-direction:column;gap:12px;min-width:0">
+          <div class="todo"><h4>Ce que tu peux faire</h4><ul>${c.actions.map(a => `<li>${esc(a)}</li>`).join("")}</ul></div>
+          ${links}
+          ${c.note ? `<p class="note">${esc(c.note)}</p>` : ""}
+        </div>
+      </div>
+    </article>`;
+  }).join("");
+}
+renderDiag();
+
+// ---------- Rendu ----------
+let pending = false;
+function render() {
+  if (pending) return; pending = true;
+  requestAnimationFrame(() => {
+    pending = false;
+    const list = D.games.filter(inScope);
+    renderOverview(list); renderOpenings(list); renderErrors(list); renderWorst(list);
+  });
+}
+render();
+})();
+</script>

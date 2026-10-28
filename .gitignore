@@ -1,0 +1,9 @@
+# Données personnelles et volumineuses, régénérables
+data/
+output/
+bin/
+.venv/
+__pycache__/
+*.pyc
+# Réglages locaux (email de contact)
+config.local.toml

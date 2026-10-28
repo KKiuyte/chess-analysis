@@ -1,0 +1,612 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<style>[hidden]{display:none!important}</style>
+</head>
+<body>
+<title>Échecs Yoy008 Daily</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700&family=Atkinson+Hyperlegible:wght@400;700&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+/* Layout : une colonne sur mobile, barre de filtres collante, graphiques en grille 2 colonnes au-delà de 860px. */
+:root {
+  --bg: #f4f5f1; --surface: #fcfcfa; --fg: #171a17; --muted: #586058; --faint: #8a918a;
+  --line: #dde1d9; --accent: #3b6a44; --accent-soft: #e3ece2;
+  --s1: #2a78d6; --s2: #eb6834; --s3: #1baf7a;
+  --win: #0ca30c; --draw: #b4b9b1; --loss: #d03b3b;
+  --inacc: #fab219; --mistake: #ec835a; --blunder: #d03b3b;
+  --sq-light: #ebecd0; --sq-dark: #739552; --hl-played: rgba(208, 59, 59, .55); --hl-best: rgba(42, 120, 214, .5);
+  --f-display: "Bricolage Grotesque", "Segoe UI", system-ui, sans-serif;
+  --f-body: "Atkinson Hyperlegible", system-ui, -apple-system, sans-serif;
+  --f-mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
+  --r: 10px;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #121513; --surface: #1a1d1b; --fg: #edefeb; --muted: #a4aca5; --faint: #747c75;
+    --line: #2b312d; --accent: #86b98e; --accent-soft: #223026;
+    --s1: #3987e5; --s2: #d95926; --s3: #199e70;
+    --draw: #5b615c; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #121513; --surface: #1a1d1b; --fg: #edefeb; --muted: #a4aca5; --faint: #747c75;
+  --line: #2b312d; --accent: #86b98e; --accent-soft: #223026;
+  --s1: #3987e5; --s2: #d95926; --s3: #199e70;
+  --draw: #5b615c; color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+body {
+  background: var(--bg); color: var(--fg); font-family: var(--f-body); font-size: 15px; line-height: 1.5;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 0 48px;
+}
+body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px); z-index: 10; background: var(--bg); }
+.wrap { max-width: 1120px; margin: 0 auto; display: flex; flex-direction: column; gap: 40px; }
+h1, h2, h3 { font-family: var(--f-display); text-wrap: balance; margin: 0; line-height: 1.15; }
+h1 { font-size: clamp(28px, 6vw, 40px); font-weight: 700; letter-spacing: -.01em; }
+h2 { font-size: 24px; font-weight: 700; }
+h3 { font-size: 17px; font-weight: 600; }
+p { margin: 0; }
+a { color: var(--accent); }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.eyebrow { font-size: 12px; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); font-weight: 700; }
+.muted { color: var(--muted); }
+.mono { font-family: var(--f-mono); }
+.num { font-variant-numeric: tabular-nums; }
+
+/* En-tête */
+.top { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; padding-top: 28px; flex-wrap: wrap; }
+.top .meta { color: var(--muted); max-width: 62ch; margin-top: 8px; }
+.theme-btn { font: inherit; font-size: 13px; color: var(--fg); background: var(--surface); border: 1px solid var(--line); border-radius: 999px; padding: 6px 12px; cursor: pointer; }
+
+/* Barre de filtres */
+.filters {
+  position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5; background: var(--bg);
+  margin: 0 calc(-1 * max(16px, env(safe-area-inset-left, 0px))); padding: 10px max(16px, env(safe-area-inset-left, 0px));
+  border-bottom: 1px solid var(--line); display: flex; flex-direction: column; gap: 8px;
+}
+.filters .row { display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: center; max-width: 1120px; margin: 0 auto; width: 100%; }
+.seg { display: inline-flex; border: 1px solid var(--line); border-radius: 999px; overflow: hidden; background: var(--surface); }
+.seg button { font: inherit; font-size: 14px; border: 0; background: none; color: var(--fg); padding: 6px 12px; cursor: pointer; }
+.seg button[aria-pressed="true"] { background: var(--accent); color: var(--bg); font-weight: 700; }
+.period { display: flex; gap: 6px; align-items: center; font-size: 14px; }
+select { font: inherit; font-size: 14px; color: var(--fg); background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 5px 8px; }
+.jump { display: flex; gap: 14px; font-size: 14px; overflow-x: auto; white-space: nowrap; scrollbar-width: none; }
+.jump a { color: var(--muted); text-decoration: none; }
+.jump a:hover { color: var(--fg); }
+
+section { display: flex; flex-direction: column; gap: 18px; scroll-margin-top: 110px; }
+.sec-head { display: flex; flex-direction: column; gap: 4px; }
+.sec-head p { color: var(--muted); max-width: 68ch; }
+
+/* Tuiles */
+.tiles { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
+@media (max-width: 720px) { .tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.tile { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); padding: 14px; display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.tile .v { font-family: var(--f-display); font-size: 30px; font-weight: 700; line-height: 1.1; font-variant-numeric: tabular-nums; }
+.tile .sub { font-size: 13px; color: var(--muted); }
+.delta-up { color: var(--win); } .delta-down { color: var(--loss); }
+
+/* Barre V/N/D */
+.wdl { display: flex; height: 10px; border-radius: 4px; overflow: hidden; gap: 2px; background: var(--surface); min-width: 60px; }
+.wdl span { display: block; height: 100%; }
+.wdl .w { background: var(--win); } .wdl .d { background: var(--draw); } .wdl .l { background: var(--loss); }
+.legend { display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: 13px; color: var(--muted); }
+.legend i { display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-right: 6px; vertical-align: -1px; }
+
+/* Graphiques */
+.charts { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+@media (max-width: 860px) { .charts { grid-template-columns: minmax(0, 1fr); } }
+.card { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); padding: 16px; display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+.card .cap { font-size: 13px; color: var(--muted); }
+.chart-box { position: relative; height: 240px; }
+
+/* Ouvertures */
+.alert { border: 1px solid var(--line); border-left: 4px solid var(--loss); background: var(--surface); border-radius: var(--r); padding: 14px 16px; display: flex; flex-direction: column; gap: 10px; }
+.alert ul { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 6px; }
+.alert li { display: flex; gap: 8px; flex-wrap: wrap; align-items: baseline; }
+.chip { display: inline-flex; align-items: center; gap: 4px; font-size: 12px; font-weight: 700; padding: 1px 8px; border-radius: 999px; border: 1px solid currentColor; white-space: nowrap; }
+.chip.low { color: var(--loss); }
+.chip.c-w { color: var(--fg); background: var(--surface); }
+.chip.c-b { color: var(--surface); background: var(--fg); border-color: var(--fg); }
+.op-cols { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+@media (max-width: 960px) { .op-cols { grid-template-columns: minmax(0, 1fr); } }
+.op-cols.single { grid-template-columns: minmax(0, 1fr); }
+.tbl-wrap { overflow-x: auto; }
+table { border-collapse: collapse; width: 100%; font-size: 14px; }
+th { text-align: left; font-size: 12px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); font-weight: 700; padding: 6px 8px; border-bottom: 1px solid var(--line); white-space: nowrap; }
+td { padding: 8px; border-bottom: 1px solid var(--line); vertical-align: middle; }
+td.r, th.r { text-align: right; font-variant-numeric: tabular-nums; }
+td.bar { width: 26%; min-width: 70px; }
+tr.fam { cursor: pointer; }
+tr.fam:hover td { background: var(--accent-soft); }
+tr.fam td:first-child { font-weight: 700; }
+tr.var td { font-size: 13px; color: var(--muted); }
+tr.var td:first-child { padding-left: 24px; }
+tr.flag td.score { color: var(--loss); font-weight: 700; }
+.caret { display: inline-block; width: 1em; color: var(--faint); transition: transform .15s; }
+tr.fam[aria-expanded="true"] .caret { transform: rotate(90deg); }
+.more { font: inherit; font-size: 14px; background: none; border: 1px solid var(--line); color: var(--fg); border-radius: 8px; padding: 6px 12px; cursor: pointer; align-self: flex-start; }
+@media (max-width: 480px) { .col-elo { display: none; } }
+
+/* Erreurs */
+.rate { font-weight: 700; }
+.sev { display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-right: 6px; vertical-align: -1px; }
+.note { font-size: 13px; color: var(--muted); max-width: 75ch; }
+
+/* Pires positions */
+.worst { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 300px), 1fr)); gap: 16px; }
+.pos { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); padding: 14px; display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+.pos-head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+.pos-head .rank { font-family: var(--f-display); font-size: 22px; font-weight: 700; }
+.board { display: grid; grid-template-columns: repeat(8, minmax(0, 1fr)); grid-template-rows: repeat(8, minmax(0, 1fr)); aspect-ratio: 1; width: 100%; max-width: 100%; border-radius: 4px; overflow: hidden; container-type: inline-size; }
+.board div { position: relative; aspect-ratio: 1; min-width: 0; min-height: 0; overflow: hidden; display: flex; align-items: center; justify-content: center; font-size: 10.5cqi; line-height: 1; user-select: none; }
+.board .l { background: var(--sq-light); } .board .d { background: var(--sq-dark); }
+.board .hp::after, .board .hb::after { content: ""; position: absolute; inset: 0; }
+.board .hp::after { background: var(--hl-played); } .board .hb::after { background: var(--hl-best); }
+.board .pc { position: relative; z-index: 1; font-family: "Segoe UI Symbol", "DejaVu Sans", "Noto Sans Symbols 2", sans-serif; }
+.board .pw { color: #fff; text-shadow: 0 0 1px #000, 0 0 1px #000, 0 1px 1px #000; }
+.board .pb { color: #111; text-shadow: 0 0 1px #fff8; }
+.moves { display: grid; grid-template-columns: auto 1fr; gap: 4px 12px; font-size: 14px; align-items: baseline; }
+.moves dt { color: var(--muted); font-size: 13px; }
+.moves dd { margin: 0; font-family: var(--f-mono); font-weight: 600; }
+.mv-played { color: var(--loss); } .mv-best { color: var(--s1); }
+.swatch { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 6px; vertical-align: 0; }
+.pos-links { display: flex; gap: 16px; flex-wrap: wrap; font-size: 14px; }
+.empty { background: var(--surface); border: 1px dashed var(--line); border-radius: var(--r); padding: 20px; color: var(--muted); }
+/* Diagnostic */
+.diag { display: flex; flex-direction: column; gap: 14px; }
+.adv { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); padding: 16px; display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+.adv-head { display: flex; flex-direction: column; gap: 6px; }
+.lvl { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); }
+.lvl::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: var(--dot); }
+.lvl-priority { --dot: var(--loss); } .lvl-info { --dot: var(--inacc); } .lvl-good { --dot: var(--win); }
+.adv-body { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 16px 28px; }
+@media (max-width: 760px) { .adv-body { grid-template-columns: minmax(0, 1fr); } }
+.adv-metric { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+.adv-metric .v { font-family: var(--f-display); font-size: 34px; font-weight: 700; line-height: 1; font-variant-numeric: tabular-nums; }
+.adv-metric .l { color: var(--muted); font-size: 14px; }
+.adv ul { margin: 0; padding-left: 18px; display: flex; flex-direction: column; gap: 6px; }
+.adv .todo { background: var(--accent-soft); border-radius: 8px; padding: 12px 14px; display: flex; flex-direction: column; gap: 8px; }
+.adv .todo h4 { margin: 0; font-size: 13px; text-transform: uppercase; letter-spacing: .06em; color: var(--accent); }
+.adv .todo ul { padding-left: 18px; }
+.hbars { display: flex; flex-direction: column; gap: 6px; font-size: 13px; }
+.hbars .t { color: var(--muted); }
+.hbar { display: grid; grid-template-columns: minmax(0, 9em) minmax(0, 1fr) auto; gap: 8px; align-items: center; }
+.hbar .track { height: 10px; background: var(--line); border-radius: 4px; overflow: hidden; }
+.hbar .fill { height: 100%; background: var(--s1); border-radius: 4px; }
+.hbar .val { font-variant-numeric: tabular-nums; color: var(--muted); white-space: nowrap; }
+.pos .kind { font-size: 13px; color: var(--muted); }
+footer { font-size: 13px; color: var(--muted); border-top: 1px solid var(--line); padding-top: 16px; }
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+
+<div class="wrap">
+  <header class="top">
+    <div>
+      <div class="eyebrow" id="eyebrow">Analyse chess.com</div>
+      <h1 id="title">Kiuyte</h1>
+      <p class="meta" id="meta"></p>
+    </div>
+    <button class="theme-btn" id="themeBtn" type="button">Thème : auto</button>
+  </header>
+
+  <section id="diag">
+    <div class="sec-head">
+      <h2>Diagnostic et conseils</h2>
+      <p id="diagIntro"></p>
+    </div>
+    <div class="diag" id="diagList"></div>
+  </section>
+
+  <nav class="filters" aria-label="Filtres">
+    <div class="row">
+      <div class="seg" role="group" aria-label="Couleur" id="colorSeg">
+        <button type="button" data-v="all" aria-pressed="true">Toutes</button>
+        <button type="button" data-v="w" aria-pressed="false">Blancs</button>
+        <button type="button" data-v="b" aria-pressed="false">Noirs</button>
+      </div>
+      <div class="period">
+        <label for="from">Du</label><select id="from"></select>
+        <label for="to">au</label><select id="to"></select>
+      </div>
+    </div>
+    <div class="row jump">
+      <a href="#diag">Conseils</a><a href="#overview">Vue d'ensemble</a><a href="#openings">Ouvertures</a><a href="#errors">Erreurs par phase</a><a href="#worst">Pires positions</a>
+    </div>
+  </nav>
+
+  <section id="overview">
+    <div class="sec-head"><h2>Vue d'ensemble</h2></div>
+    <div class="tiles" id="tiles"></div>
+    <div class="charts">
+      <div class="card">
+        <h3>Elo partie après partie</h3>
+        <div class="chart-box"><canvas id="cElo" aria-label="Évolution de l'Elo"></canvas></div>
+      </div>
+      <div class="card">
+        <h3>Résultats par mois</h3>
+        <div class="legend"><span><i style="background:var(--win)"></i>Victoires</span><span><i style="background:var(--draw)"></i>Nulles</span><span><i style="background:var(--loss)"></i>Défaites</span></div>
+        <div class="chart-box"><canvas id="cMonths" aria-label="Résultats par mois"></canvas></div>
+      </div>
+    </div>
+  </section>
+
+  <section id="openings">
+    <div class="sec-head">
+      <h2>Ouvertures</h2>
+      <p id="opIntro"></p>
+    </div>
+    <div id="opAlert"></div>
+    <div class="op-cols" id="opCols"></div>
+  </section>
+
+  <section id="errors">
+    <div class="sec-head">
+      <h2>Erreurs par phase</h2>
+      <p id="errIntro"></p>
+    </div>
+    <div id="errBody"></div>
+  </section>
+
+  <section id="worst">
+    <div class="sec-head">
+      <h2>Pires positions</h2>
+      <p id="worstIntro"></p>
+    </div>
+    <div class="worst" id="worstList"></div>
+  </section>
+
+  <footer id="foot"></footer>
+</div>
+
+<script id="data" type="application/json">{"player":"Yoy008","tc":"daily","tcLabel":"Daily","since":"2026-05-01","generated":"2026-10-28 15:38","engine":{"depth":18,"min_games":3},"thresholds":{"inaccuracy":10,"mistake":20,"blunder":30},"openings":{"minGames":3,"lowScore":45},"topN":10,"diag":[{"id":"phase","level":"info","title":"Tu gaffes surtout dans l'ouverture","metric":{"value":"×1,6","label":"par rapport à la finale"},"facts":["3,3 gaffes pour 100 coups dans l'ouverture, contre 2,1 dans la finale."],"bars":[{"label":"Ouverture","value":3.3,"text":"3,3 gaffes / 100 coups"},{"label":"Milieu","value":2.6,"text":"2,6 gaffes / 100 coups"},{"label":"Finale","value":2.1,"text":"2,1 gaffes / 100 coups"}],"barsTitle":"Gaffes pour 100 coups par phase","actions":["Revois les 8 à 10 premiers coups de tes deux ouvertures principales jusqu'à les jouer sans réfléchir.","Après chaque partie perdue, regarde à quel coup tu es sorti de ta préparation."],"links":[],"note":"Seulement 30 parties : tendance à confirmer."},{"id":"openings","level":"info","title":"Certaines ouvertures te mettent en difficulté","metric":{"value":"66 %","label":"de gain moyen après 12 coups"},"facts":["Après 12 coups, tu as en moyenne 66 % de chances de gain : tes ouvertures te donnent plutôt de bonnes positions.","Avec les noirs, en French Defense (3 parties), tu sors de l'ouverture à 25 % seulement (score final 33 %)."],"bars":[],"actions":["Revois tes parties en French Defense avec les noirs : choisis un système simple pour les 6 à 8 premiers coups et tiens-t'y."],"links":[],"note":"Seulement 30 parties : tendance à confirmer."},{"id":"convert","level":"info","title":"Tu laisses filer des parties gagnées","metric":{"value":"15 %","label":"des positions gagnantes non converties"},"facts":["Tu as eu une position nettement gagnante (85 % ou plus) dans 26 parties, et tu n'en as gagné que 22.","Les 4 autres se sont terminées ainsi : 3 perdues par mat, 1 nulle.","À l'inverse, tu as gagné 6 des 11 parties où tu étais perdu (15 % ou moins) : tes adversaires gaffent aussi, ne lâche jamais trop tôt."],"bars":[],"actions":["Avec une pièce d'avance, échange les autres pièces : moins il en reste, moins l'adversaire a de ressources.","Quand tu gagnes, regarde avant chaque coup les échecs et les captures que l'adversaire peut faire : ses seules chances sont tactiques."],"links":[],"note":"Seulement 30 parties : tendance à confirmer."},{"id":"blunders","level":"info","title":"Tes gaffes viennent surtout de tactiques plus fines","metric":{"value":"0,6","label":"gaffes par partie"},"facts":["19 gaffes en 30 parties analysées, soit 0,6 par partie.","Type le plus fréquent : autre tactique ou plan (47 % des gaffes).","3 mats concédés et 0 mat raté."],"bars":[{"label":"Autre tactique ou plan","value":47,"text":"9 (47 %)"},{"label":"Matériel laissé en prise","value":26,"text":"5 (26 %)"},{"label":"Mat concédé","value":16,"text":"3 (16 %)"},{"label":"Capture gagnante ratée","value":11,"text":"2 (11 %)"}],"barsTitle":"Répartition des gaffes par type","actions":["Cherche dans l'ordre les échecs, les captures puis les menaces (adverses et les tiennes) avant de jouer.","Avant de lâcher ta pièce, fais un contrôle en 2 secondes : la pièce que je bouge est-elle défendue sur sa nouvelle case ? Et celle qu'elle protégeait, l'est-elle encore ?","10 minutes d'exercices tactiques par jour sur le thème ci-dessous, en visant la justesse plutôt que la vitesse."],"links":[{"label":"Exercices « fourchette » sur Lichess","url":"https://lichess.org/training/fork"}],"note":"Type détecté automatiquement : « en prise » = après ton coup, l'adversaire peut gagner au moins 2 points de matériel par une capture simple. Seulement 30 parties : tendance à confirmer."}],"games":[{"u":"https://www.chess.com/game/daily/965474839","d":"2026-05-04","m":"2026-05","c":"b","o":"Kiuyte","me":862,"oe":695,"r":"W","f":"Nimzowitsch Defense","v":"Scandinavian Advance Variation","eco":"B00","a":1,"s":[[12,0,0,1],[0,0,0,0],[0,0,0,0]]},{"u":"https://www.chess.com/game/daily/967710869","d":"2026-05-06","m":"2026-05","c":"w","o":"Kiuyte","me":847,"oe":727,"r":"L","f":"French Defense","v":"Steiner Variation","eco":"C00","a":1,"s":[[11,2,1,1],[0,0,0,0],[0,0,0,0]]},{"u":"https://www.chess.com/game/daily/968566639","d":"2026-05-10","m":"2026-05","c":"b","o":"Kiuyte","me":854,"oe":720,"r":"W","f":"Italian Game","v":"Two Knights Modern Bishop's Opening","eco":"C55","a":1,"s":[[12,1,1,0],[4,0,0,0],[0,0,0,0]]},{"u":"https://www.chess.com/game/daily/970298777","d":"2026-05-11","m":"2026-05","c":"w","o":"Kiuyte","me":861,"oe":713,"r":"W","f":"King's Pawn Opening","v":"","eco":"C20","a":1,"s":[[9,0,0,1],[10,0,0,0],[7,0,1,0]]},{"u":"https://www.chess.com/game/daily/971136641","d":"2026-05-17","m":"2026-05","c":"b","o":"Kiuyte","me":867,"oe":706,"r":"W","f":"Queen's Pawn Opening","v":"","eco":"A41","a":1,"s":[[12,0,0,2],[3,0,0,0],[9,0,0,0]]},{"u":"https://www.chess.com/game/daily/973833813","d":"2026-05-21","m":"2026-05","c":"w","o":"Kiuyte","me":863,"oe":711,"r":"D","f":"English Opening","v":"Four Knights Bradley Beach Variation","eco":"A28","a":1,"s":[[12,0,0,0],[5,0,0,1],[15,1,2,1]]},{"u":"https://www.chess.com/game/daily/975372749","d":"2026-05-25","m":"2026-05","c":"b","o":"bertshiz","me":870,"oe":738,"r":"W","f":"King's Fianchetto Opening","v":"","eco":"A00","a":1,"s":[[9,1,0,0],[0,0,0,0],[3,0,0,0]]},{"u":"https://www.chess.com/game/daily/976453065","d":"2026-05-25","m":"2026-05","c":"b","o":"Kiuyte","me":855,"oe":726,"r":"L","f":"French Defense","v":"Advance Variation","eco":"C02","a":1,"s":[[12,1,0,1],[6,0,0,0],[22,0,0,0]]},{"u":"https://www.chess.com/game/daily/977552267","d":"2026-05-27","m":"2026-05","c":"w","o":"Kiuyte","me":841,"oe":740,"r":"L","f":"English Opening","v":"King's English Variation","eco":"A20","a":1,"s":[[10,0,0,0],[2,0,0,0],[1,0,0,1]]},{"u":"https://www.chess.com/game/daily/980576890","d":"2026-06-03","m":"2026-06","c":"w","o":"Kiuyte","me":849,"oe":732,"r":"W","f":"Petrov's Defense","v":"Steinitz Attack Symmetrical Center Variation","eco":"C43","a":1,"s":[[12,0,0,0],[2,0,0,0],[0,0,0,0]]},{"u":"https://www.chess.com/game/daily/981126754","d":"2026-06-07","m":"2026-06","c":"b","o":"Kiuyte","me":856,"oe":725,"r":"W","f":"Petrov's Defense","v":"Classical Variation","eco":"C42","a":1,"s":[[11,0,0,0],[13,0,0,0],[0,0,0,0]]},{"u":"https://www.chess.com/game/daily/984473936","d":"2026-06-15","m":"2026-06","c":"w","o":"Kiuyte","me":863,"oe":718,"r":"W","f":"Italian Game","v":"","eco":"C50","a":1,"s":[[12,0,0,0],[4,0,0,0],[0,0,0,0]]},{"u":"https://www.chess.com/game/daily/971867977","d":"2026-06-16","m":"2026-06","c":"w","o":"micmac957","me":874,"oe":861,"r":"W","f":"Scotch Game","v":"","eco":"C45","a":1,"s":[[12,1,0,1],[11,0,1,0],[5,0,0,0]]},{"u":"https://www.chess.com/game/daily/987554788","d":"2026-06-24","m":"2026-06","c":"b","o":"Kiuyte","me":859,"oe":734,"r":"L","f":"French Defense","v":"Queen's Knight Variation","eco":"C00","a":1,"s":[[12,2,2,1],[0,0,0,0],[0,0,0,0]]},{"u":"https://www.chess.com/game/daily/992354652","d":"2026-07-07","m":"2026-07","c":"w","o":"Kiuyte","me":844,"oe":750,"r":"L","f":"English Opening","v":"Two Knights Variation","eco":"A22","a":1,"s":[[12,1,0,0],[7,0,0,1],[0,0,0,0]]},{"u":"https://www.chess.com/game/daily/997069802","d":"2026-07-20","m":"2026-07","c":"b","o":"Kiuyte","me":853,"oe":733,"r":"W","f":"Philidor Defense","v":"","eco":"C41","a":1,"s":[[12,0,0,1],[19,0,1,0],[18,0,0,0]]},{"u":"https://www.chess.com/game/daily/1007623782","d":"2026-08-05","m":"2026-08","c":"w","o":"GG-le_BG","me":864,"oe":778,"r":"W","f":"English Opening","v":"Two Knights Variation","eco":"A22","a":1,"s":[[12,3,0,0],[16,0,0,0],[0,0,0,0]]},{"u":"https://www.chess.com/game/daily/1008738002","d":"2026-08-06","m":"2026-08","c":"b","o":"Kiuyte","me":872,"oe":729,"r":"W","f":"King's Pawn Opening","v":"King's Knight Variation","eco":"C40","a":1,"s":[[9,0,0,0],[0,0,0,0],[0,0,0,0]]},{"u":"https://www.chess.com/game/daily/1010211572","d":"2026-08-16","m":"2026-08","c":"w","o":"Kiuyte","me":880,"oe":721,"r":"W","f":"English Opening","v":"Reversed Sicilian Variation","eco":"A21","a":1,"s":[[8,0,0,0],[0,0,0,0],[0,0,0,0]]},{"u":"https://www.chess.com/game/daily/1014550934","d":"2026-08-22","m":"2026-08","c":"b","o":"GG-le_BG","me":890,"oe":791,"r":"W","f":"French Defense","v":"Normal Variation","eco":"C10","a":1,"s":[[12,1,0,0],[9,0,0,0],[8,0,0,0]]},{"u":"https://www.chess.com/game/daily/1014495990","d":"2026-08-23","m":"2026-08","c":"b","o":"Kiuyte","me":897,"oe":713,"r":"W","f":"King's Fianchetto Opening","v":"","eco":"A00","a":1,"s":[[12,2,1,1],[8,2,0,0],[0,0,0,0]]},{"u":"https://www.chess.com/game/daily/1018269952","d":"2026-09-02","m":"2026-09","c":"w","o":"Kiuyte","me":877,"oe":725,"r":"L","f":"King's Pawn Opening","v":"","eco":"C20","a":1,"s":[[12,0,0,0],[5,0,0,0],[26,2,1,1]]},{"u":"https://www.chess.com/game/daily/1020953804","d":"2026-09-03","m":"2026-09","c":"b","o":"tomifec","me":882,"oe":572,"r":"W","f":"Queen's Pawn Opening","v":"Zukertort Chigorin Variation","eco":"D02","a":1,"s":[[8,0,0,0],[0,0,0,0],[0,0,0,0]]},{"u":"https://www.chess.com/game/daily/1023337812","d":"2026-09-04","m":"2026-09","c":"b","o":"Kiuyte","me":889,"oe":717,"r":"W","f":"King's Fianchetto","v":"","eco":"A00","a":1,"s":[[12,0,0,0],[3,0,0,0],[0,0,0,0]]},{"u":"https://www.chess.com/game/daily/1023732658","d":"2026-09-09","m":"2026-09","c":"w","o":"tomifec","me":893,"oe":553,"r":"W","f":"English Opening","v":"Two Knights Variation","eco":"A22","a":1,"s":[[10,0,0,0],[0,0,0,0],[0,0,0,0]]},{"u":"https://www.chess.com/game/daily/1025436824","d":"2026-09-09","m":"2026-09","c":"b","o":"Kiuyte","me":900,"oe":710,"r":"W","f":"Four Knights Game","v":"Scotch Variation Accepted","eco":"C47","a":1,"s":[[12,1,0,0],[3,0,0,0],[0,0,0,0]]},{"u":"https://www.chess.com/game/daily/1030792524","d":"2026-09-22","m":"2026-09","c":"b","o":"Kiuyte","me":907,"oe":703,"r":"W","f":"King's Fianchetto Opening","v":"","eco":"A00","a":1,"s":[[12,0,0,0],[8,3,0,0],[0,0,0,0]]},{"u":"https://www.chess.com/game/daily/1033812282","d":"2026-10-08","m":"2026-10","c":"w","o":"Kiuyte","me":914,"oe":696,"r":"W","f":"English Opening","v":"Two Knights Variation","eco":"A22","a":1,"s":[[12,0,0,0],[30,0,0,2],[0,0,0,0]]},{"u":"https://www.chess.com/game/daily/1041360496","d":"2026-10-09","m":"2026-10","c":"b","o":"Kiuyte","me":893,"oe":718,"r":"L","f":"King's Pawn Opening","v":"","eco":"C20","a":1,"s":[[4,0,0,1],[0,0,0,0],[0,0,0,0]]},{"u":"https://www.chess.com/game/daily/997425064","d":"2026-10-18","m":"2026-10","c":"b","o":"micmac957","me":909,"oe":930,"r":"W","f":"Philidor Defense","v":"Exchange Variation","eco":"C41","a":1,"s":[[12,1,0,0],[22,0,1,1],[32,1,0,0]]}],"worst":[{"k":"Mat concédé","g":8,"fen":"5Nk1/2Q2p1p/3p2pB/2p1b3/2P5/6q1/PP3PB1/R4RK1 w - - 2 31","san":"Nd7","uci":"f8d7","best":"fxg3","buci":"f2g3","l":100.0,"wb":100.0,"wa":0.0,"p":2,"n":31},{"k":"Mat concédé","g":21,"fen":"8/8/4kr2/4N1p1/Pp1pK2p/1P1P4/2P5/5R2 w - - 1 44","san":"Nf3","uci":"e5f3","best":"Rxf6+","buci":"f1f6","l":98.8,"wb":98.8,"wa":0.0,"p":2,"n":44},{"k":"Autre tactique ou plan","g":29,"fen":"6q1/p4k2/2pb1pn1/1p2r3/6Q1/2PK3P/PP1N1Pb1/R1BR4 b - - 10 27","san":"Be4+","uci":"g2e4","best":"Nf4+","buci":"g6f4","l":91.9,"wb":99.9,"wa":8.0,"p":1,"n":27},{"k":"Autre tactique ou plan","g":3,"fen":"r1bq1rk1/ppp1bp1p/6pQ/3Pp1B1/3n4/PB1P1N2/1PP2PPP/RN2K2R w KQ - 1 12","san":"Nxe5","uci":"f3e5","best":"Bxe7","buci":"g5e7","l":89.8,"wb":95.1,"wa":5.3,"p":0,"n":12},{"k":"Capture gagnante ratée","g":14,"fen":"r3kb1r/p3q1pp/5p2/1p1P1b2/2pnNB2/3QPP2/PP4PP/R3KB1R w KQkq - 0 16","san":"Qa3","uci":"d3a3","best":"Qxd4","buci":"d3d4","l":87.5,"wb":93.8,"wa":6.3,"p":1,"n":16},{"k":"Autre tactique ou plan","g":20,"fen":"r3kb1r/pqp2ppp/2N2n2/8/Q7/2NP2Pb/PP2PP1P/R1B1K2R b KQkq - 0 11","san":"Nd7","uci":"f6d7","best":"Bd7","buci":"h3d7","l":70.6,"wb":82.2,"wa":11.6,"p":0,"n":11},{"k":"Matériel laissé en prise","g":12,"fen":"r3kbnr/1ppbq1pp/p2p4/1B1P1p2/2PQP3/8/PP1N1PPP/R1B1K2R w KQkq - 0 10","san":"Ba4","uci":"b5a4","best":"Bxd7+","buci":"b5d7","l":62.7,"wb":82.8,"wa":20.1,"p":0,"n":10},{"k":"Matériel laissé en prise","g":7,"fen":"r3kb1r/p1Bb1ppp/2p1p3/3pP3/8/2N5/PPn2PPP/2KR2NR b kq - 1 12","san":"Bb4","uci":"f8b4","best":"Nb4","buci":"c2b4","l":58.0,"wb":80.9,"wa":22.9,"p":0,"n":12},{"k":"Autre tactique ou plan","g":4,"fen":"r1b1kbnr/ppp3pp/3p4/3n1pq1/2B1p3/2P1P3/PP1N1PPP/R1BQ1RK1 b kq - 1 9","san":"f4","uci":"f5f4","best":"Ngf6","buci":"g8f6","l":53.8,"wb":94.7,"wa":40.9,"p":0,"n":9},{"k":"Matériel laissé en prise","g":0,"fen":"r1bqkbnr/ppp2ppp/4p3/3pP3/3n1B2/8/PPP2PPP/RN1QKBNR b KQkq - 1 5","san":"Nb5","uci":"d4b5","best":"c5","buci":"c7c5","l":53.2,"wb":64.7,"wa":11.6,"p":0,"n":5},{"k":"Mat concédé","g":28,"fen":"r1bqkbnr/pppp1p1p/2n3p1/4p3/2B1P3/5Q2/PPPP1PPP/RNB1K1NR b KQkq - 1 4","san":"Nd4","uci":"c6d4","best":"Nf6","buci":"g8f6","l":51.9,"wb":51.9,"wa":0.0,"p":0,"n":4},{"k":"Autre tactique ou plan","g":27,"fen":"r3r1k1/4qppp/p2p4/2pP1Q2/1pP5/2N2P2/PP4PP/R4K1R w - - 0 22","san":"Na4","uci":"c3a4","best":"Ne4","buci":"c3e4","l":49.6,"wb":89.9,"wa":40.4,"p":1,"n":22},{"k":"Matériel laissé en prise","g":1,"fen":"r2qkb1r/ppp3pp/3p1n2/5b2/2P1n3/2N1QN2/PP1P1PPP/R1B1K2R w KQkq - 2 11","san":"Qg5","uci":"e3g5","best":"d3","buci":"d2d3","l":48.8,"wb":51.4,"wa":2.6,"p":0,"n":11},{"k":"Capture gagnante ratée","g":4,"fen":"r1b1kb1r/ppp1n1pp/3p4/3Bq3/2P1Np2/4P3/PP3PPP/R1BQ1RK1 b kq - 0 12","san":"c6","uci":"c7c6","best":"Nxd5","buci":"e7d5","l":48.6,"wb":52.3,"wa":3.7,"p":0,"n":12},{"k":"Autre tactique ou plan","g":27,"fen":"r3r1k1/5ppp/p2p4/2pP1Q2/Npq5/5P2/PP4PP/R5KR w - - 0 24","san":"Kf2","uci":"g1f2","best":"h3","buci":"h2h3","l":47.3,"wb":61.8,"wa":14.5,"p":1,"n":24},{"k":"Autre tactique ou plan","g":13,"fen":"r2qkbnr/pppb2pp/2n1p3/4Pp2/N2p4/2PP1N2/PP3PPP/R1BQKB1R b KQkq - 0 7","san":"Na5","uci":"c6a5","best":"b5","buci":"b7b5","l":41.9,"wb":81.6,"wa":39.7,"p":0,"n":7},{"k":"Matériel laissé en prise","g":5,"fen":"r2qk2r/pp3ppp/2p1b3/8/1P2P3/1nNB4/1P3PPP/R1BQK2R w KQkq - 2 14","san":"Ra5","uci":"a1a5","best":"Rb1","buci":"a1b1","l":37.1,"wb":88.2,"wa":51.1,"p":1,"n":14},{"k":"Autre tactique ou plan","g":5,"fen":"1k1r4/1p3ppp/2p1b3/R7/1P2P3/2N5/1P1r1PPP/5RK1 w - - 5 21","san":"Na4","uci":"c3a4","best":"Rb1","buci":"f1b1","l":36.5,"wb":47.1,"wa":10.6,"p":2,"n":21},{"k":"Autre tactique ou plan","g":15,"fen":"rn1qkbnr/ppp2ppp/3pb3/4p3/3PP3/2P2N2/PP3PPP/RNBQKB1R b KQkq - 0 4","san":"Nc6","uci":"b8c6","best":"Nf6","buci":"g8f6","l":34.0,"wb":43.1,"wa":9.2,"p":0,"n":4},{"k":"Autre tactique ou plan","g":29,"fen":"4k1q1/p1R1b3/6n1/1p3p2/2p1rP2/2P3QP/PP3K2/R1B5 b - - 3 34","san":"Bh4","uci":"e7h4","best":"Qe6","buci":"g8e6","l":29.1,"wb":50.0,"wa":20.9,"p":1,"n":34},{"k":"Autre tactique ou plan","g":20,"fen":"r3kbnr/pqp2ppp/2n5/4N3/Q7/2NP2Pb/PP2PP1P/R1B1K2R b KQkq - 0 10","san":"Nf6","uci":"g8f6","best":"Ne7","buci":"g8e7","l":27.3,"wb":77.2,"wa":49.9,"p":0,"n":10},{"k":"Autre tactique ou plan","g":5,"fen":"R7/1pk2ppp/1N2b3/1Pp5/3rP3/8/1P3PPP/3r1RK1 w - - 2 25","san":"Na4","uci":"b6a4","best":"Nd5+","buci":"b6d5","l":27.1,"wb":35.5,"wa":8.4,"p":2,"n":25},{"k":"Autre tactique ou plan","g":21,"fen":"6k1/8/4r1p1/p3p1rp/PpNp4/1P1P1P2/2P2K2/R1R5 w - - 0 30","san":"Nxa5","uci":"c4a5","best":"Re1","buci":"c1e1","l":26.1,"wb":90.8,"wa":64.7,"p":2,"n":30},{"k":"Autre tactique ou plan","g":1,"fen":"r1bqkbnr/pppn2pp/3p4/4pP2/2P5/3B1N2/PP1P1PPP/RNBQK2R w KQkq - 2 6","san":"Qb3","uci":"d1b3","best":"Bc2","buci":"d3c2","l":24.7,"wb":71.0,"wa":46.3,"p":0,"n":6},{"k":"Autre tactique ou plan","g":13,"fen":"r1bqkbnr/ppp3pp/2n1p3/4Pp2/N2p4/3P1N2/PPP2PPP/R1BQKB1R b KQkq - 1 6","san":"Bd7","uci":"c8d7","best":"b5","buci":"b7b5","l":24.3,"wb":84.9,"wa":60.7,"p":0,"n":6},{"k":"Autre tactique ou plan","g":3,"fen":"5k2/ppp2p1p/6p1/8/3qN1b1/P2P4/2B2PPP/4RRK1 w - - 2 25","san":"Ng5","uci":"e4g5","best":"Bd1","buci":"c2d1","l":24.2,"wb":86.4,"wa":62.2,"p":2,"n":25},{"k":"Autre tactique ou plan","g":13,"fen":"r2qkbnr/pppb2pp/4p3/n3Pp2/N2N4/2PP4/PP3PPP/R1BQKB1R b KQkq - 0 8","san":"Qh4","uci":"d8h4","best":"c5","buci":"c7c5","l":24.1,"wb":41.1,"wa":16.9,"p":0,"n":8},{"k":"Matériel laissé en prise","g":12,"fen":"r3kb1r/1ppbq1p1/p2p1n1p/3P2B1/2PQ4/1P3p2/P4PPP/R3R1K1 w kq - 0 16","san":"Rxe7+","uci":"e1e7","best":"Bxf6","buci":"g5f6","l":22.2,"wb":34.8,"wa":12.5,"p":1,"n":16},{"k":"Matériel laissé en prise","g":15,"fen":"b1kr2r1/2p5/R6p/3p1pp1/1b1B4/5P2/P2Nn1PP/3R1K2 b - - 2 31","san":"Kb7","uci":"c8b7","best":"Bb7","buci":"a8b7","l":22.0,"wb":93.3,"wa":71.3,"p":1,"n":31},{"k":"Capture gagnante ratée","g":2,"fen":"r1b1kb1r/p1p2ppp/2p2n2/4p3/4P3/5N2/PPP2PPP/RNBK3R b kq - 0 8","san":"Bg4","uci":"c8g4","best":"Nxe4","buci":"f6e4","l":21.0,"wb":72.0,"wa":51.0,"p":0,"n":8},{"k":"Capture gagnante ratée","g":5,"fen":"4r3/1p3ppp/1P6/2N2k2/2b5/8/1P3PPP/3R2K1 w - - 0 32","san":"g4+","uci":"g2g4","best":"Nxb7","buci":"c5b7","l":21.0,"wb":92.1,"wa":71.1,"p":2,"n":32}]}</script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<script>
+(() => {
+const D = JSON.parse(document.getElementById("data").textContent);
+const PH = ["Ouverture", "Milieu de partie", "Finale"];
+const PH_SHORT = ["Ouverture", "Milieu", "Finale"];
+const MOIS = ["janv.", "févr.", "mars", "avr.", "mai", "juin", "juil.", "août", "sept.", "oct.", "nov.", "déc."];
+const MOIS_LONG = ["janvier", "février", "mars", "avril", "mai", "juin", "juillet", "août", "septembre", "octobre", "novembre", "décembre"];
+const $ = id => document.getElementById(id);
+const esc = s => String(s ?? "").replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+const pct = x => (x * 100).toFixed(0) + " %";
+const fmt1 = x => x.toLocaleString("fr-FR", { minimumFractionDigits: 1, maximumFractionDigits: 1 });
+const monthLabel = m => MOIS[+m.slice(5) - 1] + " " + m.slice(2, 4);
+const dateLabel = d => (+d.slice(8)) + " " + MOIS[+d.slice(5, 7) - 1];
+
+const months = [...new Set(D.games.map(g => g.m))].sort();
+const state = { color: "all", from: months[0], to: months[months.length - 1] };
+const charts = {};
+
+// ---------- En-tête ----------
+const engineTxt = D.engine.depth ? `profondeur ${D.engine.depth}` : `${D.engine.time} s par position`;
+$("eyebrow").textContent = `Analyse chess.com · ${D.tcLabel}`;
+$("title").textContent = `${D.player} · ${D.tcLabel}`;
+document.title = `Échecs ${D.player} ${D.tcLabel}`;
+const nAn = D.games.filter(g => g.a).length;
+const sinceD = new Date(D.since);
+$("meta").textContent = `${D.games.length} parties classées depuis ${MOIS_LONG[sinceD.getMonth()]} ${sinceD.getFullYear()}. `
+  + `Mes coups analysés par Stockfish 19 (${engineTxt}) dans ${nAn} parties. Données du ${D.generated.replace(" ", " à ")}.`;
+$("foot").innerHTML = `Source : API publique chess.com (site non affilié à chess.com). Le % de gain vient de l'évaluation en centipawns : `
+  + `50 + 50 × (2 / (1 + e<sup>−0,00368 × cp</sup>) − 1). Une imprécision coûte au moins ${D.thresholds.inaccuracy} points de % de gain, `
+  + `une erreur ${D.thresholds.mistake}, une gaffe ${D.thresholds.blunder}.`;
+
+// ---------- Thème ----------
+const THEMES = ["auto", "clair", "sombre"];
+let theme = "auto";
+try { theme = localStorage.getItem("theme") || "auto"; } catch (e) {}
+function applyTheme() {
+  const r = document.documentElement;
+  if (theme === "clair") r.setAttribute("data-theme", "light");
+  else if (theme === "sombre") r.setAttribute("data-theme", "dark");
+  else r.removeAttribute("data-theme");
+  $("themeBtn").textContent = "Thème : " + theme;
+}
+$("themeBtn").addEventListener("click", () => {
+  theme = THEMES[(THEMES.indexOf(theme) + 1) % 3];
+  try { localStorage.setItem("theme", theme); } catch (e) {}
+  applyTheme(); render();
+});
+if (theme !== "auto") applyTheme();
+matchMedia("(prefers-color-scheme: dark)").addEventListener("change", () => render());
+new MutationObserver(() => render()).observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
+
+// ---------- Filtres ----------
+for (const id of ["from", "to"]) {
+  $(id).innerHTML = months.map(m => `<option value="${m}">${monthLabel(m)}</option>`).join("");
+}
+$("from").value = state.from; $("to").value = state.to;
+$("from").addEventListener("change", e => { state.from = e.target.value; if (state.to < state.from) { state.to = state.from; $("to").value = state.to; } render(); });
+$("to").addEventListener("change", e => { state.to = e.target.value; if (state.from > state.to) { state.from = state.to; $("from").value = state.from; } render(); });
+$("colorSeg").addEventListener("click", e => {
+  const b = e.target.closest("button"); if (!b) return;
+  state.color = b.dataset.v;
+  for (const x of $("colorSeg").children) x.setAttribute("aria-pressed", String(x === b));
+  render();
+});
+const inScope = g => g.m >= state.from && g.m <= state.to && (state.color === "all" || g.c === state.color);
+
+// ---------- Utilitaires ----------
+const css = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+function tally(list) {
+  const t = { n: list.length, W: 0, D: 0, L: 0, oe: 0 };
+  for (const g of list) { t[g.r]++; t.oe += g.oe || 0; }
+  t.score = t.n ? (t.W + t.D / 2) / t.n : 0;
+  t.oeAvg = t.n ? Math.round(t.oe / t.n) : 0;
+  return t;
+}
+const wdlBar = t => t.n ? `<div class="wdl" role="img" aria-label="${t.W} victoires, ${t.D} nulles, ${t.L} défaites">`
+  + `<span class="w" style="width:${t.W / t.n * 100}%"></span><span class="d" style="width:${t.D / t.n * 100}%"></span>`
+  + `<span class="l" style="width:${t.L / t.n * 100}%"></span></div>` : "";
+function phaseStats(list) {
+  const s = [0, 1, 2].map(() => [0, 0, 0, 0]);
+  for (const g of list) if (g.a) g.s.forEach((p, i) => p.forEach((v, k) => s[i][k] += v));
+  return s;
+}
+function mkChart(id, cfg) {
+  if (charts[id]) charts[id].destroy();
+  charts[id] = new Chart($(id), cfg);
+}
+function baseOpts() {
+  const fg = css("--muted"), grid = css("--line");
+  Chart.defaults.font.family = css("--f-body");
+  Chart.defaults.color = fg;
+  return {
+    responsive: true, maintainAspectRatio: false, animation: false,
+    plugins: {
+      legend: { display: false },
+      tooltip: { backgroundColor: css("--fg"), titleColor: css("--bg"), bodyColor: css("--bg"), padding: 10, cornerRadius: 6, boxPadding: 4 },
+    },
+    scales: {
+      x: { grid: { display: false }, border: { color: grid }, ticks: { color: fg, maxRotation: 0, autoSkipPadding: 12 } },
+      y: { grid: { color: grid }, border: { display: false }, ticks: { color: fg } },
+    },
+  };
+}
+
+// ---------- Vue d'ensemble ----------
+function renderOverview(list) {
+  const t = tally(list);
+  const withElo = list.filter(g => g.me);
+  const last = withElo.length ? withElo[withElo.length - 1].me : null;
+  const delta = withElo.length > 1 ? last - withElo[0].me : 0;
+  const ps = phaseStats(list).reduce((a, p) => a.map((v, k) => v + p[k]), [0, 0, 0, 0]);
+  const deltaTxt = delta ? `<span class="${delta > 0 ? "delta-up" : "delta-down"}">${delta > 0 ? "▲ +" : "▼ "}${delta}</span> sur la période` : "stable sur la période";
+  $("tiles").innerHTML = [
+    `<div class="tile"><span class="eyebrow">Parties</span><span class="v">${t.n}</span>${wdlBar(t)}<span class="sub num">${t.W} V · ${t.D} N · ${t.L} D</span></div>`,
+    `<div class="tile"><span class="eyebrow">Score</span><span class="v">${t.n ? pct(t.score) : "–"}</span><span class="sub">victoire = 1, nulle = ½</span></div>`,
+    `<div class="tile"><span class="eyebrow">Elo actuel</span><span class="v">${last ?? "–"}</span><span class="sub">${deltaTxt} · adv. moyen ${t.oeAvg || "–"}</span></div>`,
+    `<div class="tile"><span class="eyebrow">Gaffes / 100 coups</span><span class="v">${ps[0] ? fmt1(ps[3] / ps[0] * 100) : "–"}</span><span class="sub">erreurs : ${ps[0] ? fmt1(ps[2] / ps[0] * 100) : "–"} · sur ${ps[0]} coups</span></div>`,
+  ].join("");
+
+  const o = baseOpts();
+  mkChart("cElo", {
+    type: "line",
+    data: { labels: withElo.map(g => dateLabel(g.d)), datasets: [{ data: withElo.map(g => g.me), borderColor: css("--s1"), borderWidth: 2, pointRadius: 0, pointHoverRadius: 5, pointHitRadius: 8, tension: .2, fill: false }] },
+    options: { ...o, interaction: { mode: "index", intersect: false },
+      plugins: { ...o.plugins, tooltip: { ...o.plugins.tooltip, callbacks: {
+        label: c => { const g = withElo[c.dataIndex]; return [`Elo ${g.me}`, `${{ W: "Victoire", D: "Nulle", L: "Défaite" }[g.r]} contre ${g.o} (${g.oe})`]; } } } },
+      scales: { ...o.scales, x: { ...o.scales.x, ticks: { ...o.scales.x.ticks, maxTicksLimit: 6 } } } },
+  });
+
+  const ms = months.filter(m => m >= state.from && m <= state.to);
+  const byM = ms.map(m => tally(list.filter(g => g.m === m)));
+  const surf = css("--surface");
+  const ds = (k, label, col) => ({ label, data: byM.map(t => t[k]), backgroundColor: css(col), borderColor: surf, borderWidth: { top: 2 }, borderRadius: 4, borderSkipped: "bottom", maxBarThickness: 44 });
+  mkChart("cMonths", {
+    type: "bar",
+    data: { labels: ms.map(monthLabel), datasets: [ds("W", "Victoires", "--win"), ds("D", "Nulles", "--draw"), ds("L", "Défaites", "--loss")] },
+    options: { ...o, interaction: { mode: "index", intersect: false },
+      plugins: { ...o.plugins, tooltip: { ...o.plugins.tooltip, callbacks: { footer: items => { const t = byM[items[0].dataIndex]; return `${t.n} parties · score ${pct(t.score)}`; } } } },
+      scales: { x: { ...o.scales.x, stacked: true }, y: { ...o.scales.y, stacked: true, ticks: { ...o.scales.y.ticks, precision: 0 } } } },
+  });
+}
+
+// ---------- Ouvertures ----------
+const expanded = new Set(), showAll = new Set();
+function groupOpenings(list) {
+  const fams = new Map();
+  for (const g of list) {
+    if (!fams.has(g.f)) fams.set(g.f, { name: g.f, games: [], vars: new Map() });
+    const f = fams.get(g.f); f.games.push(g);
+    const v = g.v || "";
+    if (!f.vars.has(v)) f.vars.set(v, []);
+    f.vars.get(v).push(g);
+  }
+  return [...fams.values()].map(f => ({ name: f.name, t: tally(f.games),
+    vars: [...f.vars.entries()].map(([v, gs]) => ({ name: v, t: tally(gs) })).sort((a, b) => b.t.n - a.t.n) }))
+    .sort((a, b) => b.t.n - a.t.n);
+}
+const isLow = t => t.n >= D.openings.minGames && t.score * 100 < D.openings.lowScore;
+function renderOpenings(list) {
+  const { minGames, lowScore } = D.openings;
+  $("opIntro").textContent = `Regroupées par famille, puis par variante (touchez une famille pour voir ses variantes). `
+    + `En rouge : jouée au moins ${minGames} fois avec un score sous ${lowScore} %.`;
+  const colors = state.color === "all" ? ["w", "b"] : [state.color];
+  const low = [];
+  const cols = colors.map(c => {
+    const fams = groupOpenings(list.filter(g => g.c === c));
+    for (const f of fams) {
+      if (isLow(f.t)) low.push({ c, name: f.name, t: f.t });
+      for (const v of f.vars) if (v.name && isLow(v.t) && v.t.n < f.t.n) low.push({ c, name: `${f.name} · ${v.name}`, t: v.t });
+    }
+    const key = c, limit = showAll.has(key) ? fams.length : 12;
+    const rows = fams.slice(0, limit).map(f => {
+      const id = c + "|" + f.name, open = expanded.has(id);
+      const multi = f.vars.length > 1 || f.vars[0].name;
+      let h = `<tr class="fam${isLow(f.t) ? " flag" : ""}" data-id="${esc(id)}" aria-expanded="${open}" tabindex="0">`
+        + `<td><span class="caret">${multi ? "›" : ""}</span>${esc(f.name)}</td><td class="r">${f.t.n}</td><td class="bar">${wdlBar(f.t)}</td>`
+        + `<td class="r score">${pct(f.t.score)}</td><td class="r col-elo">${f.t.oeAvg || "–"}</td></tr>`;
+      if (open && multi) h += f.vars.map(v => `<tr class="var${isLow(v.t) ? " flag" : ""}"><td>${esc(v.name || "Sans variante nommée")}</td>`
+        + `<td class="r">${v.t.n}</td><td class="bar">${wdlBar(v.t)}</td><td class="r score">${pct(v.t.score)}</td><td class="r col-elo">${v.t.oeAvg || "–"}</td></tr>`).join("");
+      return h;
+    }).join("");
+    const n = fams.reduce((s, f) => s + f.t.n, 0);
+    return `<div class="card"><h3>Avec les ${c === "w" ? "blancs" : "noirs"} <span class="muted num" style="font-weight:400">· ${n} parties</span></h3>`
+      + (fams.length ? `<div class="tbl-wrap"><table><thead><tr><th>Ouverture</th><th class="r">Parties</th><th>V / N / D</th><th class="r">Score</th><th class="r col-elo">Elo adv.</th></tr></thead><tbody>${rows}</tbody></table></div>`
+        + (fams.length > 12 ? `<button class="more" type="button" data-more="${key}">${showAll.has(key) ? "Afficher moins" : `Afficher les ${fams.length} familles`}</button>` : "")
+        : `<p class="muted">Aucune partie sur cette période.</p>`) + `</div>`;
+  });
+  $("opCols").className = "op-cols" + (colors.length === 1 ? " single" : "");
+  $("opCols").innerHTML = cols.join("");
+  low.sort((a, b) => b.t.n - a.t.n);
+  $("opAlert").innerHTML = low.length
+    ? `<div class="alert"><h3>À travailler en priorité</h3><ul>${low.slice(0, 8).map(x =>
+        `<li><span class="chip c-${x.c}">${x.c === "w" ? "Blancs" : "Noirs"}</span><strong>${esc(x.name)}</strong>`
+        + `<span class="muted num">${x.t.n} parties · score ${pct(x.t.score)} · ${x.t.W} V ${x.t.D} N ${x.t.L} D</span></li>`).join("")}</ul></div>`
+    : `<div class="empty">Aucune ouverture jouée au moins ${minGames} fois avec un score sous ${lowScore} % sur cette sélection.</div>`;
+}
+$("opCols").addEventListener("click", e => {
+  const more = e.target.closest("[data-more]");
+  if (more) { const k = more.dataset.more; showAll.has(k) ? showAll.delete(k) : showAll.add(k); renderOpenings(D.games.filter(inScope)); return; }
+  const tr = e.target.closest("tr.fam"); if (!tr) return;
+  const id = tr.dataset.id; expanded.has(id) ? expanded.delete(id) : expanded.add(id);
+  renderOpenings(D.games.filter(inScope));
+});
+$("opCols").addEventListener("keydown", e => { if ((e.key === "Enter" || e.key === " ") && e.target.matches("tr.fam")) { e.preventDefault(); e.target.click(); } });
+
+// ---------- Erreurs par phase ----------
+function renderErrors(list) {
+  const analyzed = list.filter(g => g.a);
+  const th = D.thresholds;
+  $("errIntro").textContent = `Mes coups seulement, classés selon le % de gain perdu : imprécision ≥ ${th.inaccuracy} points, erreur ≥ ${th.mistake}, gaffe ≥ ${th.blunder}. `
+    + `Ouverture = 12 premiers coups ; finale = un camp n'a plus que 13 points de pièces ou moins (hors pions).`;
+  if (!analyzed.length) { $("errBody").innerHTML = `<div class="empty">Aucune partie analysée par le moteur sur cette sélection. L'analyse se complète à chaque relance de <span class="mono">run.py</span>.</div>`; return; }
+  const s = phaseStats(analyzed);
+  const rate = (p, k) => p[0] ? p[k] / p[0] * 100 : 0;
+  $("errBody").innerHTML = `<div class="charts">
+    <div class="card"><h3>Pour 100 coups, par phase</h3>
+      <div class="legend"><span><i style="background:var(--inacc)"></i>Imprécisions</span><span><i style="background:var(--mistake)"></i>Erreurs</span><span><i style="background:var(--blunder)"></i>Gaffes</span></div>
+      <div class="chart-box"><canvas id="cPhase" aria-label="Erreurs pour 100 coups par phase"></canvas></div>
+      <div class="tbl-wrap"><table><thead><tr><th>Phase</th><th class="r">Coups</th><th class="r">Impr.</th><th class="r">Erreurs</th><th class="r">Gaffes</th></tr></thead><tbody>
+      ${s.map((p, i) => `<tr><td>${PH[i]}</td><td class="r">${p[0]}</td><td class="r">${fmt1(rate(p, 1))}</td><td class="r">${fmt1(rate(p, 2))}</td><td class="r rate">${fmt1(rate(p, 3))}</td></tr>`).join("")}
+      </tbody></table></div>
+      <p class="cap">Taux pour 100 de mes coups dans la phase.</p></div>
+    <div class="card"><h3>Erreurs + gaffes pour 100 coups, mois par mois</h3>
+      <div class="legend"><span><i style="background:var(--s1)"></i>Ouverture</span><span><i style="background:var(--s2)"></i>Milieu</span><span><i style="background:var(--s3)"></i>Finale</span></div>
+      <div class="chart-box"><canvas id="cTrend" aria-label="Évolution mensuelle des erreurs par phase"></canvas></div>
+      <p class="cap">Un point n'est tracé que si le mois compte au moins 30 de mes coups dans la phase.</p></div>
+  </div>
+  <p class="note">${analyzed.length} parties analysées sur ${list.length}. Les coups joués dans une position déjà perdue (moins de 5 % de gain) ou déjà gagnée et qui le reste (plus de 95 %, puis plus de 90 % après le coup) ne sont pas comptés.</p>`;
+
+  const o = baseOpts(), surf = css("--surface");
+  const bar = (k, label, col) => ({ label, data: s.map(p => +rate(p, k).toFixed(1)), backgroundColor: css(col), borderColor: surf, borderWidth: 1, borderRadius: { topLeft: 4, topRight: 4 }, borderSkipped: "bottom", maxBarThickness: 36 });
+  mkChart("cPhase", {
+    type: "bar",
+    data: { labels: PH_SHORT, datasets: [bar(1, "Imprécisions", "--inacc"), bar(2, "Erreurs", "--mistake"), bar(3, "Gaffes", "--blunder")] },
+    options: { ...o, interaction: { mode: "index", intersect: false },
+      plugins: { ...o.plugins, tooltip: { ...o.plugins.tooltip, callbacks: {
+        label: c => `${c.dataset.label} : ${fmt1(c.parsed.y)} / 100 coups (${s[c.dataIndex][c.datasetIndex + 1]})`,
+        footer: items => `${s[items[0].dataIndex][0]} coups analysés` } } } },
+  });
+
+  const ms = months.filter(m => m >= state.from && m <= state.to);
+  const byM = ms.map(m => phaseStats(analyzed.filter(g => g.m === m)));
+  const line = (i, col) => ({ label: PH[i], data: byM.map(st => st[i][0] >= 30 ? +((st[i][2] + st[i][3]) / st[i][0] * 100).toFixed(1) : null),
+    borderColor: css(col), backgroundColor: css(col), borderWidth: 2, pointRadius: 4, pointHoverRadius: 6, pointBorderColor: surf, pointBorderWidth: 2, spanGaps: true, tension: .2 });
+  mkChart("cTrend", {
+    type: "line",
+    data: { labels: ms.map(monthLabel), datasets: [line(0, "--s1"), line(1, "--s2"), line(2, "--s3")] },
+    options: { ...o, interaction: { mode: "index", intersect: false },
+      plugins: { ...o.plugins, tooltip: { ...o.plugins.tooltip, callbacks: {
+        label: c => { const st = byM[c.dataIndex][c.datasetIndex]; return `${PH[c.datasetIndex]} : ${fmt1(c.parsed.y)} (${st[2] + st[3]} sur ${st[0]} coups)`; } } } },
+      scales: { ...o.scales, y: { ...o.scales.y, beginAtZero: true } } },
+  });
+}
+
+// ---------- Pires positions ----------
+const GLYPH = { k: "♚", q: "♛", r: "♜", b: "♝", n: "♞", p: "♟" };
+function boardHTML(fen, flip, played, best) {
+  const rows = fen.split(" ")[0].split("/");
+  const sq = [];
+  rows.forEach((row, r) => { let f = 0; for (const ch of row) { if (/\d/.test(ch)) { for (let i = 0; i < +ch; i++) sq.push({ r, f: f++, p: null }); } else sq.push({ r, f: f++, p: ch }); } });
+  const name = s => "abcdefgh"[s.f] + (8 - s.r);
+  const hp = played ? [played.slice(0, 2), played.slice(2, 4)] : [], hb = best ? [best.slice(0, 2), best.slice(2, 4)] : [];
+  const order = flip ? sq.slice().reverse() : sq;
+  return `<div class="board" role="img" aria-label="Position ${esc(fen)}">` + order.map(s => {
+    const n = name(s), cls = ((s.r + s.f) % 2 ? "d" : "l") + (hp.includes(n) ? " hp" : hb.includes(n) ? " hb" : "");
+    const pc = s.p ? `<span class="pc ${s.p === s.p.toUpperCase() ? "pw" : "pb"}">${GLYPH[s.p.toLowerCase()]}︎</span>` : "";
+    return `<div class="${cls}">${pc}</div>`;
+  }).join("") + `</div>`;
+}
+function renderWorst(list) {
+  const ok = new Set(list.map(g => D.games.indexOf(g)));
+  const top = D.worst.filter(w => ok.has(w.g)).slice(0, D.topN);
+  $("worstIntro").textContent = `Les ${D.topN} coups qui m'ont fait perdre le plus de % de gain sur la sélection. `
+    + `Case rouge : mon coup ; case bleue : le meilleur coup selon Stockfish.`;
+  if (!top.length) { $("worstList").innerHTML = `<div class="empty">Aucune erreur ni gaffe analysée sur cette sélection.</div>`; return; }
+  $("worstList").innerHTML = top.map((w, i) => {
+    const g = D.games[w.g], black = g.c === "b";
+    const lichess = "https://lichess.org/analysis/" + w.fen.replace(/ /g, "_") + "?color=" + (black ? "black" : "white");
+    const kind = w.l >= D.thresholds.blunder ? "Gaffe" : "Erreur";
+    return `<article class="pos">
+      <div class="pos-head"><span class="rank">${i + 1}</span><span class="muted">Coup ${w.n} · ${PH[w.p]}</span></div>
+      <span class="kind">${esc(w.k)}</span>
+      ${boardHTML(w.fen, black, w.uci, w.buci)}
+      <dl class="moves">
+        <dt><span class="swatch" style="background:var(--hl-played)"></span>Joué</dt><dd class="mv-played">${black ? w.n + "…" : w.n + "."} ${esc(w.san)} <span class="chip low">${kind}</span></dd>
+        <dt><span class="swatch" style="background:var(--hl-best)"></span>Meilleur</dt><dd class="mv-best">${esc(w.best || "–")}</dd>
+        <dt>% de gain</dt><dd class="num">${Math.round(w.wb)} % → ${Math.round(w.wa)} % <span class="muted">(−${Math.round(w.l)})</span></dd>
+        <dt>Partie</dt><dd style="font-family:var(--f-body);font-weight:400">${black ? "Noirs" : "Blancs"} contre ${esc(g.o)} (${g.oe}), ${dateLabel(g.d)} · ${{ W: "gagnée", D: "nulle", L: "perdue" }[g.r]}</dd>
+      </dl>
+      <div class="pos-links"><a href="${esc(lichess)}" target="_blank" rel="noopener">Analyser sur Lichess ↗</a><a href="${esc(g.u)}" target="_blank" rel="noopener">Voir la partie ↗</a></div>
+    </article>`;
+  }).join("");
+}
+
+// ---------- Diagnostic (toute la période, non filtré) ----------
+const LVL = { priority: "Priorité", info: "À surveiller", good: "Point fort" };
+function renderDiag() {
+  $("diagIntro").textContent = `Calculé sur toutes tes parties ${D.tcLabel.toLowerCase()} depuis ${MOIS_LONG[sinceD.getMonth()]} ${sinceD.getFullYear()}, `
+    + `blancs et noirs confondus : les filtres plus bas ne s'appliquent pas ici. Les priorités sont classées par nombre de parties en jeu.`;
+  if (!D.diag.length) { $("diagList").innerHTML = `<div class="empty">Pas encore assez de parties analysées pour un diagnostic.</div>`; return; }
+  let p = 0;
+  $("diagList").innerHTML = D.diag.map(c => {
+    const lvl = c.level === "priority" ? `${LVL.priority} ${++p}` : LVL[c.level];
+    const max = Math.max(...c.bars.map(b => b.value), 1);
+    const bars = c.bars.length ? `<div class="hbars"><span class="t">${esc(c.barsTitle)}</span>${c.bars.map(b =>
+      `<div class="hbar"><span>${esc(b.label)}</span><span class="track"><span class="fill" style="width:${b.value / max * 100}%;display:block"></span></span><span class="val">${esc(b.text)}</span></div>`).join("")}</div>` : "";
+    const links = c.links.length ? `<div class="pos-links">${c.links.map(l => `<a href="${esc(l.url)}" target="_blank" rel="noopener">${esc(l.label)} ↗</a>`).join("")}</div>` : "";
+    return `<article class="adv">
+      <div class="adv-head"><span class="lvl lvl-${c.level}">${lvl}</span><h3>${esc(c.title)}</h3></div>
+      <div class="adv-body">
+        <div style="display:flex;flex-direction:column;gap:12px;min-width:0">
+          <div class="adv-metric"><span class="v">${esc(c.metric.value)}</span><span class="l">${esc(c.metric.label)}</span></div>
+          <ul>${c.facts.map(f => `<li>${esc(f)}</li>`).join("")}</ul>
+          ${bars}
+        </div>
+        <div style="display:flex;flex-direction:column;gap:12px;min-width:0">
+          <div class="todo"><h4>Ce que tu peux faire</h4><ul>${c.actions.map(a => `<li>${esc(a)}</li>`).join("")}</ul></div>
+          ${links}
+          ${c.note ? `<p class="note">${esc(c.note)}</p>` : ""}
+        </div>
+      </div>
+    </article>`;
+  }).join("");
+}
+renderDiag();
+
+// ---------- Rendu ----------
+let pending = false;
+function render() {
+  if (pending) return; pending = true;
+  requestAnimationFrame(() => {
+    pending = false;
+    const list = D.games.filter(inScope);
+    renderOverview(list); renderOpenings(list); renderErrors(list); renderWorst(list);
+  });
+}
+render();
+})();
+</script>
+
+</body>
+</html>

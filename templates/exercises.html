@@ -1,0 +1,546 @@
+<title>__TITLE__</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700&family=Atkinson+Hyperlegible:wght@400;700&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+/* Layout : échiquier puis panneau sur mobile, côte à côte au-delà de 860px. */
+:root {
+  --bg: #f4f5f1; --surface: #fcfcfa; --fg: #171a17; --muted: #586058; --faint: #8a918a;
+  --line: #dde1d9; --accent: #3b6a44; --accent-soft: #e3ece2;
+  --ok: #0c8a0c; --ok-soft: #e1f1df; --bad: #c43535; --bad-soft: #f8e3e1; --warn: #a86c00;
+  --sq-light: #ebecd0; --sq-dark: #739552;
+  --hl-last: rgba(246, 222, 70, .55); --hl-sel: rgba(42, 120, 214, .45); --hl-bad: rgba(208, 59, 59, .55);
+  --hl-best: rgba(42, 120, 214, .5); --dot: rgba(20, 30, 20, .32);
+  --f-display: "Bricolage Grotesque", "Segoe UI", system-ui, sans-serif;
+  --f-body: "Atkinson Hyperlegible", system-ui, -apple-system, sans-serif;
+  --f-mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
+  --r: 10px;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #121513; --surface: #1a1d1b; --fg: #edefeb; --muted: #a4aca5; --faint: #747c75;
+    --line: #2b312d; --accent: #86b98e; --accent-soft: #223026;
+    --ok: #5cc95c; --ok-soft: #1c3020; --bad: #ec6b6b; --bad-soft: #3a1f1f; --warn: #e0a640;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #121513; --surface: #1a1d1b; --fg: #edefeb; --muted: #a4aca5; --faint: #747c75;
+  --line: #2b312d; --accent: #86b98e; --accent-soft: #223026;
+  --ok: #5cc95c; --ok-soft: #1c3020; --bad: #ec6b6b; --bad-soft: #3a1f1f; --warn: #e0a640;
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+body {
+  background: var(--bg); color: var(--fg); font-family: var(--f-body); font-size: 15px; line-height: 1.5;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 0 48px;
+}
+body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px); z-index: 10; background: var(--bg); }
+.wrap { max-width: 1040px; margin: 0 auto; display: flex; flex-direction: column; gap: 24px; }
+h1, h2, h3 { font-family: var(--f-display); text-wrap: balance; margin: 0; line-height: 1.15; }
+h1 { font-size: clamp(28px, 6vw, 40px); font-weight: 700; letter-spacing: -.01em; }
+h2 { font-size: 22px; font-weight: 700; }
+p { margin: 0; }
+a { color: var(--accent); }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.eyebrow { font-size: 12px; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); font-weight: 700; }
+.muted { color: var(--muted); }
+.mono { font-family: var(--f-mono); font-weight: 600; }
+.num { font-variant-numeric: tabular-nums; }
+
+.top { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; padding-top: 28px; flex-wrap: wrap; }
+.top .meta { color: var(--muted); max-width: 62ch; margin-top: 8px; }
+.theme-btn { font: inherit; font-size: 13px; color: var(--fg); background: var(--surface); border: 1px solid var(--line); border-radius: 999px; padding: 6px 12px; cursor: pointer; }
+
+/* Progression */
+.progress { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); padding: 16px; display: flex; flex-direction: column; gap: 10px; }
+.progress .head { display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; align-items: baseline; }
+.progress .big { font-family: var(--f-display); font-size: 26px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.bar { display: flex; height: 10px; border-radius: 999px; overflow: hidden; background: var(--line); }
+.bar span { display: block; height: 100%; }
+.bar .ok { background: var(--ok); } .bar .ko { background: var(--bad); }
+.legend { display: flex; flex-wrap: wrap; gap: 4px 16px; font-size: 13px; color: var(--muted); }
+.legend i { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 6px; vertical-align: -1px; }
+.sync { font-size: 13px; color: var(--muted); }
+.sync.warn { color: var(--warn); }
+
+/* Filtres */
+.filters { display: flex; flex-wrap: wrap; gap: 10px 16px; align-items: center; }
+.seg { display: inline-flex; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; background: var(--surface); flex-wrap: wrap; }
+.seg button { font: inherit; font-size: 14px; border: 0; background: none; color: var(--fg); padding: 6px 12px; cursor: pointer; }
+.seg button[aria-pressed="true"] { background: var(--accent); color: var(--bg); font-weight: 700; }
+
+/* Exercice */
+.ex { display: grid; grid-template-columns: 1fr; gap: 20px; align-items: start; }
+@media (min-width: 860px) { .ex { grid-template-columns: minmax(0, 540px) minmax(0, 1fr); } }
+.board-wrap { width: 100%; max-width: 540px; margin: 0 auto; display: flex; flex-direction: column; gap: 8px; }
+.board { display: grid; grid-template-columns: repeat(8, minmax(0, 1fr)); grid-template-rows: repeat(8, minmax(0, 1fr)); aspect-ratio: 1; width: 100%; border-radius: 6px; overflow: hidden; container-type: inline-size; touch-action: manipulation; }
+.board button { all: unset; position: relative; aspect-ratio: 1; min-width: 0; min-height: 0; overflow: hidden; display: flex; align-items: center; justify-content: center; font-size: 10.5cqi; line-height: 1; user-select: none; -webkit-tap-highlight-color: transparent; cursor: default; }
+.board button.can { cursor: pointer; }
+.board .l { background: var(--sq-light); } .board .d { background: var(--sq-dark); }
+.board button::after { content: ""; position: absolute; inset: 0; pointer-events: none; }
+.board .last::after { background: var(--hl-last); }
+.board .sel::after { background: var(--hl-sel); }
+.board .bad::after { background: var(--hl-bad); }
+.board .best::after { background: var(--hl-best); }
+.board .hint::after { box-shadow: inset 0 0 0 4px var(--hl-best); }
+.board .dest::before { content: ""; position: absolute; width: 30%; height: 30%; border-radius: 50%; background: var(--dot); z-index: 2; pointer-events: none; }
+.board .dest.cap::before { width: 86%; height: 86%; background: none; box-shadow: inset 0 0 0 5px var(--dot); }
+.board .pc { position: relative; z-index: 1; font-family: "Segoe UI Symbol", "DejaVu Sans", "Noto Sans Symbols 2", sans-serif; pointer-events: none; }
+.board .pw { color: #fff; text-shadow: 0 0 1px #000, 0 0 1px #000, 0 1px 1px #000; }
+.board .pb { color: #111; text-shadow: 0 0 1px #fff8; }
+.board .co { position: absolute; font-size: 2.4cqi; font-weight: 700; font-family: var(--f-body); pointer-events: none; z-index: 1; }
+.board .co.f { right: 6%; bottom: 3%; } .board .co.r { left: 6%; top: 3%; }
+.board .l .co { color: var(--sq-dark); } .board .d .co { color: var(--sq-light); }
+.promo { display: flex; gap: 8px; align-items: center; font-size: 14px; }
+.promo button { font: inherit; font-size: 28px; line-height: 1; width: 48px; height: 48px; border-radius: 8px; border: 1px solid var(--line); background: var(--surface); color: var(--fg); cursor: pointer; font-family: "Segoe UI Symbol", "DejaVu Sans", "Noto Sans Symbols 2", sans-serif; }
+.under { display: flex; justify-content: space-between; font-size: 13px; color: var(--muted); }
+
+.panel { display: flex; flex-direction: column; gap: 14px; }
+.panel .theme { display: inline-flex; align-self: flex-start; font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: var(--accent); background: var(--accent-soft); border-radius: 999px; padding: 3px 10px; }
+.turn { display: flex; align-items: center; gap: 10px; font-size: 17px; font-weight: 700; }
+.turn .sw { width: 18px; height: 18px; border-radius: 50%; border: 1px solid var(--faint); flex: none; }
+.ctx { color: var(--muted); font-size: 14px; }
+.state { font-size: 13px; color: var(--muted); }
+.fb { border-radius: var(--r); padding: 12px 14px; display: flex; flex-direction: column; gap: 6px; border: 1px solid var(--line); background: var(--surface); }
+.fb.ok { background: var(--ok-soft); border-color: transparent; }
+.fb.ko { background: var(--bad-soft); border-color: transparent; }
+.fb .v { font-weight: 700; font-size: 16px; }
+.fb.ok .v { color: var(--ok); } .fb.ko .v { color: var(--bad); }
+.fb dl { display: grid; grid-template-columns: auto 1fr; gap: 4px 12px; margin: 4px 0 0; font-size: 14px; }
+.fb dt { color: var(--muted); } .fb dd { margin: 0; }
+.actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.btn { font: inherit; font-size: 15px; border-radius: 8px; padding: 9px 16px; cursor: pointer; border: 1px solid var(--line); background: var(--surface); color: var(--fg); min-height: 44px; }
+.btn.primary { background: var(--accent); color: var(--bg); border-color: var(--accent); font-weight: 700; }
+.btn[disabled] { opacity: .45; cursor: default; }
+.links { display: flex; gap: 16px; flex-wrap: wrap; font-size: 14px; }
+.empty { background: var(--surface); border: 1px dashed var(--line); border-radius: var(--r); padding: 28px 16px; text-align: center; color: var(--muted); }
+footer { font-size: 13px; color: var(--muted); border-top: 1px solid var(--line); padding-top: 16px; }
+</style>
+
+<div class="wrap">
+  <header class="top">
+    <div>
+      <div class="eyebrow" id="eyebrow">Exercices tirés de tes parties</div>
+      <h1 id="title"></h1>
+      <p class="meta" id="meta"></p>
+    </div>
+    <button class="theme-btn" id="themeBtn" type="button">Thème : auto</button>
+  </header>
+
+  <section class="progress" aria-label="Progression">
+    <div class="head">
+      <div><span class="big" id="pDone"></span> <span class="muted" id="pDoneLbl"></span></div>
+      <div class="sync" id="sync">Chargement de ta progression…</div>
+    </div>
+    <div class="bar" id="pBar"></div>
+    <div class="legend" id="pLegend"></div>
+  </section>
+
+  <div class="filters">
+    <div class="seg" id="fTheme" role="group" aria-label="Thème"></div>
+    <div class="seg" id="fTc" role="group" aria-label="Cadence"></div>
+    <div class="seg" id="fStatus" role="group" aria-label="Statut"></div>
+  </div>
+
+  <section class="ex" id="ex">
+    <div class="board-wrap">
+      <div class="board" id="board" role="grid" aria-label="Échiquier"></div>
+      <div class="promo" id="promo" hidden></div>
+      <div class="under"><span id="counter" class="num"></span><span id="orient"></span></div>
+    </div>
+    <div class="panel">
+      <span class="theme" id="theme"></span>
+      <div class="turn"><span class="sw" id="sw"></span><span id="turnTxt"></span></div>
+      <p class="ctx" id="ctx"></p>
+      <p class="state" id="state"></p>
+      <div class="fb" id="fb" hidden></div>
+      <div class="actions">
+        <button class="btn" id="bHint" type="button">Indice</button>
+        <button class="btn" id="bSol" type="button">Voir la solution</button>
+        <button class="btn" id="bRetry" type="button" hidden>Réessayer</button>
+        <button class="btn primary" id="bNext" type="button">Suivant</button>
+      </div>
+      <div class="links" id="links" hidden></div>
+    </div>
+  </section>
+  <div class="empty" id="empty" hidden></div>
+
+  <footer id="foot"></footer>
+</div>
+
+<script>
+const D = __DATA__;
+const $ = id => document.getElementById(id);
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const pct = x => `${Math.round(x)} %`;
+const MOIS = ["janv.", "févr.", "mars", "avr.", "mai", "juin", "juil.", "août", "sept.", "oct.", "nov.", "déc."];
+const dateLabel = d => { const [y, m, j] = d.split("-"); return `${+j} ${MOIS[+m - 1]} ${y}`; };
+const GLYPH = { k: "♚", q: "♛", r: "♜", b: "♝", n: "♞", p: "♟" };
+const FILES = "abcdefgh";
+
+// ---------- En-tête ----------
+$("title").textContent = `${D.player} · Exercices`;
+document.title = `Exercices ${D.player}`;
+const sinceD = new Date(D.since);
+$("meta").textContent = `${D.items.length} positions où tu as fait une erreur ou une gaffe depuis ${MOIS[sinceD.getMonth()]} ${sinceD.getFullYear()}. `
+  + `Rejoue-les : touche une pièce puis sa case d'arrivée. Tous les coups ont été évalués par Stockfish 19 (profondeur ${D.depth}).`;
+$("foot").textContent = `Un coup est accepté s'il perd moins de ${D.tolerance} points de % de gain par rapport au meilleur coup ; `
+  + `pour « ${D.themes.mate} », il faut un mat aussi rapide (un coup de plus toléré à partir du mat en 3). Exercice réussi = bon coup du premier essai, sans indice ni solution. `
+  + `Données du ${D.generated.replace(" ", " à ")}, issues de l'API publique chess.com (site non affilié à chess.com).`;
+
+// ---------- Thème ----------
+const THEMES = ["auto", "clair", "sombre"];
+let theme = "auto";
+try { theme = localStorage.getItem("theme") || "auto"; } catch (e) {}
+function applyTheme() {
+  const r = document.documentElement;
+  if (theme === "clair") r.setAttribute("data-theme", "light");
+  else if (theme === "sombre") r.setAttribute("data-theme", "dark");
+  else r.removeAttribute("data-theme");
+  $("themeBtn").textContent = "Thème : " + theme;
+}
+$("themeBtn").addEventListener("click", () => {
+  theme = THEMES[(THEMES.indexOf(theme) + 1) % 3];
+  try { localStorage.setItem("theme", theme); } catch (e) {}
+  applyTheme();
+});
+if (theme !== "auto") applyTheme();
+
+// ---------- Progression : db du viewer, copie locale en secours ----------
+// progress[id] = { s: "ok" | "ko", a: nombre de tentatives, t: date ISO }
+const LS_KEY = "exercises-progress";
+let progress = {};
+try { progress = JSON.parse(localStorage.getItem(LS_KEY) || "{}") || {}; } catch (e) {}
+let remote = null, writing = false, dirty = false;
+
+function setSync(txt, warn) { $("sync").textContent = txt; $("sync").classList.toggle("warn", !!warn); }
+function saveLocal() { try { localStorage.setItem(LS_KEY, JSON.stringify(progress)); } catch (e) {} }
+
+async function flush() {
+  if (!remote || writing || !dirty) return;
+  writing = true; dirty = false;
+  try {
+    await remote.set({ p: progress, v: 1 });
+    setSync("Progression synchronisée en ligne");
+  } catch (e) {
+    if (e && (e.code === "invalid_argument" || e.code === "not_granted" || e.code === "revoked")) {
+      remote = null;
+      setSync("Ta progression est gardée sur cet appareil seulement (pas d'accès en écriture à cette page).", true);
+    } else {
+      dirty = true;
+      setSync("Synchronisation impossible pour l'instant, nouvel essai au prochain exercice.", true);
+    }
+  } finally { writing = false; }
+  if (dirty && remote) flush();
+}
+function record(id, ok) {
+  const cur = progress[id] || { a: 0 };
+  progress[id] = { s: ok ? "ok" : "ko", a: cur.a + 1, t: new Date().toISOString().slice(0, 10) };
+  saveLocal(); dirty = true; flush(); renderProgress();
+}
+
+(async () => {
+  if (!window.claude?.use) { setSync("Progression gardée sur cet appareil seulement.", true); return; }
+  const [db, user] = await Promise.all([claude.use("db"), claude.use("user")]);
+  const uid = user ? await user.id() : null;
+  if (!db || !uid) { setSync("Progression gardée sur cet appareil seulement (connecte-toi à claude.ai pour la synchroniser).", true); return; }
+  const ref = db.doc(`data/users/${uid}/progress`);
+  let first = true;
+  ref.onSnapshot(snap => {
+    const p = (snap.exists && snap.data()?.p) || {};
+    if (first) {
+      first = false;
+      remote = ref;
+      // Premier chargement : on fusionne ce qui n'était que sur cet appareil.
+      const localOnly = Object.keys(progress).filter(k => !(k in p));
+      progress = { ...progress, ...p };
+      setSync("Progression synchronisée en ligne");
+      if (localOnly.length) { dirty = true; flush(); }
+    } else if (!writing) {
+      progress = { ...progress, ...p };
+    }
+    saveLocal(); renderProgress(); if (first === false && !cur.done) renderState();
+  }, err => {
+    remote = null;
+    setSync("Progression gardée sur cet appareil seulement.", true);
+  });
+})();
+
+// ---------- Filtres ----------
+const tcs = [...new Set(D.items.map(x => x.tc))];
+const filt = { th: "all", tc: "all", st: "todo" };
+function seg(el, key, opts) {
+  $(el).innerHTML = opts.map(([v, l]) => `<button type="button" data-v="${v}" aria-pressed="${filt[key] === v}">${esc(l)}</button>`).join("");
+  $(el).onclick = e => {
+    const b = e.target.closest("button"); if (!b) return;
+    filt[key] = b.dataset.v;
+    $(el).querySelectorAll("button").forEach(x => x.setAttribute("aria-pressed", x === b));
+    goFirst();
+  };
+}
+seg("fTheme", "th", [["all", "Tous les thèmes"], ...Object.entries(D.themes)]);
+if (tcs.length > 1) seg("fTc", "tc", [["all", "Toutes cadences"], ...tcs.map(t => [t, D.tcLabels[t]])]);
+else $("fTc").hidden = true;
+seg("fStatus", "st", [["todo", "À faire"], ["ko", "À revoir"], ["all", "Tous"]]);
+
+function inFilter(x, ignoreStatus) {
+  if (filt.th !== "all" && x.th !== filt.th) return false;
+  if (filt.tc !== "all" && x.tc !== filt.tc) return false;
+  if (ignoreStatus) return true;
+  const s = progress[x.id]?.s;
+  return filt.st === "all" || (filt.st === "todo" ? !s : s === "ko");
+}
+
+function renderProgress() {
+  const list = D.items.filter(x => inFilter(x, true));
+  const ok = list.filter(x => progress[x.id]?.s === "ok").length;
+  const ko = list.filter(x => progress[x.id]?.s === "ko").length;
+  const n = list.length || 1;
+  $("pDone").textContent = `${ok + ko} / ${list.length}`;
+  $("pDoneLbl").textContent = "exercices faits" + (filt.th !== "all" || filt.tc !== "all" ? " dans cette sélection" : "");
+  $("pBar").innerHTML = `<span class="ok" style="width:${ok / n * 100}%"></span><span class="ko" style="width:${ko / n * 100}%"></span>`;
+  $("pLegend").innerHTML = `<span><i style="background:var(--ok)"></i>${ok} réussi${ok > 1 ? "s" : ""} du premier coup</span>`
+    + `<span><i style="background:var(--bad)"></i>${ko} à revoir</span>`
+    + `<span><i style="background:var(--line)"></i>${list.length - ok - ko} à faire</span>`;
+}
+
+// ---------- Position ----------
+// pos : tableau de 64 cases (0 = a1), lettres FEN ou null.
+function parseFen(fen) {
+  const pos = Array(64).fill(null);
+  fen.split(" ")[0].split("/").forEach((row, i) => {
+    let f = 0;
+    for (const ch of row) { if (/\d/.test(ch)) f += +ch; else pos[(7 - i) * 8 + f++] = ch; }
+  });
+  return pos;
+}
+const sqIdx = s => FILES.indexOf(s[0]) + (s[1] - 1) * 8;
+const sqName = i => FILES[i % 8] + (Math.floor(i / 8) + 1);
+function applyUci(pos, uci) {
+  const p = pos.slice(), from = sqIdx(uci.slice(0, 2)), to = sqIdx(uci.slice(2, 4)), pc = p[from];
+  const white = pc === pc.toUpperCase();
+  if (pc.toLowerCase() === "k" && Math.abs(to - from) === 2) {
+    const [rf, rt] = to > from ? [from + 3, from + 1] : [from - 4, from - 1];
+    p[rt] = p[rf]; p[rf] = null;
+  }
+  if (pc.toLowerCase() === "p" && (to - from) % 8 !== 0 && !p[to]) p[to + (white ? -8 : 8)] = null;
+  p[to] = uci[4] ? (white ? uci[4].toUpperCase() : uci[4]) : pc;
+  p[from] = null;
+  return p;
+}
+
+// ---------- Exercice courant ----------
+let order = [], idx = -1;
+let cur = {};   // { x, pos, sel, last, marks, done, tried, assisted, locked }
+
+function goFirst() {
+  order = D.items.filter(x => inFilter(x));
+  renderProgress();
+  load(0);
+}
+function load(i) {
+  $("promo").hidden = true;
+  if (!order.length) {
+    $("ex").hidden = true; $("empty").hidden = false;
+    $("empty").textContent = filt.st === "ko" ? "Rien à revoir dans cette sélection."
+      : filt.st === "todo" ? "Tous les exercices de cette sélection sont faits. Passe sur « À revoir » pour retravailler tes ratés."
+      : "Aucun exercice dans cette sélection.";
+    return;
+  }
+  $("ex").hidden = false; $("empty").hidden = true;
+  idx = (i + order.length) % order.length;
+  const x = order[idx];
+  cur = { x, pos: parseFen(x.fen), sel: null, last: null, marks: {}, done: false, tried: false, assisted: false, locked: false };
+  const white = x.c === "w", g = D.themes[x.th];
+  $("theme").textContent = x.th === "mate" ? `${g} en ${x.mv[0][5]}` : g;
+  $("sw").style.background = white ? "#fff" : "#111";
+  $("turnTxt").textContent = `Tu as les ${white ? "blancs" : "noirs"}, à toi de jouer`;
+  $("ctx").textContent = `Coup ${x.n} contre ${x.o} (${x.oe}), ${dateLabel(x.d)} · ${D.tcLabels[x.tc]}. `
+    + `Avant ton coup, tu avais ${pct(x.wb)} de gain.`;
+  $("counter").textContent = `Exercice ${idx + 1} sur ${order.length}`;
+  $("orient").textContent = white ? "" : "Échiquier vu des noirs";
+  $("fb").hidden = true; $("links").hidden = true; $("bRetry").hidden = true;
+  $("bHint").disabled = false; $("bSol").disabled = false;
+  renderState(); drawBoard();
+}
+function renderState() {
+  const p = progress[cur.x?.id];
+  $("state").textContent = !p ? "" : p.s === "ok" ? `Déjà réussi (${p.t}).` : `Raté la dernière fois (${p.t}) : à toi de le réussir du premier coup.`;
+}
+
+function legalFrom(sq) { return cur.x.mv.filter(m => m[0].slice(0, 2) === sq); }
+function drawBoard() {
+  const x = cur.x, flip = x.c === "b";
+  const dests = cur.sel ? legalFrom(cur.sel).map(m => m[0].slice(2, 4)) : [];
+  const cells = [];
+  for (let r = 7; r >= 0; r--) for (let f = 0; f < 8; f++) cells.push(r * 8 + f);
+  if (flip) cells.reverse();
+  const mine = ch => ch && (ch === ch.toUpperCase()) === (x.c === "w");
+  $("board").innerHTML = cells.map((i, k) => {
+    const n = sqName(i), pc = cur.pos[i];
+    const cls = [(Math.floor(i / 8) + i % 8) % 2 ? "l" : "d"];
+    if (cur.marks[n]) cls.push(cur.marks[n]);
+    else if (cur.last && cur.last.includes(n)) cls.push("last");
+    if (cur.sel === n) cls.push("sel");
+    if (dests.includes(n)) cls.push("dest", ...(pc ? ["cap"] : []));
+    const can = !cur.locked && !cur.done && (mine(pc) || dests.includes(n));
+    if (can) cls.push("can");
+    const glyph = pc ? `<span class="pc ${pc === pc.toUpperCase() ? "pw" : "pb"}">${GLYPH[pc.toLowerCase()]}︎</span>` : "";
+    const co = (k % 8 === 0 ? `<span class="co r">${n[1]}</span>` : "") + (k >= 56 ? `<span class="co f">${n[0]}</span>` : "");
+    const label = pc ? `${n}, ${pc === pc.toUpperCase() ? "blanc" : "noir"} ${{ k: "roi", q: "dame", r: "tour", b: "fou", n: "cavalier", p: "pion" }[pc.toLowerCase()]}` : n;
+    return `<button type="button" data-sq="${n}" class="${cls.join(" ")}" aria-label="${label}">${co}${glyph}</button>`;
+  }).join("");
+}
+
+$("board").addEventListener("click", e => {
+  const b = e.target.closest("button[data-sq]");
+  if (!b || cur.done || cur.locked) return;
+  const n = b.dataset.sq, pc = cur.pos[sqIdx(n)];
+  const mine = pc && (pc === pc.toUpperCase()) === (cur.x.c === "w");
+  if (cur.sel) {
+    const cands = legalFrom(cur.sel).filter(m => m[0].slice(2, 4) === n);
+    if (cands.length === 1) return play(cands[0]);
+    if (cands.length > 1) return askPromo(cands);
+  }
+  cur.sel = mine && cur.sel !== n && legalFrom(n).length ? n : null;
+  $("promo").hidden = true;
+  drawBoard();
+});
+
+function askPromo(cands) {
+  const white = cur.x.c === "w";
+  $("promo").innerHTML = `<span>Promotion :</span>` + ["q", "r", "b", "n"].map(p => {
+    const m = cands.find(c => c[0][4] === p);
+    return m ? `<button type="button" data-u="${m[0]}" aria-label="${{ q: "dame", r: "tour", b: "fou", n: "cavalier" }[p]}" style="color:${white ? "#fff" : "#111"};text-shadow:0 0 1px #000,0 0 1px #000">${GLYPH[p]}︎</button>` : "";
+  }).join("");
+  $("promo").hidden = false;
+  $("promo").onclick = e => {
+    const b = e.target.closest("button[data-u]"); if (!b) return;
+    $("promo").hidden = true;
+    play(cands.find(c => c[0] === b.dataset.u));
+  };
+}
+
+const best = () => cur.x.mv[0];
+function accepted(m) {
+  const b = best();
+  // Mat : un mat aussi rapide (ou d'un coup plus long pour les mats en 3 et plus).
+  return cur.x.th === "mate" ? m[5] > 0 && m[5] <= b[5] + (b[5] >= 3 ? 1 : 0) : m[2] >= b[2] - D.tolerance;
+}
+
+function play(m) {
+  const x = cur.x, ok = accepted(m), first = !cur.tried && !cur.assisted;
+  cur.tried = true; cur.sel = null;
+  cur.pos = applyUci(cur.pos, m[0]);
+  cur.last = [m[0].slice(0, 2), m[0].slice(2, 4)];
+  cur.marks = {};
+  if (first) record(x.id, ok);
+  if (ok) {
+    cur.done = true;
+    drawBoard();
+    const isBest = m[0] === best()[0] || m[2] >= best()[2] - 2;
+    showFeedback(true, isBest ? `${m[1]} : c'est le meilleur coup.` : `${m[1]} : bon coup, accepté.`, m);
+    return;
+  }
+  // Mauvais coup : on montre la réponse de l'adversaire, puis on propose de réessayer.
+  cur.locked = true;
+  cur.marks = { [m[0].slice(2, 4)]: "bad" };
+  drawBoard();
+  showFeedback(false, `${m[1]} n'est pas le bon coup.`, m);
+  if (m[3]) setTimeout(() => {
+    if (cur.x !== x) return;
+    cur.pos = applyUci(cur.pos, m[3]);
+    cur.last = [m[3].slice(0, 2), m[3].slice(2, 4)];
+    cur.marks = {};
+    drawBoard();
+  }, 650);
+  $("bRetry").hidden = false;
+}
+
+function showFeedback(ok, verdict, m) {
+  const x = cur.x, b = best();
+  const lines = [];
+  if (ok) {
+    const others = x.mv.filter(o => o[0] !== m[0] && accepted(o)).slice(0, 4);
+    lines.push(["Ton coup", `<span class="mono">${esc(m[1])}</span> · ${pct(m[2])} de gain`]);
+    if (m[0] !== b[0]) lines.push(["Meilleur coup", `<span class="mono">${esc(b[1])}</span> · ${pct(b[2])}`]);
+    if (others.length) lines.push(["Aussi accepté" + (others.length > 1 ? "s" : ""), others.map(o => `<span class="mono">${esc(o[1])}</span>`).join(", ")]);
+    lines.push(["Dans la partie", `tu as joué <span class="mono">${esc(x.ps)}</span>${partieTail()}`]);
+  } else {
+    const reply = m[4] ? `L'adversaire répond <span class="mono">${esc(m[4])}</span> et ` : "Après ce coup, ";
+    lines.push(["Pourquoi", `${reply}tu tombes à ${pct(m[2])} de gain (contre ${pct(b[2])} avec le meilleur coup).`]);
+    if (m[0] === x.pu) lines.push(["Dans la partie", "c'est exactement le coup que tu avais joué."]);
+  }
+  $("fb").className = "fb " + (ok ? "ok" : "ko");
+  $("fb").innerHTML = `<div class="v">${esc(verdict)}</div><dl>${lines.map(([t, d]) => `<dt>${t}</dt><dd>${d}</dd>`).join("")}</dl>`;
+  $("fb").hidden = false;
+  if (ok) finish();
+}
+function partieTail() {
+  const p = cur.x.mv.find(o => o[0] === cur.x.pu);
+  return p ? ` (${pct(cur.x.wb)} → ${pct(p[2])} de gain)` : "";
+}
+function finish() {
+  cur.done = true;
+  $("bHint").disabled = true; $("bSol").disabled = true; $("bRetry").hidden = true;
+  const x = cur.x;
+  const lichess = "https://lichess.org/analysis/" + x.fen.replace(/ /g, "_") + "?color=" + (x.c === "b" ? "black" : "white");
+  $("links").innerHTML = `<a href="${lichess}" target="_blank" rel="noopener">Analyser sur Lichess</a>`
+    + `<a href="${esc(x.u)}" target="_blank" rel="noopener">Voir la partie sur chess.com</a>`;
+  $("links").hidden = false;
+  renderState();
+}
+
+$("bRetry").addEventListener("click", () => {
+  cur.pos = parseFen(cur.x.fen); cur.last = null; cur.marks = {}; cur.locked = false; cur.sel = null;
+  $("fb").hidden = true; $("bRetry").hidden = true;
+  drawBoard();
+});
+$("bHint").addEventListener("click", () => {
+  if (cur.done) return;
+  if (!cur.tried && !cur.assisted) record(cur.x.id, false);
+  cur.assisted = true;
+  if (cur.locked) { $("bRetry").click(); }
+  cur.marks = { [best()[0].slice(0, 2)]: "hint" };
+  drawBoard();
+  const hints = { mate: "Cherche un échec qui ne laisse aucune case au roi.", tactic: "Un seul coup gagne vraiment : regarde les captures et les échecs.", safe: "Plusieurs coups conviennent : vérifie qu'aucune pièce ne reste en prise après ton coup." };
+  $("fb").className = "fb"; $("fb").innerHTML = `<div class="v">Indice</div><p>La pièce à jouer est encadrée. ${hints[cur.x.th]}</p>`; $("fb").hidden = false;
+});
+$("bSol").addEventListener("click", () => {
+  if (cur.done) return;
+  if (!cur.tried && !cur.assisted) record(cur.x.id, false);
+  cur.assisted = true;
+  const b = best();
+  cur.pos = applyUci(parseFen(cur.x.fen), b[0]);
+  cur.last = null; cur.locked = false; cur.sel = null;
+  cur.marks = { [b[0].slice(0, 2)]: "best", [b[0].slice(2, 4)]: "best" };
+  cur.done = true;
+  drawBoard();
+  const others = cur.x.mv.filter(o => o[0] !== b[0] && accepted(o)).slice(0, 4);
+  $("fb").className = "fb";
+  $("fb").innerHTML = `<div class="v">Solution : <span class="mono">${esc(b[1])}</span> (${pct(b[2])} de gain)</div><dl>`
+    + (others.length ? `<dt>Aussi accepté${others.length > 1 ? "s" : ""}</dt><dd>${others.map(o => `<span class="mono">${esc(o[1])}</span>`).join(", ")}</dd>` : "")
+    + `<dt>Dans la partie</dt><dd>tu as joué <span class="mono">${esc(cur.x.ps)}</span>${partieTail()}</dd></dl>`;
+  $("fb").hidden = false;
+  finish();
+});
+$("bNext").addEventListener("click", () => {
+  // En « À faire » / « À revoir », la liste se recalcule : l'exercice traité en sort.
+  const curId = cur.x?.id;
+  const sel = D.items.filter(x => inFilter(x, true));
+  const at = sel.findIndex(x => x.id === curId);
+  let nextX = null;
+  for (let k = 1; k <= sel.length && !nextX; k++) {
+    const c = sel[(at + k) % sel.length];
+    if (c.id !== curId && inFilter(c)) nextX = c;
+  }
+  order = D.items.filter(x => inFilter(x) && (x.id !== curId || !nextX));
+  load(nextX ? order.indexOf(nextX) : 0);
+});
+
+goFirst();
+</script>

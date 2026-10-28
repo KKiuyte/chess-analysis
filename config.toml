@@ -1,0 +1,67 @@
+# Analyse des parties chess.com — paramètres
+
+username = "kiuyte"                  # joueur principal (voir [players] pour les autres)
+# contact : email envoyé dans le User-Agent des requêtes, à mettre dans config.local.toml
+# (non versionné) ou dans la variable d'environnement CHESS_CONTACT
+
+[period]
+months = 6                           # mois calendaires, mois en cours inclus
+# since = "2026-05-01"               # alternative : date de début explicite (prioritaire sur months)
+
+[filters]
+rated_only = true                    # exclut les parties non classées
+standard_only = true                 # exclut Chess960 et autres variantes
+
+# Une entrée = une cadence chess.com (time_class) = un dashboard.
+# Limite moteur : `depth = N` (profondeur fixe) ou `time = 0.1` (secondes par position).
+# `min_games` (optionnel) remplace [openings].min_games pour ce dashboard.
+[time_classes.blitz]
+depth = 14
+
+[time_classes.daily]
+depth = 18
+min_games = 3                        # peu de parties en daily : seuil « ouverture fréquente » abaissé
+
+# Autres joueurs : chaque clé remplace celle de premier niveau pour ce joueur.
+[players.yoy008]
+time_classes.rapid = { depth = 16 }
+time_classes.daily = { depth = 18, min_games = 3 }
+
+[players.liavek]
+time_classes.blitz = { depth = 14 }
+time_classes.bullet = { depth = 12 }
+
+[engine]
+path = "bin/stockfish"
+processes = 2                        # nombre de process Stockfish en parallèle
+threads = 1                          # threads par process
+hash_mb = 64
+nice = 10                            # priorité basse pour ne pas gêner les autres tâches de la VM
+
+[classification]                     # seuils en points de % de gain perdus
+inaccuracy = 10
+mistake = 20
+blunder = 30
+lost_below = 5                       # position déjà perdue (< 5 %) : coup ignoré
+won_above = 95                       # position déjà gagnée (> 95 %) : coup ignoré...
+still_won_above = 90                 # ...si on reste au-dessus de 90 % après le coup
+
+[phases]
+opening_moves = 12                   # coups complets (12 à moi + 12 à l'adversaire)
+endgame_material = 13                # finale dès qu'un camp a ≤ 13 points hors pions et rois
+
+[openings]
+min_games = 10                       # « fréquente » = au moins N parties
+low_score = 45                       # « faible score » = score < 45 %
+
+[output]
+dir = "output"
+top_positions = 10
+
+# Exercices sur échiquier tirés de mes erreurs et gaffes (étape "exercises")
+[exercises]
+players = ["kiuyte", "yoy008"]   # joueurs qui ont une page d'exercices
+depth = 12                       # profondeur pour évaluer tous les coups légaux de chaque position
+max = 120                        # nombre d'exercices par joueur
+tolerance = 8                    # un coup est accepté s'il perd moins de 8 points de % de gain vs le meilleur
+min_win_before = 30              # ignorer les positions déjà très mauvaises avant l'erreur
