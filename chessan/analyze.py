@@ -95,48 +95,35 @@ def pending_tasks(cfg, con):
     return tasks
 
 
-def analyze(cfg, con):
-    tasks = pending_tasks(cfg, con)
-    if not tasks:
-        print("Analyse moteur : rien de nouveau")
-        return
-    games = {t[0][0]: t for t in tasks}            # game_id → ((id, couleur, coups, limite), clé)
-    need = {gid: _positions(t[0][2]) for gid, t in games.items()}
-    jobs = [(fen, t[0][3], gid) for gid, t in games.items() for fen in need[gid]]
-    evals = {gid: {} for gid in games}
-    n = len(tasks)
-    procs = cfg["engine"]["processes"]
-    print(f"Analyse moteur : {n} partie(s), {len(jobs)} positions à analyser avec {procs} process")
-    if cfg.get("on_progress"):
-        cfg["on_progress"](0, n)
-    start = time.time()
-    done = 0
+def cost(task):
+    """Coût estimé d'une partie : positions à évaluer, pondérées par la profondeur (≈ ×2 tous les 2 niveaux)."""
+    (_, _, moves, limit_kwargs), _ = task
+    depth = limit_kwargs.get("depth", 14)
+    return len(_positions(moves)) * 2 ** ((depth - 12) / 2)
 
-    def save(gid):
-        nonlocal done
+
+def evaluate(tasks, engine_cfg, procs, on_game):
+    """Analyse des parties `tasks` (cf. pending_tasks) avec `procs` Stockfish, répartis position par
+    position. on_game(game_id, clé, lignes pour moves) est appelé dès qu'une partie est complète."""
+    games = {t[0][0]: t for t in tasks}
+    need = {gid: _positions(t[0][2]) for gid, t in games.items()}
+    evals = {gid: {} for gid in games}
+
+    def finish(gid):
         (game_id, color, moves, _), key = games[gid]
-        con.executemany(
-            """UPDATE moves SET cp_before=?, cp_after=?, win_before=?, win_after=?, best_uci=?, best_san=?
-               WHERE game_id=? AND ply=?""", _game_results(game_id, color, moves, evals.pop(gid)))
-        con.execute("INSERT OR REPLACE INTO analyzed_games VALUES (?, ?, ?)",
-                    (game_id, key, dt.datetime.now(dt.timezone.utc).isoformat()))
-        con.commit()
-        done += 1
-        if cfg.get("on_progress"):
-            cfg["on_progress"](done, n)
-        if done % 10 == 0 or done == n:
-            elapsed = time.time() - start
-            print(f"  {done}/{n} parties — {elapsed / 60:.1f} min écoulées, ~{elapsed / done * (n - done) / 60:.0f} min restantes",
-                  flush=True)
+        on_game(game_id, key, _game_results(game_id, color, moves, evals.pop(gid)))
 
     for gid in [g for g in games if not need[g]]:   # partie sans coup à moi à évaluer
-        save(gid)
-    pool = mp.Pool(procs, initializer=_init_worker, initargs=(cfg["engine"],))
+        finish(gid)
+    jobs = [(fen, games[gid][0][3], gid) for gid in games for fen in need[gid]]
+    if not jobs:
+        return
+    pool = mp.Pool(procs, initializer=_init_worker, initargs=(engine_cfg,))
     try:
         for gid, fen, cp, best in pool.imap_unordered(_eval_position, jobs, chunksize=2):
             evals[gid][fen] = (cp, best)
             if len(evals[gid]) == len(need[gid]):
-                save(gid)
+                finish(gid)
     except KeyboardInterrupt:
         print("\nInterrompu : les parties déjà analysées sont enregistrées, relancer pour reprendre.")
         raise
@@ -146,3 +133,37 @@ def analyze(cfg, con):
         # s'arrête de lui-même quand son entrée standard se ferme.
         pool.terminate()
         pool.join()
+
+
+def save_game(con, game_id, key, results):
+    con.executemany(
+        """UPDATE moves SET cp_before=?, cp_after=?, win_before=?, win_after=?, best_uci=?, best_san=?
+           WHERE game_id=? AND ply=?""", [tuple(r) for r in results])
+    con.execute("INSERT OR REPLACE INTO analyzed_games VALUES (?, ?, ?)",
+                (game_id, key, dt.datetime.now(dt.timezone.utc).isoformat()))
+    con.commit()
+
+
+def analyze(cfg, con, tasks=None):
+    """Analyse locale des parties en attente (ou de `tasks`), enregistrées au fil de l'eau."""
+    tasks = pending_tasks(cfg, con) if tasks is None else tasks
+    if not tasks:
+        print("Analyse moteur : rien de nouveau")
+        return
+    n, procs = len(tasks), cfg["engine"]["processes"]
+    print(f"Analyse moteur : {n} partie(s), {sum(len(_positions(t[0][2])) for t in tasks)} positions "
+          f"à analyser avec {procs} process")
+    start, done = time.time(), 0
+
+    def on_game(game_id, key, results):
+        nonlocal done
+        save_game(con, game_id, key, results)
+        done += 1
+        if cfg.get("on_game"):
+            cfg["on_game"]()
+        if done % 10 == 0 or done == n:
+            elapsed = time.time() - start
+            print(f"  {done}/{n} parties — {elapsed / 60:.1f} min écoulées, ~{elapsed / done * (n - done) / 60:.0f} min restantes",
+                  flush=True)
+
+    evaluate(tasks, cfg["engine"], procs, on_game)

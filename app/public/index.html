@@ -304,7 +304,9 @@ const fmtTime = ts => { const d = ts.toDate(); return `${d.toLocaleDateString("f
 const TC = { bullet: "Bullet", blitz: "Blitz", rapid: "Rapide", daily: "Daily" };
 const MOIS = ["janvier", "février", "mars", "avril", "mai", "juin", "juillet", "août", "septembre", "octobre", "novembre", "décembre"];
 const plural = (n, w) => `${n} ${w}${n > 1 ? "s" : ""}`;
-const stepTxt = r => r.stage === 1 && r.progress ? `analyse Stockfish : ${r.progress[0]} / ${r.progress[1]} parties`
+// Avancement de l'analyse : compteur commun à toutes les machines (progressDone / progressTotal).
+const prog = r => r.progressTotal != null ? [Math.min(r.progressDone || 0, r.progressTotal), r.progressTotal] : r.progress || null;
+const stepTxt = r => r.stage === 1 && prog(r) ? `analyse Stockfish : ${prog(r)[0]} / ${prog(r)[1]} parties`
   : r.stage === 2 && r.exProgress ? `exercices : ${r.exProgress[0]} / ${r.exProgress[1]} positions`
   : (r.step || "en file d'attente").replace(/^./, c => c.toLowerCase());
 const skippedTxt = sk => sk.map(x => `${TC[x.tc] || x.tc} : ${plural(x.n, "partie")}, il en faut au moins ${x.min} pour un dashboard`).join(" · ");
@@ -332,7 +334,9 @@ function renderSteps(r) {
   }
   const items = [
     ["Récupération de tes parties sur chess.com", found],
-    ["Analyse de chaque coup par Stockfish", r.progress ? `${r.progress[0]} / ${plural(r.progress[1], "partie")}${stage === 1 ? remaining("a", r.progress) : ""}${stage === 1 ? bar(r.progress) : ""}`
+    ["Analyse de chaque coup par Stockfish", prog(r)?.[1] ? `${prog(r)[0]} / ${plural(prog(r)[1], "partie")}`
+        + (r.machines > 1 ? ` · ${r.machines} machines en parallèle` : "")
+        + (stage === 1 ? remaining("a", prog(r)) + bar(prog(r)) : "")
       : stage > 1 ? "aucune nouvelle partie à analyser" : ""],
     ["Dashboards et exercices", r.exProgress && stage === 2 ? `positions d'exercice évaluées : ${r.exProgress[0]} / ${r.exProgress[1]}${remaining("e", r.exProgress)}${bar(r.exProgress)}` : ""],
     ["Publication", ""],
