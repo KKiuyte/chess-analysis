@@ -276,14 +276,17 @@ let remote = null, writing = false, dirty = false;
 function setSync(txt, warn) { $("sync").textContent = txt; $("sync").classList.toggle("warn", !!warn); }
 function saveLocal() { try { localStorage.setItem(LS_KEY, JSON.stringify(progress)); } catch (e) {} }
 
+let retryT = null;
 async function flush() {
   if (!remote || writing || !dirty) return;
   writing = true; dirty = false;
+  let failed = false;
   try {
     await remote.set({ p: progress, v: 1 });
     setSync("Progression synchronisée en ligne");
   } catch (e) {
-    if (e && (e.code === "invalid_argument" || e.code === "not_granted" || e.code === "revoked")) {
+    failed = true;
+    if (e && ["invalid_argument", "invalid-argument", "permission-denied", "not_granted", "revoked"].includes(e.code)) {
       remote = null;
       setSync("Ta progression est gardée sur cet appareil seulement (pas d'accès en écriture à cette page).", true);
     } else {
@@ -291,12 +294,15 @@ async function flush() {
       setSync("Synchronisation impossible pour l'instant, nouvel essai au prochain exercice.", true);
     }
   } finally { writing = false; }
-  if (dirty && remote) flush();
+  // Coups joués pendant l'écriture : on enchaîne. Après une erreur : nouvel essai dans 5 s,
+  // jamais en boucle immédiate (une erreur synchrone gelait la page).
+  if (dirty && remote && !failed) flush();
+  else if (dirty && remote && !retryT) retryT = setTimeout(() => { retryT = null; flush(); }, 5000);
 }
 function record(id, ok) {
   const cur = progress[id] || { a: 0 };
   progress[id] = { s: ok ? "ok" : "ko", a: cur.a + 1, t: new Date().toISOString().slice(0, 10) };
-  saveLocal(); dirty = true; flush(); renderProgress();
+  saveLocal(); dirty = true; setTimeout(flush, 0); renderProgress();
 }
 
 // Document de progression : celui du compte Google dans l'appli Firebase (page affichée
@@ -474,7 +480,7 @@ function drawBoard() {
   for (let r = 7; r >= 0; r--) for (let f = 0; f < 8; f++) cells.push(r * 8 + f);
   if (flip) cells.reverse();
   const mine = ch => ch && (ch === ch.toUpperCase()) === (x.c === "w");
-  $("board").innerHTML = cells.map((i, k) => {
+  const html = cells.map((i, k) => {
     const n = sqName(i), pc = cur.pos[i];
     const cls = [(Math.floor(i / 8) + i % 8) % 2 ? "l" : "d"];
     if (cur.marks[n]) cls.push(cur.marks[n]);
@@ -488,11 +494,30 @@ function drawBoard() {
     const glyph = pc ? `<span class="pc ${pc === pc.toUpperCase() ? "pw" : "pb"}">${GLYPH[pc.toLowerCase()]}︎</span>` : "";
     const co = (k % 8 === 0 ? `<span class="co r">${n[1]}</span>` : "") + (k >= 56 ? `<span class="co f">${n[0]}</span>` : "");
     const label = pc ? `${n}, ${pc === pc.toUpperCase() ? "blanc" : "noir"} ${{ k: "roi", q: "dame", r: "tour", b: "fou", n: "cavalier", p: "pion" }[pc.toLowerCase()]}` : n;
-    return `<button type="button" data-sq="${n}" class="${cls.join(" ")}" aria-label="${label}">${co}${glyph}</button>`;
-  }).join("");
+    return [n, cls.join(" "), label, co + glyph];
+  });
+  // On ne touche qu'aux cases qui changent : reconstruire les 64 cases à chaque toucher se sent sur mobile.
+  const B = $("board"), key = cells.join();
+  if (B.dataset.cells !== key) {
+    B.dataset.cells = key;
+    B.innerHTML = html.map(([n]) => `<button type="button" data-sq="${n}"></button>`).join("");
+  }
+  html.forEach(([, cls, label, inner], k) => {
+    const el = B.children[k];
+    if (el.className !== cls) el.className = cls;
+    if (el.__inner !== inner) { el.innerHTML = inner; el.__inner = inner; el.setAttribute("aria-label", label); }
+  });
 }
 
-$("board").addEventListener("click", e => {
+// Réaction dès que le doigt (ou la souris) touche la case : le « click » arrive plus tard sur mobile.
+// Le click reste utilisé pour le clavier (Entrée / Espace, e.detail === 0).
+$("board").addEventListener("pointerdown", e => {
+  if (e.button !== 0 || !e.isPrimary) return;
+  e.preventDefault();
+  tapSquare(e);
+});
+$("board").addEventListener("click", e => { if (e.detail === 0) tapSquare(e); });
+function tapSquare(e) {
   const b = e.target.closest("button[data-sq]");
   if (!b || cur.done || cur.locked) return;
   const n = b.dataset.sq, pc = cur.pos[sqIdx(n)];
@@ -506,7 +531,7 @@ $("board").addEventListener("click", e => {
   cur.sel = mine && cur.sel !== n ? n : null;
   $("promo").hidden = true; $("nudge").hidden = true;
   drawBoard();
-});
+}
 
 // Pièce sans coup légal : on dit pourquoi au lieu de ne rien faire.
 function blocked(n) {

@@ -245,7 +245,9 @@ window.chessApp = {
     const ref = doc(db, "progress", uid);
     return {
       onSnapshot: (cb, err) => onSnapshot(ref, s => cb({ exists: s.exists(), data: () => s.data() }), err),
-      set: v => setDoc(ref, v),
+      // Copie dans le contexte de l'appli : Firestore refuse les objets créés dans l'iframe
+      // (« custom Object »), même identiques.
+      set: v => setDoc(ref, JSON.parse(JSON.stringify(v))),
     };
   },
 };
