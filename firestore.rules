@@ -1,0 +1,44 @@
+rules_version = '2';
+
+// Règles Firestore de l'appli « Analyse d'échecs » (projet analyse-echecs).
+// Déploiement : firebase deploy --only firestore:rules
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() { return request.auth != null; }
+
+    // Analyses publiées par la VM (SDK Admin, qui ignore ces règles).
+    // Les parties chess.com sont publiques : tout compte connecté peut les lire.
+    match /players/{pseudo} {
+      allow read: if signedIn();
+      allow write: if false;
+      match /pages/{page} {
+        allow read: if signedIn();
+        allow write: if false;
+      }
+    }
+
+    // Profil : le pseudo chess.com choisi. Réservé à son propriétaire.
+    match /users/{uid} {
+      allow read, write: if signedIn() && request.auth.uid == uid;
+    }
+
+    // Progression des exercices, propre à chaque compte.
+    match /progress/{uid} {
+      allow read, write: if signedIn() && request.auth.uid == uid;
+    }
+
+    // File d'attente des analyses demandées (traitée par la VM, étape 2).
+    // Une seule demande par pseudo ; seul le traitement côté serveur la modifie ensuite.
+    match /requests/{pseudo} {
+      allow read: if signedIn();
+      allow create: if signedIn()
+        && pseudo.matches('^[a-z0-9_-]{3,25}$')
+        && request.resource.data.keys().hasOnly(['pseudo', 'uid', 'created', 'status'])
+        && request.resource.data.pseudo == pseudo
+        && request.resource.data.uid == request.auth.uid
+        && request.resource.data.status == 'pending'
+        && request.resource.data.created == request.time;
+      allow update, delete: if false;
+    }
+  }
+}

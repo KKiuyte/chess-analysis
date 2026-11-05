@@ -2,22 +2,22 @@
 """Commande unique : collecte → analyse moteur → dashboards.
 
     .venv/bin/python run.py              # tout
-    .venv/bin/python run.py collect      # une seule étape (collect | analyze | dashboard | exercises | site)
+    .venv/bin/python run.py collect      # une seule étape (collect | analyze | dashboard | exercises | publish | site)
     .venv/bin/python run.py --user yoy008  # un seul joueur
 """
 import argparse
 
-from chessan import analyze, collect, config, dashboard, db, exercises, site
+from chessan import analyze, collect, config, dashboard, db, exercises, publish, site
 
 
 def main():
     p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    p.add_argument("steps", nargs="*", choices=["collect", "analyze", "dashboard", "exercises", "site"],
+    p.add_argument("steps", nargs="*", choices=["collect", "analyze", "dashboard", "exercises", "publish", "site"],
                    help="étapes à lancer (défaut : toutes)")
     p.add_argument("--config", help="chemin vers config.toml")
     p.add_argument("--user", help="un seul joueur (défaut : tous ceux de la config)")
     args = p.parse_args()
-    steps = args.steps or ["collect", "analyze", "dashboard", "exercises", "site"]
+    steps = args.steps or ["collect", "analyze", "dashboard", "exercises", "publish", "site"]
 
     for user in [args.user] if args.user else config.players(args.config):
         cfg = config.load(args.config, user)
@@ -32,6 +32,8 @@ def main():
             dashboard.build(cfg, con)
         if "exercises" in steps and user in cfg["exercises"]["players"]:
             exercises.build(cfg, con)
+        if "publish" in steps:
+            publish.publish(cfg)
         con.close()
 
     if "site" in steps:

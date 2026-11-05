@@ -86,6 +86,12 @@ def standalone(fragment):
             f'</head>\n<body>\n{fragment}\n</body>\n</html>\n')
 
 
+def save_json(out, page, data):
+    """Données brutes de la page, reprises par l'étape « publish » (appli Firebase)."""
+    (out / "data").mkdir(parents=True, exist_ok=True)
+    (out / "data" / f"{page}.json").write_text(json.dumps(data, ensure_ascii=False, separators=(",", ":")))
+
+
 def build(cfg, con):
     template = (cfg["root"] / "templates" / "dashboard.html").read_text()
     out = cfg["out_dir"]
@@ -95,5 +101,6 @@ def build(cfg, con):
         fragment = page_html(template, data)
         (out / f"dashboard-{tc}.html").write_text(standalone(fragment))
         (out / "fragments" / f"dashboard-{tc}.html").write_text(fragment)
+        save_json(out, f"dashboard-{tc}", data)
         analyzed = sum(g["a"] for g in data["games"])
         print(f"Dashboard {tc} : {len(data['games'])} parties ({analyzed} analysées) → {out / f'dashboard-{tc}.html'}")

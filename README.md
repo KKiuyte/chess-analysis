@@ -30,6 +30,21 @@ Tout est incrémental, on peut relancer sans risque :
 - **analyse** : seules les parties pas encore analysées (ou analysées avec une autre limite moteur) passent dans
   Stockfish. Chaque partie est enregistrée dès qu'elle est finie : un Ctrl-C ne perd que les parties en cours.
 
+## Appli web (Firebase, en construction)
+
+https://analyse-echecs.web.app : connexion Google, on donne son pseudo chess.com, puis on voit ses dashboards et
+ses exercices. La progression des exercices est gardée dans le compte.
+
+- **Projet Firebase** `analyse-echecs` (plan gratuit Spark) : Hosting + Authentication (Google) + Firestore (eur3).
+- **Appli** : `app/public/index.html`, un seul fichier. Les pages sont les templates de `templates/`, copiés dans
+  `app/public/views/` au déploiement et remplis avec les données Firestore dans une iframe.
+- **Firestore** : `players/{pseudo}` et `players/{pseudo}/pages/{id}` (écrits par l'étape `publish`),
+  `users/{uid}` (pseudo choisi), `progress/{uid}` (exercices), `requests/{pseudo}` (analyses demandées, pas encore
+  traitées automatiquement). Règles dans `firestore.rules`.
+- **Étape `publish`** : envoie `output/<pseudo>/data/*.json` dans Firestore avec la clé de compte de service
+  `secrets/firebase-publisher.json` (non versionnée). Sans clé, l'étape est ignorée.
+- **Déployer** : `firebase deploy --only hosting,firestore:rules`
+
 ## Installation (déjà faite sur la VM)
 
 ```bash

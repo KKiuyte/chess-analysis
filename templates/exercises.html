@@ -86,6 +86,10 @@ a { color: var(--accent); }
 .board .sel::after { background: var(--hl-sel); }
 .board .bad::after { background: var(--hl-bad); }
 .board .best::after { background: var(--hl-best); }
+.board .check::after { background: radial-gradient(circle, rgba(220, 40, 40, .9) 0%, rgba(220, 40, 40, .5) 45%, transparent 75%); }
+.board .flash::after { background: var(--hl-bad); animation: flash .45s ease-in-out 3 alternate; }
+@keyframes flash { from { opacity: 1; } to { opacity: .2; } }
+@media (prefers-reduced-motion: reduce) { .board .flash::after { animation: none; } }
 .board .hint::after { box-shadow: inset 0 0 0 4px var(--hl-best); }
 .board .dest::before { content: ""; position: absolute; width: 30%; height: 30%; border-radius: 50%; background: var(--dot); z-index: 2; pointer-events: none; }
 .board .dest.cap::before { width: 86%; height: 86%; background: none; box-shadow: inset 0 0 0 5px var(--dot); }
@@ -103,6 +107,7 @@ a { color: var(--accent); }
 .panel .theme { display: inline-flex; align-self: flex-start; font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: var(--accent); background: var(--accent-soft); border-radius: 999px; padding: 3px 10px; }
 .turn { display: flex; align-items: center; gap: 10px; font-size: 17px; font-weight: 700; }
 .turn .sw { width: 18px; height: 18px; border-radius: 50%; border: 1px solid var(--faint); flex: none; }
+.nudge { font-size: 14px; font-weight: 700; color: var(--bad); }
 .ctx { color: var(--muted); font-size: 14px; }
 .state { font-size: 13px; color: var(--muted); }
 .fb { border-radius: var(--r); padding: 12px 14px; display: flex; flex-direction: column; gap: 6px; border: 1px solid var(--line); background: var(--surface); }
@@ -155,6 +160,7 @@ footer { font-size: 13px; color: var(--muted); border-top: 1px solid var(--line)
     <div class="panel">
       <span class="theme" id="theme"></span>
       <div class="turn"><span class="sw" id="sw"></span><span id="turnTxt"></span></div>
+      <p class="nudge" id="nudge" role="status" aria-live="polite" hidden></p>
       <p class="ctx" id="ctx"></p>
       <p class="state" id="state"></p>
       <div class="fb" id="fb" hidden></div>
@@ -162,6 +168,7 @@ footer { font-size: 13px; color: var(--muted); border-top: 1px solid var(--line)
         <button class="btn" id="bHint" type="button">Indice</button>
         <button class="btn" id="bSol" type="button">Voir la solution</button>
         <button class="btn" id="bRetry" type="button" hidden>Réessayer</button>
+        <button class="btn" id="bErr" type="button" hidden>Voir mon erreur</button>
         <button class="btn primary" id="bNext" type="button">Suivant</button>
       </div>
       <div class="links" id="links" hidden></div>
@@ -243,12 +250,21 @@ function record(id, ok) {
   saveLocal(); dirty = true; flush(); renderProgress();
 }
 
-(async () => {
-  if (!window.claude?.use) { setSync("Progression gardée sur cet appareil seulement.", true); return; }
+// Document de progression : celui du compte Google dans l'appli Firebase (page affichée
+// dans son iframe), sinon celui du viewer sur claude.ai.
+async function progressRef() {
+  let host = null;
+  try { host = window.parent !== window ? window.parent.chessApp : null; } catch (e) {}
+  if (host?.progressDoc) return host.progressDoc();
+  if (!window.claude?.use) return null;
   const [db, user] = await Promise.all([claude.use("db"), claude.use("user")]);
   const uid = user ? await user.id() : null;
-  if (!db || !uid) { setSync("Progression gardée sur cet appareil seulement (connecte-toi à claude.ai pour la synchroniser).", true); return; }
-  const ref = db.doc(`data/users/${uid}/progress`);
+  return db && uid ? db.doc(`data/users/${uid}/progress`) : null;
+}
+
+(async () => {
+  const ref = await progressRef();
+  if (!ref) { setSync("Progression gardée sur cet appareil seulement.", true); return; }
   let first = true;
   ref.onSnapshot(snap => {
     const p = (snap.exists && snap.data()?.p) || {};
@@ -358,12 +374,13 @@ function load(i) {
   const white = x.c === "w", g = D.themes[x.th];
   $("theme").textContent = x.th === "mate" ? `${g} en ${x.mv[0][5]}` : g;
   $("sw").style.background = white ? "#fff" : "#111";
-  $("turnTxt").textContent = `Tu as les ${white ? "blancs" : "noirs"}, à toi de jouer`;
+  $("turnTxt").textContent = `Tu as les ${white ? "blancs" : "noirs"}, ` + (x.chk ? "ton roi est en échec" : "à toi de jouer");
   $("ctx").textContent = `Coup ${x.n} contre ${x.o} (${x.oe}), ${dateLabel(x.d)} · ${D.tcLabels[x.tc]}. `
     + `Avant ton coup, tu avais ${pct(x.wb)} de gain.`;
   $("counter").textContent = `Exercice ${idx + 1} sur ${order.length}`;
   $("orient").textContent = white ? "" : "Échiquier vu des noirs";
-  $("fb").hidden = true; $("links").hidden = true; $("bRetry").hidden = true;
+  $("fb").hidden = true; $("links").hidden = true; $("bRetry").hidden = true; $("nudge").hidden = true;
+  $("bErr").hidden = true; $("bErr").textContent = "Voir mon erreur";
   $("bHint").disabled = false; $("bSol").disabled = false;
   renderState(); drawBoard();
 }
@@ -386,6 +403,8 @@ function drawBoard() {
     if (cur.marks[n]) cls.push(cur.marks[n]);
     else if (cur.last && cur.last.includes(n)) cls.push("last");
     if (cur.sel === n) cls.push("sel");
+    if (x.chk && !cur.last && !cur.done && pc === (x.c === "w" ? "K" : "k")) cls.push("check");
+    if (cur.flash === n) cls.push("flash");
     if (dests.includes(n)) cls.push("dest", ...(pc ? ["cap"] : []));
     const can = !cur.locked && !cur.done && (mine(pc) || dests.includes(n));
     if (can) cls.push("can");
@@ -406,10 +425,26 @@ $("board").addEventListener("click", e => {
     if (cands.length === 1) return play(cands[0]);
     if (cands.length > 1) return askPromo(cands);
   }
-  cur.sel = mine && cur.sel !== n && legalFrom(n).length ? n : null;
-  $("promo").hidden = true;
+  if (mine && !legalFrom(n).length) return blocked(n);
+  cur.sel = mine && cur.sel !== n ? n : null;
+  $("promo").hidden = true; $("nudge").hidden = true;
   drawBoard();
 });
+
+// Pièce sans coup légal : on dit pourquoi au lieu de ne rien faire.
+function blocked(n) {
+  const c = cur, king = sqName(cur.pos.indexOf(cur.x.c === "w" ? "K" : "k"));
+  const inCheck = cur.x.chk && !cur.last;
+  cur.sel = null;
+  cur.flash = inCheck ? king : n;
+  nudge(!inCheck ? "Cette pièce ne peut pas bouger : elle est clouée ou bloquée."
+    : n === king ? "Ton roi est en échec et n'a aucune case libre : interpose une pièce ou prends l'attaquant."
+    : "Ton roi est en échec : cette pièce ne peut ni s'interposer ni prendre l'attaquant.");
+  drawBoard();
+  clearTimeout(c.flashT);
+  c.flashT = setTimeout(() => { if (cur === c) { c.flash = null; drawBoard(); } }, 1400);
+}
+function nudge(t) { $("nudge").textContent = t; $("nudge").hidden = false; }
 
 function askPromo(cands) {
   const white = cur.x.c === "w";
@@ -434,7 +469,7 @@ function accepted(m) {
 
 function play(m) {
   const x = cur.x, ok = accepted(m), first = !cur.tried && !cur.assisted;
-  cur.tried = true; cur.sel = null;
+  cur.tried = true; cur.sel = null; $("nudge").hidden = true;
   cur.pos = applyUci(cur.pos, m[0]);
   cur.last = [m[0].slice(0, 2), m[0].slice(2, 4)];
   cur.marks = {};
@@ -482,7 +517,7 @@ function showFeedback(ok, verdict, m) {
 }
 function partieTail() {
   const p = cur.x.mv.find(o => o[0] === cur.x.pu);
-  return p ? ` (${pct(cur.x.wb)} → ${pct(p[2])} de gain)` : "";
+  return p ? ` (${pct(cur.x.wb)} → ${pct(p[2])} de gain)` + (p[4] ? `, puni par <span class="mono">${esc(p[4])}</span>` : "") : "";
 }
 function finish() {
   cur.done = true;
@@ -492,8 +527,34 @@ function finish() {
   $("links").innerHTML = `<a href="${lichess}" target="_blank" rel="noopener">Analyser sur Lichess</a>`
     + `<a href="${esc(x.u)}" target="_blank" rel="noopener">Voir la partie sur chess.com</a>`;
   $("links").hidden = false;
+  $("bErr").hidden = !x.mv.some(o => o[0] === x.pu);
   renderState();
 }
+
+// Après la bonne réponse : rejouer sur l'échiquier le coup de la partie et la réponse qui le punit.
+$("bErr").addEventListener("click", () => {
+  const c = cur, x = c.x;
+  if (c.saved) {
+    Object.assign(c, c.saved); c.saved = null;
+    $("bErr").textContent = "Voir mon erreur";
+    return drawBoard();
+  }
+  const p = x.mv.find(o => o[0] === x.pu);
+  if (!p) return;
+  c.saved = { pos: c.pos, last: c.last, marks: c.marks };
+  c.pos = applyUci(parseFen(x.fen), x.pu);
+  c.last = null;
+  c.marks = { [x.pu.slice(0, 2)]: "bad", [x.pu.slice(2, 4)]: "bad" };
+  $("bErr").textContent = "Revoir la bonne réponse";
+  drawBoard();
+  if (p[3]) setTimeout(() => {
+    if (cur !== c || !c.saved) return;
+    c.pos = applyUci(c.pos, p[3]);
+    c.marks = { [x.pu.slice(2, 4)]: "bad" };
+    c.last = [p[3].slice(0, 2), p[3].slice(2, 4)];
+    drawBoard();
+  }, 700);
+});
 
 $("bRetry").addEventListener("click", () => {
   cur.pos = parseFen(cur.x.fen); cur.last = null; cur.marks = {}; cur.locked = false; cur.sel = null;

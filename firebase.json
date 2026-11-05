@@ -1,0 +1,13 @@
+{
+  "hosting": {
+    "public": "app/public",
+    "predeploy": ["mkdir -p app/public/views && cp templates/dashboard.html templates/exercises.html app/public/views/"],
+    "ignore": ["firebase.json", "**/.*"],
+    "headers": [
+      { "source": "**/*.html", "headers": [{ "key": "Cache-Control", "value": "no-cache" }] }
+    ]
+  },
+  "firestore": {
+    "rules": "firestore.rules"
+  }
+}

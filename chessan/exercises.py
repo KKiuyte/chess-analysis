@@ -12,7 +12,7 @@ import chess
 import chess.engine
 
 from . import analyze
-from .dashboard import TC_LABELS, ignored, standalone
+from .dashboard import TC_LABELS, ignored, save_json, standalone
 
 THEMES = {
     "mate": "Trouve le mat",
@@ -126,6 +126,7 @@ def build_data(cfg, con):
             "tc": r["time_class"], "u": r["url"], "d": r["date"], "o": r["opponent"], "oe": r["opp_elo"],
             "n": r["move_no"], "c": r["my_color"], "pu": r["uci"], "ps": r["san"],
             "wb": round(r["win_before"], 1),
+            "chk": chess.Board(r["fen_before"]).is_check(),
             "mv": moves,
         })
     # Répartition équilibrée entre thèmes, à tour de rôle, dans l'ordre de gravité.
@@ -156,6 +157,7 @@ def build(cfg, con):
     (out / "fragments").mkdir(parents=True, exist_ok=True)
     (out / "exercises.html").write_text(standalone(fragment))
     (out / "fragments" / "exercises.html").write_text(fragment)
+    save_json(out, "exercises", data)
     counts = {t: sum(1 for x in data["items"] if x["th"] == t) for t in THEMES}
     print(f"Exercices : {len(data['items'])} ({', '.join(f'{THEMES[t]} {n}' for t, n in counts.items())})"
           f" → {out / 'exercises.html'}")

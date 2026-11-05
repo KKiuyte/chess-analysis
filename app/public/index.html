@@ -1,0 +1,313 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Analyse d'échecs</title>
+<meta name="description" content="Tes parties chess.com analysées par Stockfish : dashboards par cadence et exercices tirés de tes erreurs.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%E2%99%9E%3C/text%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700&family=Atkinson+Hyperlegible:wght@400;700&display=swap">
+<style>
+/* L'appli : une barre (compte + onglets) et, dessous, la page d'analyse dans une iframe.
+   Les pages (dashboards, exercices) sont les templates du pipeline, remplis avec les
+   données Firestore. */
+:root {
+  --bg: #f4f5f1; --surface: #fcfcfa; --fg: #171a17; --muted: #586058; --line: #dde1d9;
+  --accent: #3b6a44; --accent-soft: #e3ece2; --bad: #c43535;
+  --f-display: "Bricolage Grotesque", "Segoe UI", system-ui, sans-serif;
+  --f-body: "Atkinson Hyperlegible", system-ui, -apple-system, sans-serif;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #121513; --surface: #1a1d1b; --fg: #edefeb; --muted: #a4aca5; --line: #2b312d;
+    --accent: #86b98e; --accent-soft: #223026; --bad: #ec6b6b; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #121513; --surface: #1a1d1b; --fg: #edefeb; --muted: #a4aca5; --line: #2b312d;
+  --accent: #86b98e; --accent-soft: #223026; --bad: #ec6b6b; color-scheme: dark;
+}
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+html, body { height: 100%; }
+body { margin: 0; background: var(--bg); color: var(--fg); font: 15px/1.5 var(--f-body); display: flex; flex-direction: column; }
+h1 { font-family: var(--f-display); font-size: clamp(28px, 6vw, 40px); line-height: 1.15; margin: 0; text-wrap: balance; }
+p { margin: 0; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+.bar { border-bottom: 1px solid var(--line); background: var(--surface);
+  padding: max(8px, env(safe-area-inset-top)) max(16px, env(safe-area-inset-right)) 0 max(16px, env(safe-area-inset-left));
+  display: grid; grid-template-columns: 1fr auto; grid-template-areas: "brand me" "nav nav"; align-items: center; column-gap: 16px; }
+.brand { grid-area: brand; font-family: var(--f-display); font-weight: 700; font-size: 18px; color: var(--fg); text-decoration: none; padding: 6px 0; white-space: nowrap; }
+.me { grid-area: me; position: relative; }
+.me summary { list-style: none; cursor: pointer; display: flex; align-items: center; gap: 6px; padding: 8px 10px; border: 1px solid var(--line); border-radius: 999px; font-size: 14px; font-weight: 700; max-width: 46vw; }
+.me summary::-webkit-details-marker { display: none; }
+.me summary::after { content: "▾"; color: var(--muted); }
+.me .who { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.me .menu { position: absolute; right: 0; top: calc(100% + 6px); z-index: 5; background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 6px; display: flex; flex-direction: column; min-width: 200px; box-shadow: 0 8px 24px rgba(0, 0, 0, .12); }
+.me .menu button { font: inherit; text-align: left; background: none; border: 0; color: var(--fg); padding: 10px 12px; border-radius: 6px; cursor: pointer; }
+.me .menu button:hover { background: var(--accent-soft); }
+.link { font: inherit; font-size: 13px; background: none; border: 0; color: var(--accent); cursor: pointer; padding: 6px 4px; text-decoration: underline; text-underline-offset: 2px; }
+nav { grid-area: nav; display: flex; gap: 2px; overflow-x: auto; scrollbar-width: none; margin: 0 -4px; }
+nav a { flex: none; padding: 8px 12px 10px; color: var(--muted); text-decoration: none; font-weight: 700; border-bottom: 3px solid transparent; }
+nav a[aria-current="page"] { color: var(--fg); border-bottom-color: var(--accent); }
+@media (min-width: 760px) {
+  .bar { grid-template-columns: auto 1fr auto; grid-template-areas: "brand nav me"; padding-top: max(0px, env(safe-area-inset-top)); }
+  nav { margin: 0; align-self: end; }
+}
+
+main { flex: 1; display: flex; flex-direction: column; min-height: 0; }
+.screen { width: 100%; max-width: 560px; margin: 0 auto; padding: 48px 16px; display: flex; flex-direction: column; gap: 16px; }
+.screen .lead { color: var(--muted); font-size: 16px; }
+.btn { font: inherit; font-size: 16px; font-weight: 700; border-radius: 10px; padding: 12px 18px; min-height: 48px; cursor: pointer;
+  border: 1px solid var(--accent); background: var(--accent); color: var(--bg); align-self: flex-start; display: inline-flex; align-items: center; gap: 10px; }
+.btn.ghost { background: var(--surface); color: var(--fg); border-color: var(--line); font-weight: 400; }
+.btn[disabled] { opacity: .5; cursor: default; }
+.g { width: 20px; height: 20px; background: #fff; border-radius: 50%; padding: 2px; }
+form { display: flex; flex-direction: column; gap: 12px; }
+label { font-weight: 700; }
+input { font: inherit; font-size: 17px; padding: 12px 14px; border-radius: 10px; border: 1px solid var(--line); background: var(--surface); color: var(--fg); width: 100%; }
+.err { color: var(--bad); font-weight: 700; }
+.note { font-size: 13px; color: var(--muted); }
+.card { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 16px; display: flex; flex-direction: column; gap: 8px; }
+.spin { width: 22px; height: 22px; border-radius: 50%; border: 3px solid var(--line); border-top-color: var(--accent); animation: spin 1s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .spin { animation-duration: 3s; } }
+iframe { flex: 1; width: 100%; border: 0; display: block; background: var(--bg); }
+</style>
+</head>
+<body>
+<header class="bar">
+  <a class="brand" href="#">♞ Analyse d'échecs</a>
+  <nav id="nav" aria-label="Pages" hidden></nav>
+  <details class="me" id="me" hidden>
+    <summary><span class="who" id="who">Compte</span></summary>
+    <div class="menu">
+      <button type="button" id="bPseudo">Changer de pseudo</button>
+      <button type="button" id="bOut">Déconnexion</button>
+    </div>
+  </details>
+</header>
+
+<main>
+  <section class="screen" id="vLoading" aria-live="polite">
+    <div class="spin" aria-hidden="true"></div>
+    <p id="loadingTxt">Chargement…</p>
+  </section>
+
+  <section class="screen" id="vLogin" hidden>
+    <h1>Tes parties d'échecs, analysées</h1>
+    <p class="lead">Connecte-toi, donne ton pseudo chess.com : tes parties des 6 derniers mois passent dans Stockfish.
+      Tu obtiens un dashboard par cadence (ouvertures, erreurs par phase de jeu, conseils) et des exercices tirés de tes propres erreurs.</p>
+    <button class="btn" id="bLogin" type="button">
+      <svg class="g" viewBox="0 0 48 48" aria-hidden="true"><path fill="#EA4335" d="M24 9.5c3.5 0 6.6 1.2 9.1 3.6l6.8-6.8C35.8 2.4 30.3 0 24 0 14.6 0 6.6 5.4 2.7 13.3l7.9 6.1C12.5 13.6 17.8 9.5 24 9.5z"/><path fill="#4285F4" d="M46.1 24.5c0-1.6-.1-3.1-.4-4.5H24v9h12.4c-.5 2.9-2.2 5.3-4.6 6.9l7.3 5.7c4.3-3.9 7-9.8 7-17.1z"/><path fill="#FBBC05" d="M10.6 28.6c-.5-1.4-.8-3-.8-4.6s.3-3.2.8-4.6l-7.9-6.1C1 16.6 0 20.2 0 24s1 7.4 2.7 10.7l7.9-6.1z"/><path fill="#34A853" d="M24 48c6.5 0 11.9-2.1 15.9-5.8l-7.3-5.7c-2 1.4-4.7 2.3-8.6 2.3-6.2 0-11.5-4.1-13.4-9.9l-7.9 6.1C6.6 42.6 14.6 48 24 48z"/></svg>
+      Se connecter avec Google
+    </button>
+    <p class="err" id="loginErr" role="alert" hidden></p>
+    <p class="note">Site personnel, non affilié à chess.com. Seules les données publiques de chess.com sont utilisées.</p>
+  </section>
+
+  <section class="screen" id="vPseudo" hidden>
+    <h1>Ton pseudo chess.com</h1>
+    <form id="fPseudo" novalidate>
+      <label for="pseudo">Pseudo</label>
+      <input id="pseudo" name="pseudo" autocomplete="username" autocapitalize="none" spellcheck="false" required maxlength="25" placeholder="ex. kiuyte">
+      <p class="err" id="pseudoErr" role="alert" hidden></p>
+      <button class="btn" id="bPseudoOk" type="submit">Analyser mes parties</button>
+    </form>
+    <button class="link" id="bPseudoCancel" type="button" hidden>Annuler</button>
+  </section>
+
+  <section class="screen" id="vPending" hidden>
+    <h1>Analyse en préparation</h1>
+    <div class="card">
+      <p><strong id="pendWho"></strong> : <span id="pendTxt"></span></p>
+      <p class="note">Cette page s'affichera toute seule dès que l'analyse sera prête : inutile de la recharger.</p>
+    </div>
+  </section>
+
+  <iframe id="frame" title="Analyse" hidden></iframe>
+</main>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+import { getFirestore, doc, getDoc, setDoc, onSnapshot, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+
+// Config web publique (non secrète) du projet analyse-echecs.
+const fb = initializeApp({
+  apiKey: "AIzaSyB6ymUGDPXq_dhVADMwtrAkX0XKd352OG4",
+  authDomain: "analyse-echecs.firebaseapp.com",
+  projectId: "analyse-echecs",
+  storageBucket: "analyse-echecs.firebasestorage.app",
+  messagingSenderId: "151409040553",
+  appId: "1:151409040553:web:81b89d57e3238c707c1db8",
+});
+const auth = getAuth(fb), db = getFirestore(fb);
+const $ = id => document.getElementById(id);
+const VIEWS = ["vLoading", "vLogin", "vPseudo", "vPending", "frame"];
+const show = id => VIEWS.forEach(v => $(v).hidden = v !== id);
+
+// Thème : celui choisi dans les pages (même clé localStorage, même origine que l'iframe).
+function applyTheme() {
+  let t = "auto";
+  try { t = localStorage.getItem("theme") || "auto"; } catch (e) {}
+  const r = document.documentElement;
+  if (t === "clair") r.setAttribute("data-theme", "light");
+  else if (t === "sombre") r.setAttribute("data-theme", "dark");
+  else r.removeAttribute("data-theme");
+}
+applyTheme();
+window.addEventListener("storage", e => { if (e.key === "theme") applyTheme(); });
+
+let uid = null, pseudo = null, player = null, unsubPlayer = null, shown = null;
+const tpl = {};
+
+// Utilisé par les exercices (dans l'iframe) pour garder la progression dans le compte.
+window.chessApp = {
+  progressDoc() {
+    if (!uid) return null;
+    const ref = doc(db, "progress", uid);
+    return {
+      onSnapshot: (cb, err) => onSnapshot(ref, s => cb({ exists: s.exists(), data: () => s.data() }), err),
+      set: v => setDoc(ref, v),
+    };
+  },
+};
+
+function loading(txt) { $("loadingTxt").textContent = txt; show("vLoading"); }
+function fail(e) {
+  console.error(e);
+  loading(e?.code === "permission-denied" ? "Accès refusé par la base de données." : "Une erreur est survenue. Recharge la page pour réessayer.");
+}
+
+// ---------- Connexion ----------
+$("bLogin").addEventListener("click", async () => {
+  $("loginErr").hidden = true;
+  try { await signInWithPopup(auth, new GoogleAuthProvider()); }
+  catch (e) {
+    if (e.code === "auth/popup-closed-by-user" || e.code === "auth/cancelled-popup-request") return;
+    $("loginErr").textContent = e.code === "auth/operation-not-allowed" || e.code === "auth/configuration-not-found"
+      ? "La connexion Google n'est pas encore activée sur ce site."
+      : e.code === "auth/popup-blocked" ? "La fenêtre de connexion a été bloquée : autorise les pop-ups pour ce site."
+      : "Connexion impossible (" + e.code + ").";
+    $("loginErr").hidden = false;
+  }
+});
+$("bOut").addEventListener("click", () => { $("me").open = false; signOut(auth); });
+
+onAuthStateChanged(auth, async u => {
+  unsubPlayer?.(); unsubPlayer = null; player = null; shown = null;
+  $("frame").removeAttribute("srcdoc");
+  $("nav").hidden = true;
+  $("me").hidden = !u;
+  uid = u?.uid || null;
+  if (!u) return show("vLogin");
+  loading("Chargement de ton profil…");
+  try {
+    const s = await getDoc(doc(db, "users", uid));
+    pseudo = s.exists() ? s.data().pseudo : null;
+  } catch (e) { return fail(e); }
+  pseudo ? watch(pseudo) : askPseudo();
+});
+
+// ---------- Pseudo ----------
+function askPseudo() {
+  $("who").textContent = pseudo || "Compte";
+  $("pseudo").value = pseudo || "";
+  $("pseudoErr").hidden = true;
+  $("bPseudoCancel").hidden = !pseudo;
+  show("vPseudo");
+  $("pseudo").focus();
+}
+$("bPseudo").addEventListener("click", () => { $("me").open = false; askPseudo(); });
+document.addEventListener("click", e => { if (!$("me").contains(e.target)) $("me").open = false; });
+$("bPseudoCancel").addEventListener("click", () => watch(pseudo));
+
+$("fPseudo").addEventListener("submit", async e => {
+  e.preventDefault();
+  const p = $("pseudo").value.trim().toLowerCase();
+  const err = t => { $("pseudoErr").textContent = t; $("pseudoErr").hidden = false; };
+  $("pseudoErr").hidden = true;
+  if (!/^[a-z0-9_-]{3,25}$/.test(p)) return err("Un pseudo chess.com fait 3 à 25 caractères : lettres, chiffres, - et _.");
+  $("bPseudoOk").disabled = true;
+  try {
+    // Vérification auprès de chess.com ; si l'API ne répond pas, on n'empêche pas l'inscription.
+    try {
+      const r = await fetch(`https://api.chess.com/pub/player/${encodeURIComponent(p)}`);
+      if (r.status === 404) return err(`Aucun joueur « ${p} » sur chess.com.`);
+    } catch (e) {}
+    await setDoc(doc(db, "users", uid), { pseudo: p, updated: serverTimestamp() });
+    pseudo = p;
+    watch(p);
+  } catch (e) { err("Enregistrement impossible, réessaie."); console.error(e); }
+  finally { $("bPseudoOk").disabled = false; }
+});
+
+// ---------- Analyse du joueur ----------
+function watch(p) {
+  unsubPlayer?.();
+  shown = null;
+  $("who").textContent = p;
+  loading("Chargement de ton analyse…");
+  unsubPlayer = onSnapshot(doc(db, "players", p), snap => {
+    if (!snap.exists()) { player = null; $("nav").hidden = true; return pending(p); }
+    player = snap.data();
+    renderNav();
+    route();
+  }, fail);
+}
+
+async function pending(p) {
+  $("pendWho").textContent = p;
+  $("pendTxt").textContent = "ta demande d'analyse est enregistrée.";
+  show("vPending");
+  try {
+    const ref = doc(db, "requests", p);
+    const s = await getDoc(ref);
+    if (!s.exists()) await setDoc(ref, { pseudo: p, uid, created: serverTimestamp(), status: "pending" });
+    else if (s.data().created) {
+      const d = s.data().created.toDate();
+      $("pendTxt").textContent = `analyse demandée le ${d.toLocaleDateString("fr-FR", { day: "numeric", month: "long" })} à ${d.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}.`;
+    }
+  } catch (e) { console.error(e); }
+}
+
+function renderNav() {
+  $("nav").innerHTML = player.pages.map(pg => `<a href="#${pg.id}">${pg.label}</a>`).join("");
+  $("nav").hidden = false;
+}
+
+async function route() {
+  if (!player) return;
+  const pages = player.pages;
+  const id = pages.some(pg => pg.id === location.hash.slice(1)) ? location.hash.slice(1) : pages[0].id;
+  $("nav").querySelectorAll("a").forEach(a => a.getAttribute("href") === "#" + id ? a.setAttribute("aria-current", "page") : a.removeAttribute("aria-current"));
+  // Recharger seulement si la page ou sa version publiée a changé.
+  const key = `${pseudo}/${id}/${player.updated?.toMillis?.() ?? ""}`;
+  if (shown === key) return show("frame");
+  shown = key;
+  loading("Chargement de la page…");
+  try {
+    const kind = id.startsWith("dashboard") ? "dashboard" : "exercises";
+    tpl[kind] ??= fetch(`views/${kind}.html`).then(r => { if (!r.ok) throw new Error(r.status); return r.text(); });
+    const [html, snap] = await Promise.all([tpl[kind], getDoc(doc(db, "players", pseudo, "pages", id))]);
+    if (shown !== key) return;
+    if (!snap.exists()) throw new Error("page absente : " + id);
+    const json = snap.data().json.replace(/</g, "\\u003c");
+    const frag = html.split("__TITLE__").join("Analyse d'échecs").split("__DATA__").join(json);
+    $("frame").srcdoc = '<!doctype html><html lang="fr"><head><meta charset="utf-8">'
+      + '<meta name="viewport" content="width=device-width, initial-scale=1">'
+      + "<style>[hidden]{display:none!important}</style></head><body>" + frag
+      // Une page srcdoc résout « #ancre » contre l'URL de l'appli : on fait défiler nous-mêmes.
+      + "<script>document.addEventListener('click',e=>{const a=e.target.closest('a[href^=\"#\"]');if(!a)return;e.preventDefault();"
+      + "document.getElementById(a.getAttribute('href').slice(1))?.scrollIntoView({behavior:'smooth'});});<\/script></body></html>";
+    show("frame");
+  } catch (e) { shown = null; fail(e); }
+}
+window.addEventListener("hashchange", route);
+</script>
+</body>
+</html>

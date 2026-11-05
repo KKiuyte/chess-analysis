@@ -60,3 +60,7 @@ depth = 12                       # profondeur pour évaluer tous les coups léga
 max = 120                        # nombre d'exercices par joueur
 tolerance = 8                    # un coup est accepté s'il perd moins de 8 points de % de gain vs le meilleur
 min_win_before = 30              # ignorer les positions déjà très mauvaises avant l'erreur
+
+# Appli web Firebase (projet analyse-echecs) : étape "publish"
+[firebase]
+credentials = "secrets/firebase-publisher.json"   # clé du compte de service, non versionnée

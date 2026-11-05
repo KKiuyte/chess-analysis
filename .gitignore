@@ -7,3 +7,9 @@ __pycache__/
 *.pyc
 # Réglages locaux (email de contact)
 config.local.toml
+# Clés de compte de service
+secrets/
+# Templates copiés au déploiement
+app/public/views/
+.firebase/
+firebase-debug.log
