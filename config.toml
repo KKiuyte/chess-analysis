@@ -77,6 +77,10 @@ bilan_min_games = 40                 # bilan IA d'une cadence à partir de N par
 bilan_new_games = 20                 # nouveau bilan dès N nouvelles parties dans la cadence...
 bilan_days = 7                       # ...ou après N jours s'il y a au moins une nouvelle partie
 first_exercises = 20                 # exercices de la première publication (les autres suivent en arrière-plan)
+# Profondeur ajustée au dernier classement du joueur dans la cadence : [Elo à partir duquel, écart].
+# Sous 1000 : -2 ; 1000-1799 : profondeur de base ; dès 1800 : +2 ; dès 2200 : +4.
+# Une partie déjà analysée au moins aussi profondément n'est pas refaite.
+elo_depth = [[0, -2], [1000, 0], [1800, 2], [2200, 4]]
 chunk_cost = 2500                    # taille d'un paquet de la file d'attente (≈ 10-15 s pour une machine)
 time_classes.bullet = { depth = 12 }
 time_classes.blitz = { depth = 14 }

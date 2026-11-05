@@ -371,9 +371,13 @@ function baseOpts() {
   Chart.defaults.color = fg;
   return {
     responsive: true, maintainAspectRatio: false, animation: false,
+    // Pas de « touchmove » : sur mobile, l'infobulle suivait le doigt pendant le défilement (bougeotte).
+    // Un toucher sur le graphique l'ouvre et la fixe ; un autre toucher la déplace.
+    events: ["mousemove", "mouseout", "click", "touchstart"],
     plugins: {
       legend: { display: false },
-      tooltip: { backgroundColor: css("--fg"), titleColor: css("--bg"), bodyColor: css("--bg"), padding: 10, cornerRadius: 6, boxPadding: 4 },
+      tooltip: { backgroundColor: css("--fg"), titleColor: css("--bg"), bodyColor: css("--bg"), footerColor: css("--bg"),
+                 footerFont: { weight: "normal" }, padding: 10, cornerRadius: 6, boxPadding: 4 },
     },
     scales: {
       x: { grid: { display: false }, border: { color: grid }, ticks: { color: fg, maxRotation: 0, autoSkipPadding: 12 } },

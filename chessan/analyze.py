@@ -78,16 +78,41 @@ def _game_results(game_id, my_color, moves, evals):
     return results
 
 
+def tc_limit(cfg, con, tc):
+    """Limite moteur d'une cadence pour ce joueur. [app].elo_depth = [[Elo minimum, écart], ...] ajuste
+    la profondeur selon son dernier classement dans la cadence : erreurs grossières sous 1000,
+    plus fines chez les joueurs forts."""
+    tc_cfg = cfg["time_classes"][tc]
+    steps = cfg.get("app", {}).get("elo_depth") if "depth" in tc_cfg else None
+    if steps:
+        r = con.execute("""SELECT my_elo FROM games WHERE time_class = ? AND my_elo IS NOT NULL
+                           ORDER BY end_time DESC LIMIT 1""", (tc,)).fetchone()
+        if r:
+            delta = max((s for s in steps if r[0] >= s[0]), key=lambda s: s[0], default=(0, 0))[1]
+            tc_cfg = {**tc_cfg, "depth": tc_cfg["depth"] + delta}
+    return engine_limit(tc_cfg)
+
+
+def _up_to_date(old, key):
+    """Partie déjà analysée avec cette limite, ou à une profondeur au moins égale : on la garde."""
+    if old is None:
+        return False
+    if old == key:
+        return True
+    return old[0] == key[0] == "d" and int(old[1:]) >= int(key[1:])
+
+
 def pending_tasks(cfg, con):
     tasks = []
-    for tc, tc_cfg in cfg["time_classes"].items():
-        limit_kwargs, key = engine_limit(tc_cfg)
-        rows = con.execute(
-            """SELECT g.id, g.color FROM games g
+    for tc in cfg["time_classes"]:
+        limit_kwargs, key = tc_limit(cfg, con, tc)
+        rows = [r for r in con.execute(
+            """SELECT g.id, g.color, a.limit_key FROM games g
                LEFT JOIN analyzed_games a ON a.game_id = g.id
-               WHERE g.time_class = ? AND (a.limit_key IS NULL OR a.limit_key != ?)
+               WHERE g.time_class = ?
                  AND g.id IN (SELECT id FROM games WHERE time_class = ? ORDER BY end_time DESC LIMIT ?)
-               ORDER BY g.end_time DESC""", (tc, key, tc, cfg.get("max_games") or -1)).fetchall()
+               ORDER BY g.end_time DESC""", (tc, tc, cfg.get("max_games") or -1)).fetchall()
+                if not _up_to_date(r["limit_key"], key)]
         for r in rows:
             moves = [tuple(m) for m in con.execute(
                 "SELECT ply, fen_before, uci, is_mine FROM moves WHERE game_id = ? ORDER BY ply", (r["id"],))]

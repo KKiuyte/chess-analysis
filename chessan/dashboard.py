@@ -25,6 +25,14 @@ def ignored(win_before, win_after, cls):
         win_before > cls["won_above"] and win_after > cls["still_won_above"])
 
 
+def _engine_label(tc_cfg, rows):
+    """Profondeur réellement utilisée pour les parties analysées (peut varier : Elo, changement de réglage)."""
+    depths = sorted({int(r["limit_key"][1:]) for r in rows if (r["limit_key"] or "").startswith("d")})
+    if not depths:
+        return tc_cfg
+    return {**tc_cfg, "depth": str(depths[0]) if len(depths) == 1 else f"{depths[0]} à {depths[-1]}"}
+
+
 def build_data(cfg, con, tc):
     cls = cfg["classification"]
     tc_cfg = cfg["time_classes"][tc]
@@ -63,7 +71,7 @@ def build_data(cfg, con, tc):
         "tcLabel": TC_LABELS.get(tc, tc.capitalize()),
         "since": cfg["since"].isoformat(),
         "generated": dt.datetime.now().strftime("%Y-%m-%d %H:%M"),
-        "engine": tc_cfg,
+        "engine": _engine_label(tc_cfg, rows),
         "thresholds": {k: cls[k] for k in ("inaccuracy", "mistake", "blunder")},
         "openings": {"minGames": tc_cfg.get("min_games", cfg["openings"]["min_games"]),
                      "lowScore": cfg["openings"]["low_score"]},
