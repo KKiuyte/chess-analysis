@@ -163,6 +163,52 @@ tr.fam[aria-expanded="true"] .caret { transform: rotate(90deg); }
 .hbar .track { height: 10px; background: var(--line); border-radius: 4px; overflow: hidden; }
 .hbar .fill { height: 100%; background: var(--s1); border-radius: 4px; }
 .hbar .val { font-variant-numeric: tabular-nums; color: var(--muted); white-space: nowrap; }
+.auto-tag { vertical-align: middle; margin-left: 8px; font-family: var(--f-body); font-size: 12px; font-weight: 700;
+  color: var(--muted); padding: 3px 10px; border-radius: 999px; border: 1px solid var(--line); white-space: nowrap; }
+.auto-note { margin: 0 0 12px; padding: 10px 14px; border-radius: var(--r); background: var(--surface); border: 1px dashed var(--line); max-width: 75ch; }
+.ai-tag { display: inline-flex; align-items: center; gap: 4px; vertical-align: middle; margin-left: 8px; font-family: var(--f-body);
+  font-size: 12px; font-weight: 700; letter-spacing: .02em; color: #fff; padding: 3px 10px; border-radius: 999px;
+  background: linear-gradient(135deg, #7c5cff, #2aa7c9); white-space: nowrap; }
+/* Bilan IA en cours de rédaction */
+@property --ai-angle { syntax: "<angle>"; inherits: false; initial-value: 0deg; }
+.ai-wait { position: relative; border-radius: 14px; padding: 20px 20px 22px; display: flex; flex-direction: column; gap: 14px;
+  background: linear-gradient(var(--surface), var(--surface)) padding-box,
+              conic-gradient(from var(--ai-angle), #7c5cff, #3b6a44, #2aa7c9, #c56cf0, #7c5cff) border-box;
+  border: 2px solid transparent; animation: ai-turn 4s linear infinite; box-shadow: 0 8px 30px rgba(124, 92, 255, .12); }
+@keyframes ai-turn { to { --ai-angle: 360deg; } }
+.ai-head { display: flex; gap: 12px; align-items: center; }
+.ai-head b { display: block; font-family: var(--f-display); font-size: 20px; }
+.ai-sub { color: var(--muted); font-size: 14px; }
+.ai-spark { flex: none; width: 40px; height: 40px; border-radius: 12px; display: grid; place-items: center; font-size: 22px; color: #fff;
+  background: linear-gradient(135deg, #7c5cff, #2aa7c9); animation: ai-pulse 1.8s ease-in-out infinite; }
+@keyframes ai-pulse { 50% { transform: scale(1.08) rotate(12deg); box-shadow: 0 0 18px rgba(124, 92, 255, .55); } }
+.ai-line { margin: 0; font-weight: 700; color: var(--accent); min-height: 1.5em; transition: opacity .3s, transform .3s; }
+.ai-line.out { opacity: 0; transform: translateY(-4px); }
+.ai-skel { display: flex; flex-direction: column; gap: 10px; }
+.ai-skel i, .ai-cards i { display: block; height: 12px; border-radius: 6px;
+  background: linear-gradient(90deg, var(--line) 0%, color-mix(in srgb, #7c5cff 22%, var(--line)) 50%, var(--line) 100%);
+  background-size: 200% 100%; animation: ai-shimmer 1.6s linear infinite; }
+.ai-cards { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; margin: 4px 0; }
+.ai-cards i { height: 56px; border-radius: 10px; }
+@keyframes ai-shimmer { from { background-position: 200% 0; } to { background-position: -200% 0; } }
+@media (prefers-reduced-motion: reduce) { .ai-wait, .ai-spark, .ai-skel i, .ai-cards i { animation: none; } }
+.bilan { display: flex; flex-direction: column; gap: 16px; }
+.bilan .lead { font-size: 17px; max-width: 70ch; }
+.bilan .progress-note { background: var(--accent-soft); border-radius: var(--r); padding: 12px 14px; max-width: 70ch; }
+.strengths { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+@media (max-width: 700px) { .strengths { grid-template-columns: minmax(0, 1fr); } }
+.strength { background: var(--surface); border: 1px solid var(--line); border-left: 4px solid var(--win); border-radius: var(--r); padding: 12px 14px; display: flex; flex-direction: column; gap: 4px; }
+.strength b { font-size: 15px; }
+.strength span { color: var(--muted); font-size: 14px; }
+.prio { display: flex; flex-direction: column; gap: 10px; }
+.prio .act { background: var(--accent-soft); border-radius: 8px; padding: 10px 12px; }
+.prio .row { display: flex; flex-wrap: wrap; gap: 8px 18px; align-items: center; font-size: 14px; }
+.train { display: inline-flex; align-items: center; gap: 6px; font-weight: 700; text-decoration: none; background: var(--accent); color: var(--bg); border-radius: 8px; padding: 8px 12px; }
+.bilan h3.sub { font-size: 16px; margin: 4px 0 0; }
+.bilan table { max-width: 760px; }
+details.constats { border-top: 1px solid var(--line); padding-top: 12px; }
+details.constats summary { cursor: pointer; font-weight: 700; color: var(--accent); }
+details.constats .diag { margin-top: 14px; }
 footer { font-size: 13px; color: var(--muted); border-top: 1px solid var(--line); padding-top: 16px; }
 @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
 </style>
@@ -179,7 +225,7 @@ footer { font-size: 13px; color: var(--muted); border-top: 1px solid var(--line)
 
   <section id="diag">
     <div class="sec-head">
-      <h2>Diagnostic et conseils</h2>
+      <h2 id="diagTitle">Diagnostic et conseils</h2>
       <p id="diagIntro"></p>
     </div>
     <div class="diag" id="diagList"></div>
@@ -198,7 +244,7 @@ footer { font-size: 13px; color: var(--muted); border-top: 1px solid var(--line)
       </div>
     </div>
     <div class="row jump">
-      <a href="#diag">Conseils</a><a href="#overview">Vue d'ensemble</a><a href="#openings">Ouvertures</a><a href="#errors">Erreurs par phase</a>
+      <a href="#diag" id="navDiag">Conseils</a><a href="#overview">Vue d'ensemble</a><a href="#openings">Ouvertures</a><a href="#errors">Erreurs par phase</a>
     </div>
   </nav>
 
@@ -238,7 +284,7 @@ footer { font-size: 13px; color: var(--muted); border-top: 1px solid var(--line)
   <footer id="foot"></footer>
 </div>
 
-<script id="data" type="application/json">{"player":"Yoy008","tc":"daily","tcLabel":"Daily","since":"2026-05-01","generated":"2026-10-28 15:43","engine":{"depth":18,"min_games":3},"thresholds":{"inaccuracy":10,"mistake":20,"blunder":30},"openings":{"minGames":3,"lowScore":45},"diag":[{"id":"phase","level":"info","title":"Tu gaffes surtout dans l'ouverture","metric":{"value":"×1,6","label":"par rapport à la finale"},"facts":["3,3 gaffes pour 100 coups dans l'ouverture, contre 2,1 dans la finale."],"bars":[{"label":"Ouverture","value":3.3,"text":"3,3 gaffes / 100 coups"},{"label":"Milieu","value":2.6,"text":"2,6 gaffes / 100 coups"},{"label":"Finale","value":2.1,"text":"2,1 gaffes / 100 coups"}],"barsTitle":"Gaffes pour 100 coups par phase","actions":["Revois les 8 à 10 premiers coups de tes deux ouvertures principales jusqu'à les jouer sans réfléchir.","Après chaque partie perdue, regarde à quel coup tu es sorti de ta préparation."],"links":[],"note":"Seulement 30 parties : tendance à confirmer."},{"id":"openings","level":"info","title":"Certaines ouvertures te mettent en difficulté","metric":{"value":"66 %","label":"de gain moyen après 12 coups"},"facts":["Après 12 coups, tu as en moyenne 66 % de chances de gain : tes ouvertures te donnent plutôt de bonnes positions.","Avec les noirs, en French Defense (3 parties), tu sors de l'ouverture à 25 % seulement (score final 33 %)."],"bars":[],"actions":["Revois tes parties en French Defense avec les noirs : choisis un système simple pour les 6 à 8 premiers coups et tiens-t'y."],"links":[],"note":"Seulement 30 parties : tendance à confirmer."},{"id":"convert","level":"info","title":"Tu laisses filer des parties gagnées","metric":{"value":"15 %","label":"des positions gagnantes non converties"},"facts":["Tu as eu une position nettement gagnante (85 % ou plus) dans 26 parties, et tu n'en as gagné que 22.","Les 4 autres se sont terminées ainsi : 3 perdues par mat, 1 nulle.","À l'inverse, tu as gagné 6 des 11 parties où tu étais perdu (15 % ou moins) : tes adversaires gaffent aussi, ne lâche jamais trop tôt."],"bars":[],"actions":["Avec une pièce d'avance, échange les autres pièces : moins il en reste, moins l'adversaire a de ressources.","Quand tu gagnes, regarde avant chaque coup les échecs et les captures que l'adversaire peut faire : ses seules chances sont tactiques."],"links":[],"note":"Seulement 30 parties : tendance à confirmer."},{"id":"blunders","level":"info","title":"Tes gaffes viennent surtout de tactiques plus fines","metric":{"value":"0,6","label":"gaffes par partie"},"facts":["19 gaffes en 30 parties analysées, soit 0,6 par partie.","Type le plus fréquent : autre tactique ou plan (47 % des gaffes).","3 mats concédés et 0 mat raté."],"bars":[{"label":"Autre tactique ou plan","value":47,"text":"9 (47 %)"},{"label":"Matériel laissé en prise","value":26,"text":"5 (26 %)"},{"label":"Mat concédé","value":16,"text":"3 (16 %)"},{"label":"Capture gagnante ratée","value":11,"text":"2 (11 %)"}],"barsTitle":"Répartition des gaffes par type","actions":["Cherche dans l'ordre les échecs, les captures puis les menaces (adverses et les tiennes) avant de jouer.","Avant de lâcher ta pièce, fais un contrôle en 2 secondes : la pièce que je bouge est-elle défendue sur sa nouvelle case ? Et celle qu'elle protégeait, l'est-elle encore ?","10 minutes d'exercices tactiques par jour sur le thème ci-dessous, en visant la justesse plutôt que la vitesse."],"links":[{"label":"Exercices « fourchette » sur Lichess","url":"https://lichess.org/training/fork"}],"note":"Type détecté automatiquement : « en prise » = après ton coup, l'adversaire peut gagner au moins 2 points de matériel par une capture simple. Seulement 30 parties : tendance à confirmer."}],"games":[{"u":"https://www.chess.com/game/daily/965474839","d":"2026-05-04","m":"2026-05","c":"b","o":"Kiuyte","me":862,"oe":695,"r":"W","f":"Nimzowitsch Defense","v":"Scandinavian Advance Variation","eco":"B00","a":1,"s":[[12,0,0,1],[0,0,0,0],[0,0,0,0]]},{"u":"https://www.chess.com/game/daily/967710869","d":"2026-05-06","m":"2026-05","c":"w","o":"Kiuyte","me":847,"oe":727,"r":"L","f":"French Defense","v":"Steiner Variation","eco":"C00","a":1,"s":[[11,2,1,1],[0,0,0,0],[0,0,0,0]]},{"u":"https://www.chess.com/game/daily/968566639","d":"2026-05-10","m":"2026-05","c":"b","o":"Kiuyte","me":854,"oe":720,"r":"W","f":"Italian Game","v":"Two Knights Modern Bishop's Opening","eco":"C55","a":1,"s":[[12,1,1,0],[4,0,0,0],[0,0,0,0]]},{"u":"https://www.chess.com/game/daily/970298777","d":"2026-05-11","m":"2026-05","c":"w","o":"Kiuyte","me":861,"oe":713,"r":"W","f":"King's Pawn Opening","v":"","eco":"C20","a":1,"s":[[9,0,0,1],[10,0,0,0],[7,0,1,0]]},{"u":"https://www.chess.com/game/daily/971136641","d":"2026-05-17","m":"2026-05","c":"b","o":"Kiuyte","me":867,"oe":706,"r":"W","f":"Queen's Pawn Opening","v":"","eco":"A41","a":1,"s":[[12,0,0,2],[3,0,0,0],[9,0,0,0]]},{"u":"https://www.chess.com/game/daily/973833813","d":"2026-05-21","m":"2026-05","c":"w","o":"Kiuyte","me":863,"oe":711,"r":"D","f":"English Opening","v":"Four Knights Bradley Beach Variation","eco":"A28","a":1,"s":[[12,0,0,0],[5,0,0,1],[15,1,2,1]]},{"u":"https://www.chess.com/game/daily/975372749","d":"2026-05-25","m":"2026-05","c":"b","o":"bertshiz","me":870,"oe":738,"r":"W","f":"King's Fianchetto Opening","v":"","eco":"A00","a":1,"s":[[9,1,0,0],[0,0,0,0],[3,0,0,0]]},{"u":"https://www.chess.com/game/daily/976453065","d":"2026-05-25","m":"2026-05","c":"b","o":"Kiuyte","me":855,"oe":726,"r":"L","f":"French Defense","v":"Advance Variation","eco":"C02","a":1,"s":[[12,1,0,1],[6,0,0,0],[22,0,0,0]]},{"u":"https://www.chess.com/game/daily/977552267","d":"2026-05-27","m":"2026-05","c":"w","o":"Kiuyte","me":841,"oe":740,"r":"L","f":"English Opening","v":"King's English Variation","eco":"A20","a":1,"s":[[10,0,0,0],[2,0,0,0],[1,0,0,1]]},{"u":"https://www.chess.com/game/daily/980576890","d":"2026-06-03","m":"2026-06","c":"w","o":"Kiuyte","me":849,"oe":732,"r":"W","f":"Petrov's Defense","v":"Steinitz Attack Symmetrical Center Variation","eco":"C43","a":1,"s":[[12,0,0,0],[2,0,0,0],[0,0,0,0]]},{"u":"https://www.chess.com/game/daily/981126754","d":"2026-06-07","m":"2026-06","c":"b","o":"Kiuyte","me":856,"oe":725,"r":"W","f":"Petrov's Defense","v":"Classical Variation","eco":"C42","a":1,"s":[[11,0,0,0],[13,0,0,0],[0,0,0,0]]},{"u":"https://www.chess.com/game/daily/984473936","d":"2026-06-15","m":"2026-06","c":"w","o":"Kiuyte","me":863,"oe":718,"r":"W","f":"Italian Game","v":"","eco":"C50","a":1,"s":[[12,0,0,0],[4,0,0,0],[0,0,0,0]]},{"u":"https://www.chess.com/game/daily/971867977","d":"2026-06-16","m":"2026-06","c":"w","o":"micmac957","me":874,"oe":861,"r":"W","f":"Scotch Game","v":"","eco":"C45","a":1,"s":[[12,1,0,1],[11,0,1,0],[5,0,0,0]]},{"u":"https://www.chess.com/game/daily/987554788","d":"2026-06-24","m":"2026-06","c":"b","o":"Kiuyte","me":859,"oe":734,"r":"L","f":"French Defense","v":"Queen's Knight Variation","eco":"C00","a":1,"s":[[12,2,2,1],[0,0,0,0],[0,0,0,0]]},{"u":"https://www.chess.com/game/daily/992354652","d":"2026-07-07","m":"2026-07","c":"w","o":"Kiuyte","me":844,"oe":750,"r":"L","f":"English Opening","v":"Two Knights Variation","eco":"A22","a":1,"s":[[12,1,0,0],[7,0,0,1],[0,0,0,0]]},{"u":"https://www.chess.com/game/daily/997069802","d":"2026-07-20","m":"2026-07","c":"b","o":"Kiuyte","me":853,"oe":733,"r":"W","f":"Philidor Defense","v":"","eco":"C41","a":1,"s":[[12,0,0,1],[19,0,1,0],[18,0,0,0]]},{"u":"https://www.chess.com/game/daily/1007623782","d":"2026-08-05","m":"2026-08","c":"w","o":"GG-le_BG","me":864,"oe":778,"r":"W","f":"English Opening","v":"Two Knights Variation","eco":"A22","a":1,"s":[[12,3,0,0],[16,0,0,0],[0,0,0,0]]},{"u":"https://www.chess.com/game/daily/1008738002","d":"2026-08-06","m":"2026-08","c":"b","o":"Kiuyte","me":872,"oe":729,"r":"W","f":"King's Pawn Opening","v":"King's Knight Variation","eco":"C40","a":1,"s":[[9,0,0,0],[0,0,0,0],[0,0,0,0]]},{"u":"https://www.chess.com/game/daily/1010211572","d":"2026-08-16","m":"2026-08","c":"w","o":"Kiuyte","me":880,"oe":721,"r":"W","f":"English Opening","v":"Reversed Sicilian Variation","eco":"A21","a":1,"s":[[8,0,0,0],[0,0,0,0],[0,0,0,0]]},{"u":"https://www.chess.com/game/daily/1014550934","d":"2026-08-22","m":"2026-08","c":"b","o":"GG-le_BG","me":890,"oe":791,"r":"W","f":"French Defense","v":"Normal Variation","eco":"C10","a":1,"s":[[12,1,0,0],[9,0,0,0],[8,0,0,0]]},{"u":"https://www.chess.com/game/daily/1014495990","d":"2026-08-23","m":"2026-08","c":"b","o":"Kiuyte","me":897,"oe":713,"r":"W","f":"King's Fianchetto Opening","v":"","eco":"A00","a":1,"s":[[12,2,1,1],[8,2,0,0],[0,0,0,0]]},{"u":"https://www.chess.com/game/daily/1018269952","d":"2026-09-02","m":"2026-09","c":"w","o":"Kiuyte","me":877,"oe":725,"r":"L","f":"King's Pawn Opening","v":"","eco":"C20","a":1,"s":[[12,0,0,0],[5,0,0,0],[26,2,1,1]]},{"u":"https://www.chess.com/game/daily/1020953804","d":"2026-09-03","m":"2026-09","c":"b","o":"tomifec","me":882,"oe":572,"r":"W","f":"Queen's Pawn Opening","v":"Zukertort Chigorin Variation","eco":"D02","a":1,"s":[[8,0,0,0],[0,0,0,0],[0,0,0,0]]},{"u":"https://www.chess.com/game/daily/1023337812","d":"2026-09-04","m":"2026-09","c":"b","o":"Kiuyte","me":889,"oe":717,"r":"W","f":"King's Fianchetto","v":"","eco":"A00","a":1,"s":[[12,0,0,0],[3,0,0,0],[0,0,0,0]]},{"u":"https://www.chess.com/game/daily/1023732658","d":"2026-09-09","m":"2026-09","c":"w","o":"tomifec","me":893,"oe":553,"r":"W","f":"English Opening","v":"Two Knights Variation","eco":"A22","a":1,"s":[[10,0,0,0],[0,0,0,0],[0,0,0,0]]},{"u":"https://www.chess.com/game/daily/1025436824","d":"2026-09-09","m":"2026-09","c":"b","o":"Kiuyte","me":900,"oe":710,"r":"W","f":"Four Knights Game","v":"Scotch Variation Accepted","eco":"C47","a":1,"s":[[12,1,0,0],[3,0,0,0],[0,0,0,0]]},{"u":"https://www.chess.com/game/daily/1030792524","d":"2026-09-22","m":"2026-09","c":"b","o":"Kiuyte","me":907,"oe":703,"r":"W","f":"King's Fianchetto Opening","v":"","eco":"A00","a":1,"s":[[12,0,0,0],[8,3,0,0],[0,0,0,0]]},{"u":"https://www.chess.com/game/daily/1033812282","d":"2026-10-08","m":"2026-10","c":"w","o":"Kiuyte","me":914,"oe":696,"r":"W","f":"English Opening","v":"Two Knights Variation","eco":"A22","a":1,"s":[[12,0,0,0],[30,0,0,2],[0,0,0,0]]},{"u":"https://www.chess.com/game/daily/1041360496","d":"2026-10-09","m":"2026-10","c":"b","o":"Kiuyte","me":893,"oe":718,"r":"L","f":"King's Pawn Opening","v":"","eco":"C20","a":1,"s":[[4,0,0,1],[0,0,0,0],[0,0,0,0]]},{"u":"https://www.chess.com/game/daily/997425064","d":"2026-10-18","m":"2026-10","c":"b","o":"micmac957","me":909,"oe":930,"r":"W","f":"Philidor Defense","v":"Exchange Variation","eco":"C41","a":1,"s":[[12,1,0,0],[22,0,1,1],[32,1,0,0]]}]}</script>
+<script id="data" type="application/json">{"player":"Yoy008","tc":"daily","tcLabel":"Daily","since":"2026-06-01","generated":"2026-11-05 16:58","engine":{"depth":18,"min_games":3},"thresholds":{"inaccuracy":10,"mistake":20,"blunder":30},"openings":{"minGames":3,"lowScore":45},"diag":[{"id":"phase","level":"info","title":"Tu gaffes surtout dans l'ouverture","metric":{"value":"×1,6","label":"par rapport à la finale"},"facts":["3,3 gaffes pour 100 coups dans l'ouverture, contre 2,1 dans la finale."],"bars":[{"label":"Ouverture","value":3.3,"text":"3,3 gaffes / 100 coups"},{"label":"Milieu","value":2.6,"text":"2,6 gaffes / 100 coups"},{"label":"Finale","value":2.1,"text":"2,1 gaffes / 100 coups"}],"barsTitle":"Gaffes pour 100 coups par phase","actions":["Revois les 8 à 10 premiers coups de tes deux ouvertures principales jusqu'à les jouer sans réfléchir.","Après chaque partie perdue, regarde à quel coup tu es sorti de ta préparation."],"links":[],"note":"Seulement 30 parties : tendance à confirmer."},{"id":"openings","level":"info","title":"Certaines ouvertures te mettent en difficulté","metric":{"value":"66 %","label":"de gain moyen après 12 coups"},"facts":["Après 12 coups, tu as en moyenne 66 % de chances de gain : tes ouvertures te donnent plutôt de bonnes positions.","Avec les noirs, en French Defense (3 parties), tu sors de l'ouverture à 25 % seulement (score final 33 %)."],"bars":[],"actions":["Revois tes parties en French Defense avec les noirs : choisis un système simple pour les 6 à 8 premiers coups et tiens-t'y."],"links":[],"note":"Seulement 30 parties : tendance à confirmer."},{"id":"convert","level":"info","title":"Tu laisses filer des parties gagnées","metric":{"value":"15 %","label":"des positions gagnantes non converties"},"facts":["Tu as eu une position nettement gagnante (85 % ou plus) dans 26 parties, et tu n'en as gagné que 22.","Les 4 autres se sont terminées ainsi : 3 perdues par mat, 1 nulle.","À l'inverse, tu as gagné 6 des 11 parties où tu étais perdu (15 % ou moins) : tes adversaires gaffent aussi, ne lâche jamais trop tôt."],"bars":[],"actions":["Avec une pièce d'avance, échange les autres pièces : moins il en reste, moins l'adversaire a de ressources.","Quand tu gagnes, regarde avant chaque coup les échecs et les captures que l'adversaire peut faire : ses seules chances sont tactiques."],"links":[],"note":"Seulement 30 parties : tendance à confirmer."},{"id":"blunders","level":"info","title":"Tes gaffes viennent surtout de tactiques plus fines","metric":{"value":"0,6","label":"gaffes par partie"},"facts":["19 gaffes en 30 parties analysées, soit 0,6 par partie.","Type le plus fréquent : autre tactique ou plan (47 % des gaffes).","3 mats concédés et 0 mat raté."],"bars":[{"label":"Autre tactique ou plan","value":47,"text":"9 (47 %)"},{"label":"Matériel laissé en prise","value":26,"text":"5 (26 %)"},{"label":"Mat concédé","value":16,"text":"3 (16 %)"},{"label":"Capture gagnante ratée","value":11,"text":"2 (11 %)"}],"barsTitle":"Répartition des gaffes par type","actions":["Cherche dans l'ordre les échecs, les captures puis les menaces (adverses et les tiennes) avant de jouer.","Avant de lâcher ta pièce, fais un contrôle en 2 secondes : la pièce que je bouge est-elle défendue sur sa nouvelle case ? Et celle qu'elle protégeait, l'est-elle encore ?","10 minutes par jour d'exercices tirés de tes parties (bouton ci-dessous), en visant la justesse plutôt que la vitesse."],"links":[],"train":"tactic","note":"Type détecté automatiquement : « en prise » = après ton coup, l'adversaire peut gagner au moins 2 points de matériel par une capture simple. Seulement 30 parties : tendance à confirmer."}],"bilan":null,"bilanPending":false,"bilanMin":40,"games":[{"u":"https://www.chess.com/game/daily/965474839","d":"2026-05-04","m":"2026-05","c":"b","o":"Kiuyte","me":862,"oe":695,"r":"W","f":"Nimzowitsch Defense","v":"Scandinavian Advance Variation","eco":"B00","a":1,"s":[[12,0,0,1],[0,0,0,0],[0,0,0,0]]},{"u":"https://www.chess.com/game/daily/967710869","d":"2026-05-06","m":"2026-05","c":"w","o":"Kiuyte","me":847,"oe":727,"r":"L","f":"French Defense","v":"Steiner Variation","eco":"C00","a":1,"s":[[11,2,1,1],[0,0,0,0],[0,0,0,0]]},{"u":"https://www.chess.com/game/daily/968566639","d":"2026-05-10","m":"2026-05","c":"b","o":"Kiuyte","me":854,"oe":720,"r":"W","f":"Italian Game","v":"Two Knights Modern Bishop's Opening","eco":"C55","a":1,"s":[[12,1,1,0],[4,0,0,0],[0,0,0,0]]},{"u":"https://www.chess.com/game/daily/970298777","d":"2026-05-11","m":"2026-05","c":"w","o":"Kiuyte","me":861,"oe":713,"r":"W","f":"King's Pawn Opening","v":"","eco":"C20","a":1,"s":[[9,0,0,1],[10,0,0,0],[7,0,1,0]]},{"u":"https://www.chess.com/game/daily/971136641","d":"2026-05-17","m":"2026-05","c":"b","o":"Kiuyte","me":867,"oe":706,"r":"W","f":"Queen's Pawn Opening","v":"","eco":"A41","a":1,"s":[[12,0,0,2],[3,0,0,0],[9,0,0,0]]},{"u":"https://www.chess.com/game/daily/973833813","d":"2026-05-21","m":"2026-05","c":"w","o":"Kiuyte","me":863,"oe":711,"r":"D","f":"English Opening","v":"Four Knights Bradley Beach Variation","eco":"A28","a":1,"s":[[12,0,0,0],[5,0,0,1],[15,1,2,1]]},{"u":"https://www.chess.com/game/daily/975372749","d":"2026-05-25","m":"2026-05","c":"b","o":"bertshiz","me":870,"oe":738,"r":"W","f":"King's Fianchetto Opening","v":"","eco":"A00","a":1,"s":[[9,1,0,0],[0,0,0,0],[3,0,0,0]]},{"u":"https://www.chess.com/game/daily/976453065","d":"2026-05-25","m":"2026-05","c":"b","o":"Kiuyte","me":855,"oe":726,"r":"L","f":"French Defense","v":"Advance Variation","eco":"C02","a":1,"s":[[12,1,0,1],[6,0,0,0],[22,0,0,0]]},{"u":"https://www.chess.com/game/daily/977552267","d":"2026-05-27","m":"2026-05","c":"w","o":"Kiuyte","me":841,"oe":740,"r":"L","f":"English Opening","v":"King's English Variation","eco":"A20","a":1,"s":[[10,0,0,0],[2,0,0,0],[1,0,0,1]]},{"u":"https://www.chess.com/game/daily/980576890","d":"2026-06-03","m":"2026-06","c":"w","o":"Kiuyte","me":849,"oe":732,"r":"W","f":"Petrov's Defense","v":"Steinitz Attack Symmetrical Center Variation","eco":"C43","a":1,"s":[[12,0,0,0],[2,0,0,0],[0,0,0,0]]},{"u":"https://www.chess.com/game/daily/981126754","d":"2026-06-07","m":"2026-06","c":"b","o":"Kiuyte","me":856,"oe":725,"r":"W","f":"Petrov's Defense","v":"Classical Variation","eco":"C42","a":1,"s":[[11,0,0,0],[13,0,0,0],[0,0,0,0]]},{"u":"https://www.chess.com/game/daily/984473936","d":"2026-06-15","m":"2026-06","c":"w","o":"Kiuyte","me":863,"oe":718,"r":"W","f":"Italian Game","v":"","eco":"C50","a":1,"s":[[12,0,0,0],[4,0,0,0],[0,0,0,0]]},{"u":"https://www.chess.com/game/daily/971867977","d":"2026-06-16","m":"2026-06","c":"w","o":"micmac957","me":874,"oe":861,"r":"W","f":"Scotch Game","v":"","eco":"C45","a":1,"s":[[12,1,0,1],[11,0,1,0],[5,0,0,0]]},{"u":"https://www.chess.com/game/daily/987554788","d":"2026-06-24","m":"2026-06","c":"b","o":"Kiuyte","me":859,"oe":734,"r":"L","f":"French Defense","v":"Queen's Knight Variation","eco":"C00","a":1,"s":[[12,2,2,1],[0,0,0,0],[0,0,0,0]]},{"u":"https://www.chess.com/game/daily/992354652","d":"2026-07-07","m":"2026-07","c":"w","o":"Kiuyte","me":844,"oe":750,"r":"L","f":"English Opening","v":"Two Knights Variation","eco":"A22","a":1,"s":[[12,1,0,0],[7,0,0,1],[0,0,0,0]]},{"u":"https://www.chess.com/game/daily/997069802","d":"2026-07-20","m":"2026-07","c":"b","o":"Kiuyte","me":853,"oe":733,"r":"W","f":"Philidor Defense","v":"","eco":"C41","a":1,"s":[[12,0,0,1],[19,0,1,0],[18,0,0,0]]},{"u":"https://www.chess.com/game/daily/1007623782","d":"2026-08-05","m":"2026-08","c":"w","o":"GG-le_BG","me":864,"oe":778,"r":"W","f":"English Opening","v":"Two Knights Variation","eco":"A22","a":1,"s":[[12,3,0,0],[16,0,0,0],[0,0,0,0]]},{"u":"https://www.chess.com/game/daily/1008738002","d":"2026-08-06","m":"2026-08","c":"b","o":"Kiuyte","me":872,"oe":729,"r":"W","f":"King's Pawn Opening","v":"King's Knight Variation","eco":"C40","a":1,"s":[[9,0,0,0],[0,0,0,0],[0,0,0,0]]},{"u":"https://www.chess.com/game/daily/1010211572","d":"2026-08-16","m":"2026-08","c":"w","o":"Kiuyte","me":880,"oe":721,"r":"W","f":"English Opening","v":"Reversed Sicilian Variation","eco":"A21","a":1,"s":[[8,0,0,0],[0,0,0,0],[0,0,0,0]]},{"u":"https://www.chess.com/game/daily/1014550934","d":"2026-08-22","m":"2026-08","c":"b","o":"GG-le_BG","me":890,"oe":791,"r":"W","f":"French Defense","v":"Normal Variation","eco":"C10","a":1,"s":[[12,1,0,0],[9,0,0,0],[8,0,0,0]]},{"u":"https://www.chess.com/game/daily/1014495990","d":"2026-08-23","m":"2026-08","c":"b","o":"Kiuyte","me":897,"oe":713,"r":"W","f":"King's Fianchetto Opening","v":"","eco":"A00","a":1,"s":[[12,2,1,1],[8,2,0,0],[0,0,0,0]]},{"u":"https://www.chess.com/game/daily/1018269952","d":"2026-09-02","m":"2026-09","c":"w","o":"Kiuyte","me":877,"oe":725,"r":"L","f":"King's Pawn Opening","v":"","eco":"C20","a":1,"s":[[12,0,0,0],[5,0,0,0],[26,2,1,1]]},{"u":"https://www.chess.com/game/daily/1020953804","d":"2026-09-03","m":"2026-09","c":"b","o":"tomifec","me":882,"oe":572,"r":"W","f":"Queen's Pawn Opening","v":"Zukertort Chigorin Variation","eco":"D02","a":1,"s":[[8,0,0,0],[0,0,0,0],[0,0,0,0]]},{"u":"https://www.chess.com/game/daily/1023337812","d":"2026-09-04","m":"2026-09","c":"b","o":"Kiuyte","me":889,"oe":717,"r":"W","f":"King's Fianchetto","v":"","eco":"A00","a":1,"s":[[12,0,0,0],[3,0,0,0],[0,0,0,0]]},{"u":"https://www.chess.com/game/daily/1023732658","d":"2026-09-09","m":"2026-09","c":"w","o":"tomifec","me":893,"oe":553,"r":"W","f":"English Opening","v":"Two Knights Variation","eco":"A22","a":1,"s":[[10,0,0,0],[0,0,0,0],[0,0,0,0]]},{"u":"https://www.chess.com/game/daily/1025436824","d":"2026-09-09","m":"2026-09","c":"b","o":"Kiuyte","me":900,"oe":710,"r":"W","f":"Four Knights Game","v":"Scotch Variation Accepted","eco":"C47","a":1,"s":[[12,1,0,0],[3,0,0,0],[0,0,0,0]]},{"u":"https://www.chess.com/game/daily/1030792524","d":"2026-09-22","m":"2026-09","c":"b","o":"Kiuyte","me":907,"oe":703,"r":"W","f":"King's Fianchetto Opening","v":"","eco":"A00","a":1,"s":[[12,0,0,0],[8,3,0,0],[0,0,0,0]]},{"u":"https://www.chess.com/game/daily/1033812282","d":"2026-10-08","m":"2026-10","c":"w","o":"Kiuyte","me":914,"oe":696,"r":"W","f":"English Opening","v":"Two Knights Variation","eco":"A22","a":1,"s":[[12,0,0,0],[30,0,0,2],[0,0,0,0]]},{"u":"https://www.chess.com/game/daily/1041360496","d":"2026-10-09","m":"2026-10","c":"b","o":"Kiuyte","me":893,"oe":718,"r":"L","f":"King's Pawn Opening","v":"","eco":"C20","a":1,"s":[[4,0,0,1],[0,0,0,0],[0,0,0,0]]},{"u":"https://www.chess.com/game/daily/997425064","d":"2026-10-18","m":"2026-10","c":"b","o":"micmac957","me":909,"oe":930,"r":"W","f":"Philidor Defense","v":"Exchange Variation","eco":"C41","a":1,"s":[[12,1,0,0],[22,0,1,1],[32,1,0,0]]}]}</script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
 <script>
 (() => {
@@ -496,33 +542,102 @@ function renderErrors(list) {
 
 // ---------- Diagnostic (toute la période, non filtré) ----------
 const LVL = { priority: "Priorité", info: "À surveiller", good: "Point fort" };
+function card(c, lvl, withActions) {
+  const max = Math.max(...c.bars.map(b => b.value), 1);
+  const bars = c.bars.length ? `<div class="hbars"><span class="t">${esc(c.barsTitle)}</span>${c.bars.map(b =>
+    `<div class="hbar"><span>${esc(b.label)}</span><span class="track"><span class="fill" style="width:${b.value / max * 100}%;display:block"></span></span><span class="val">${esc(b.text)}</span></div>`).join("")}</div>` : "";
+  const links = withActions && c.links.length ? `<div class="pos-links">${c.links.map(l => `<a href="${esc(l.url)}" target="_blank" rel="noopener">${esc(l.label)} ↗</a>`).join("")}</div>` : "";
+  return `<article class="adv">
+    <div class="adv-head"><span class="lvl lvl-${c.level}">${lvl}</span><h3>${esc(c.title)}</h3></div>
+    <div class="adv-body"${withActions ? "" : ' style="grid-template-columns:minmax(0,1fr)"'}>
+      <div style="display:flex;flex-direction:column;gap:12px;min-width:0">
+        <div class="adv-metric"><span class="v">${esc(c.metric.value)}</span><span class="l">${esc(c.metric.label)}</span></div>
+        <ul>${c.facts.map(f => `<li>${esc(f)}</li>`).join("")}</ul>
+        ${bars}
+      </div>
+      <div style="display:flex;flex-direction:column;gap:12px;min-width:0">
+        ${withActions ? `<div class="todo"><h4>Ce que tu peux faire</h4><ul>${c.actions.map(a => `<li>${esc(a)}</li>`).join("")}</ul></div>` : ""}
+        ${links}
+        ${withActions && c.train ? `<div>${trainLink(c.train)}</div>` : ""}
+        ${c.note ? `<p class="note">${esc(c.note)}</p>` : ""}
+      </div>
+    </div>
+  </article>`;
+}
+
+// Bilan IA (Claude) : remplace les conseils automatiques ; les constats chiffrés restent en dessous, repliés.
+const TRAIN = { mate: "Trouve le mat", tactic: "Trouve le coup gagnant", safe: "Joue un coup sûr", all: "Tous les exercices" };
+const trainLink = th => `<a class="train" href="exercises.html#th=${th}&tc=${D.tc}" data-th="${th}">S'entraîner : ${esc(TRAIN[th])} →</a>`;
+function renderBilan() {
+  const B = D.bilan, [y, m, j] = B.date.split("-");
+  $("diagTitle").innerHTML = `Ton bilan <span class="ai-tag">✦ Bilan IA · ${+j} ${MOIS[+m - 1]} · ${D.games.length} parties</span>`;
+  $("navDiag").textContent = "Bilan";
+  $("diagIntro").textContent = "";
+  let html = `<div class="bilan"><p class="lead">${esc(B.portrait)}</p>`;
+  if (B.progres) html += `<p class="progress-note"><b>Depuis le dernier bilan</b> : ${esc(B.progres)}</p>`;
+  html += `<div class="strengths">${B.points_forts.map(p => `<div class="strength"><b>${esc(p.titre)}</b><span>${esc(p.detail)}</span></div>`).join("")}</div>`;
+  html += B.priorites.map((p, i) => `<article class="adv prio">
+      <div class="adv-head"><span class="lvl lvl-priority">Priorité ${i + 1}</span><h3>${esc(p.titre)}</h3></div>
+      <p>${esc(p.constat)}</p>
+      <p class="act">→ ${esc(p.action)}</p>
+      <div class="row">${p.entrainement ? trainLink(p.entrainement) : ""}
+        ${p.exemple ? `<span><a href="${esc(p.exemple.lien)}" target="_blank" rel="noopener">Voir un exemple dans tes parties ↗</a> — ${esc(p.exemple.explication)}</span>` : ""}</div>
+    </article>`).join("");
+  html += `<h3 class="sub">Ton plan sur 2 semaines</h3><div class="tbl-wrap"><table><tbody>${B.plan.map(x =>
+    `<tr><td>${esc(x.quand)}</td><td class="r">${x.minutes} min</td><td>${esc(x.activite)}${x.entrainement ? `<br>${trainLink(x.entrainement)}` : ""}</td></tr>`).join("")}</tbody></table></div>`;
+  html += `<h3 class="sub">Objectifs pour le prochain bilan</h3><div class="tbl-wrap"><table><thead><tr><th>Indicateur</th><th class="r">Aujourd'hui</th><th class="r">Cible</th></tr></thead><tbody>${B.objectifs.map(o =>
+    `<tr><td>${esc(o.indicateur)}</td><td class="r">${esc(o.actuel)}</td><td class="r">${esc(o.cible)}</td></tr>`).join("")}</tbody></table></div>`;
+  if (D.diag.length) html += `<details class="constats"><summary>Les constats chiffrés de Stockfish (${D.diag.length})</summary><div class="diag">${D.diag.map(c => card(c, LVL[c.level], false)).join("")}</div></details>`;
+  $("diagList").innerHTML = html + "</div>";
+}
+// Boutons « S'entraîner » (bilan IA ou diagnostic automatique) : dans l'appli, ouvrent l'onglet Exercices
+// filtré ; seule (GitHub Pages), la page suit simplement le lien.
+$("diagList").addEventListener("click", e => {
+  const a = e.target.closest("a.train"); if (!a) return;
+  let host = null;
+  try { host = window.parent !== window ? window.parent.chessApp : null; } catch (err) {}
+  if (host?.openExercises) { e.preventDefault(); host.openExercises({ th: a.dataset.th, tc: D.tc }); }
+});
+
+// L'appli recharge cette page quand le bilan annoncé arrive (pas d'exercice en cours à préserver ici).
+window.__reloadOnUpdate = !D.bilan && !!D.bilanPending;
+// Bilan IA en cours de rédaction : bloc animé, remplacé tout seul par le bilan (l'appli recharge la page).
+function renderBilanPending() {
+  $("diagTitle").textContent = "Ton bilan";
+  $("navDiag").textContent = "Bilan";
+  $("diagIntro").textContent = "";
+  const n = D.games.length, tc = D.tcLabel.toLowerCase();
+  const lines = [`Je relis tes ${n} parties de ${tc}…`, "Je repère ce qui te coûte le plus de points…",
+    "Je compare tes ouvertures, ta pendule et tes erreurs par phase…", "Je choisis des exemples dans tes parties…",
+    "Je prépare ton plan d'entraînement…", "Je fixe des objectifs mesurables…"];
+  $("diagList").innerHTML = `<div class="ai-wait" role="status" aria-live="polite">
+    <div class="ai-head"><span class="ai-spark" aria-hidden="true">✦</span>
+      <div><b>Analyse IA en cours</b><span class="ai-sub">Ton bilan personnalisé arrive dans une minute environ, ici même.</span></div></div>
+    <p class="ai-line" id="aiLine">${esc(lines[0])}</p>
+    <div class="ai-skel" aria-hidden="true"><i style="width:92%"></i><i style="width:78%"></i>
+      <div class="ai-cards"><i></i><i></i></div><i style="width:85%"></i><i style="width:64%"></i></div>
+  </div>`;
+  let k = 0;
+  setInterval(() => {
+    const el = $("aiLine"); if (!el) return;
+    el.classList.add("out");
+    setTimeout(() => { k = (k + 1) % lines.length; el.textContent = lines[k]; el.classList.remove("out"); }, 300);
+  }, 3200);
+}
+
 function renderDiag() {
+  if (D.bilan) return renderBilan();
+  if (D.bilanPending) return renderBilanPending();
+  // Pas de bilan IA (trop peu de parties) : diagnostic automatique, et on le dit.
+  $("diagTitle").innerHTML = `Diagnostic automatique <span class="auto-tag">sans IA</span>`;
+  if (D.bilanMin && D.games.length < D.bilanMin)
+    $("diagList").insertAdjacentHTML("beforebegin", `<p class="auto-note">✦ Ton bilan IA personnalisé arrivera à partir de ${D.bilanMin} parties `
+      + `en ${D.tcLabel.toLowerCase()} (tu en as ${D.games.length}). En attendant, voici un diagnostic calculé automatiquement à partir de tes parties.</p>`);
   $("diagIntro").textContent = `Calculé sur toutes tes parties ${D.tcLabel.toLowerCase()} depuis ${MOIS_LONG[sinceD.getMonth()]} ${sinceD.getFullYear()}, `
     + `blancs et noirs confondus : les filtres plus bas ne s'appliquent pas ici. Les priorités sont classées par nombre de parties en jeu.`;
   if (!D.diag.length) { $("diagList").innerHTML = `<div class="empty">Pas encore assez de parties analysées pour un diagnostic.</div>`; return; }
   let p = 0;
-  $("diagList").innerHTML = D.diag.map(c => {
-    const lvl = c.level === "priority" ? `${LVL.priority} ${++p}` : LVL[c.level];
-    const max = Math.max(...c.bars.map(b => b.value), 1);
-    const bars = c.bars.length ? `<div class="hbars"><span class="t">${esc(c.barsTitle)}</span>${c.bars.map(b =>
-      `<div class="hbar"><span>${esc(b.label)}</span><span class="track"><span class="fill" style="width:${b.value / max * 100}%;display:block"></span></span><span class="val">${esc(b.text)}</span></div>`).join("")}</div>` : "";
-    const links = c.links.length ? `<div class="pos-links">${c.links.map(l => `<a href="${esc(l.url)}" target="_blank" rel="noopener">${esc(l.label)} ↗</a>`).join("")}</div>` : "";
-    return `<article class="adv">
-      <div class="adv-head"><span class="lvl lvl-${c.level}">${lvl}</span><h3>${esc(c.title)}</h3></div>
-      <div class="adv-body">
-        <div style="display:flex;flex-direction:column;gap:12px;min-width:0">
-          <div class="adv-metric"><span class="v">${esc(c.metric.value)}</span><span class="l">${esc(c.metric.label)}</span></div>
-          <ul>${c.facts.map(f => `<li>${esc(f)}</li>`).join("")}</ul>
-          ${bars}
-        </div>
-        <div style="display:flex;flex-direction:column;gap:12px;min-width:0">
-          <div class="todo"><h4>Ce que tu peux faire</h4><ul>${c.actions.map(a => `<li>${esc(a)}</li>`).join("")}</ul></div>
-          ${links}
-          ${c.note ? `<p class="note">${esc(c.note)}</p>` : ""}
-        </div>
-      </div>
-    </article>`;
-  }).join("");
+  $("diagList").innerHTML = D.diag.map(c => card(c, c.level === "priority" ? `${LVL.priority} ${++p}` : LVL[c.level], true)).join("");
 }
 renderDiag();
 
