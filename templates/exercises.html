@@ -68,7 +68,8 @@ a { color: var(--accent); }
 .sync.warn { color: var(--warn); }
 
 /* Filtres */
-.filters { display: flex; flex-wrap: wrap; gap: 10px 16px; align-items: center; }
+.filters summary { display: none; }
+.fbody { display: flex; flex-wrap: wrap; gap: 10px 16px; align-items: center; }
 .seg { display: inline-flex; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; background: var(--surface); flex-wrap: wrap; }
 .seg button { font: inherit; font-size: 14px; border: 0; background: none; color: var(--fg); padding: 6px 12px; cursor: pointer; }
 .seg button[aria-pressed="true"] { background: var(--accent); color: var(--bg); font-weight: 700; }
@@ -76,7 +77,7 @@ a { color: var(--accent); }
 /* Exercice */
 .ex { display: grid; grid-template-columns: 1fr; gap: 20px; align-items: start; }
 @media (min-width: 860px) { .ex { grid-template-columns: minmax(0, 540px) minmax(0, 1fr); } }
-.board-wrap { width: 100%; max-width: 540px; margin: 0 auto; display: flex; flex-direction: column; gap: 8px; }
+.board-wrap { position: relative; width: 100%; max-width: 540px; margin: 0 auto; display: flex; flex-direction: column; gap: 8px; }
 .board { display: grid; grid-template-columns: repeat(8, minmax(0, 1fr)); grid-template-rows: repeat(8, minmax(0, 1fr)); aspect-ratio: 1; width: 100%; border-radius: 6px; overflow: hidden; container-type: inline-size; touch-action: manipulation; }
 .board button { all: unset; position: relative; aspect-ratio: 1; min-width: 0; min-height: 0; overflow: hidden; display: flex; align-items: center; justify-content: center; font-size: 10.5cqi; line-height: 1; user-select: none; -webkit-tap-highlight-color: transparent; cursor: default; }
 .board button.can { cursor: pointer; }
@@ -104,6 +105,12 @@ a { color: var(--accent); }
 .under { display: flex; justify-content: space-between; font-size: 13px; color: var(--muted); }
 
 .panel { display: flex; flex-direction: column; gap: 14px; }
+.ex-head { display: flex; flex-direction: column; align-items: flex-start; gap: 10px; }
+/* Verdict posé sur l'échiquier : visible sans faire défiler. */
+.verdict { position: absolute; top: -14px; right: -14px; z-index: 5; width: 52px; height: 52px; border-radius: 50%; display: grid; place-items: center; font-size: 30px; font-weight: 700; color: #fff; box-shadow: 0 4px 14px rgba(0,0,0,.3); pointer-events: none; animation: pop .35s cubic-bezier(.2,1.6,.4,1); }
+.verdict.ok { background: var(--ok); } .verdict.ko { background: var(--bad); }
+@keyframes pop { from { transform: scale(.3); opacity: 0; } to { transform: none; opacity: 1; } }
+@media (prefers-reduced-motion: reduce) { .verdict { animation: none; } }
 .panel .theme { display: inline-flex; align-self: flex-start; font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: var(--accent); background: var(--accent-soft); border-radius: 999px; padding: 3px 10px; }
 .turn { display: flex; align-items: center; gap: 10px; font-size: 17px; font-weight: 700; }
 .turn .sw { width: 18px; height: 18px; border-radius: 50%; border: 1px solid var(--faint); flex: none; }
@@ -123,6 +130,41 @@ a { color: var(--accent); }
 .btn[disabled] { opacity: .45; cursor: default; }
 .links { display: flex; gap: 16px; flex-wrap: wrap; font-size: 14px; }
 .empty { background: var(--surface); border: 1px dashed var(--line); border-radius: var(--r); padding: 28px 16px; text-align: center; color: var(--muted); }
+/* Mobile : l'échiquier d'abord, le verdict dessous, les boutons toujours à portée du pouce. */
+@media (max-width: 859px) {
+  .wrap { gap: 14px; }
+  .top { padding-top: 14px; align-items: center; flex-wrap: nowrap; }
+  .top .eyebrow, .top .meta { display: none; }
+  h1 { font-size: 22px; }
+  .theme-btn { flex: none; padding: 4px 10px; font-size: 12px; }
+  .progress { padding: 10px 12px; gap: 6px; }
+  .progress .big { font-size: 18px; }
+  .progress .head { font-size: 13px; gap: 2px 12px; }
+  #pDoneLbl { white-space: nowrap; }
+  .sync:not(.warn), .legend { display: none; }
+  .sync { font-size: 12px; }
+  .filters { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); }
+  .filters summary { display: flex; gap: 10px; align-items: center; padding: 10px 12px; cursor: pointer; list-style: none; font-size: 14px; min-height: 44px; }
+  .filters summary::-webkit-details-marker { display: none; }
+  .filters summary::after { content: "▾"; margin-left: auto; color: var(--muted); transition: transform .2s; }
+  .filters[open] summary::after { transform: rotate(180deg); }
+  .flbl { font-weight: 700; }
+  .fsum { color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+  .fbody { padding: 0 12px 12px; gap: 8px; }
+  .seg button { padding: 8px 12px; }
+  .ex { gap: 10px; }
+  .panel { display: contents; }
+  .ex-head { order: 1; flex-direction: row; align-items: center; flex-wrap: wrap; gap: 6px 10px; scroll-margin-top: 8px; }
+  .turn { font-size: 15px; }
+  .board-wrap { order: 2; }
+  .nudge { order: 3; }
+  .fb { order: 4; scroll-margin-bottom: 84px; }
+  .state { order: 5; } .ctx { order: 6; } .links { order: 7; }
+  .actions { order: 9; position: sticky; bottom: 0; z-index: 20; flex-wrap: nowrap; margin: 0 -16px; padding: 10px 16px calc(10px + env(safe-area-inset-bottom, 0px)); background: var(--bg); border-top: 1px solid var(--line); box-shadow: 0 -6px 16px rgba(0,0,0,.06); }
+  .actions .btn { flex: 1 1 0; min-width: 0; padding: 8px 6px; font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .actions .btn[disabled] { display: none; }
+  .verdict { width: 40px; height: 40px; font-size: 22px; top: -10px; right: -8px; }
+}
 footer { font-size: 13px; color: var(--muted); border-top: 1px solid var(--line); padding-top: 16px; }
 </style>
 
@@ -145,28 +187,34 @@ footer { font-size: 13px; color: var(--muted); border-top: 1px solid var(--line)
     <div class="legend" id="pLegend"></div>
   </section>
 
-  <div class="filters">
-    <div class="seg" id="fTheme" role="group" aria-label="Thème"></div>
-    <div class="seg" id="fTc" role="group" aria-label="Cadence"></div>
-    <div class="seg" id="fStatus" role="group" aria-label="Statut"></div>
-  </div>
+  <details class="filters" id="filters" open>
+    <summary><span class="flbl">Filtres</span><span class="fsum" id="fSum"></span></summary>
+    <div class="fbody">
+      <div class="seg" id="fTheme" role="group" aria-label="Thème"></div>
+      <div class="seg" id="fTc" role="group" aria-label="Cadence"></div>
+      <div class="seg" id="fStatus" role="group" aria-label="Statut"></div>
+    </div>
+  </details>
 
   <section class="ex" id="ex">
     <div class="board-wrap">
       <div class="board" id="board" role="grid" aria-label="Échiquier"></div>
+      <div class="verdict" id="verdict" aria-hidden="true" hidden></div>
       <div class="promo" id="promo" hidden></div>
       <div class="under"><span id="counter" class="num"></span><span id="orient"></span></div>
     </div>
     <div class="panel">
-      <span class="theme" id="theme"></span>
-      <div class="turn"><span class="sw" id="sw"></span><span id="turnTxt"></span></div>
+      <div class="ex-head">
+        <span class="theme" id="theme"></span>
+        <div class="turn"><span class="sw" id="sw"></span><span id="turnTxt"></span></div>
+      </div>
       <p class="nudge" id="nudge" role="status" aria-live="polite" hidden></p>
       <p class="ctx" id="ctx"></p>
       <p class="state" id="state"></p>
       <div class="fb" id="fb" hidden></div>
       <div class="actions">
         <button class="btn" id="bHint" type="button">Indice</button>
-        <button class="btn" id="bSol" type="button">Voir la solution</button>
+        <button class="btn" id="bSol" type="button">Solution</button>
         <button class="btn" id="bRetry" type="button" hidden>Réessayer</button>
         <button class="btn" id="bErr" type="button" hidden>Voir mon erreur</button>
         <button class="btn primary" id="bNext" type="button">Suivant</button>
@@ -304,13 +352,28 @@ function seg(el, key, opts) {
     const b = e.target.closest("button"); if (!b) return;
     filt[key] = b.dataset.v;
     $(el).querySelectorAll("button").forEach(x => x.setAttribute("aria-pressed", x === b));
-    goFirst();
+    filterSummary(); goFirst();
   };
 }
 seg("fTheme", "th", [["all", "Tous les thèmes"], ...Object.entries(D.themes)]);
 if (tcs.length > 1) seg("fTc", "tc", [["all", "Toutes cadences"], ...tcs.map(t => [t, D.tcLabels[t]])]);
 else $("fTc").hidden = true;
 seg("fStatus", "st", [["todo", "À faire"], ["ko", "À revoir"], ["all", "Tous"]]);
+const MOBILE = matchMedia("(max-width: 859px)");
+function filterSummary() {
+  $("fSum").textContent = [filt.th === "all" ? "Tous thèmes" : D.themes[filt.th],
+    ...(tcs.length > 1 ? [filt.tc === "all" ? "Toutes cadences" : D.tcLabels[filt.tc]] : []),
+    { todo: "À faire", ko: "À revoir", all: "Tous" }[filt.st]].join(" · ");
+}
+filterSummary();
+if (MOBILE.matches) $("filters").open = false;
+// Sur mobile, on garde l'exercice à l'écran : début de l'exercice en haut, verdict visible.
+function reveal(el, block) {
+  if (!MOBILE.matches || !el) return;
+  const r = el.getBoundingClientRect();
+  if (block === "start" ? r.top < 0 || r.top > innerHeight * .4 : r.bottom > innerHeight - 84 || r.top < 0)
+    el.scrollIntoView({ block, behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" });
+}
 
 function inFilter(x, ignoreStatus) {
   if (filt.th !== "all" && x.th !== filt.th) return false;
@@ -390,7 +453,7 @@ function load(i) {
   $("orient").textContent = white ? "" : "Échiquier vu des noirs";
   $("fb").hidden = true; $("links").hidden = true; $("bRetry").hidden = true; $("nudge").hidden = true;
   $("bErr").hidden = true; $("bErr").textContent = "Voir mon erreur";
-  $("bHint").disabled = false; $("bSol").disabled = false;
+  $("bHint").disabled = false; $("bSol").disabled = false; $("verdict").hidden = true;
   renderState(); drawBoard();
 }
 function renderState() {
@@ -483,6 +546,7 @@ function play(m) {
   cur.last = [m[0].slice(0, 2), m[0].slice(2, 4)];
   cur.marks = {};
   if (first) record(x.id, ok);
+  $("verdict").className = "verdict " + (ok ? "ok" : "ko"); $("verdict").textContent = ok ? "✓" : "✗"; $("verdict").hidden = false;
   if (ok) {
     cur.done = true;
     drawBoard();
@@ -523,6 +587,7 @@ function showFeedback(ok, verdict, m) {
   $("fb").innerHTML = `<div class="v">${esc(verdict)}</div><dl>${lines.map(([t, d]) => `<dt>${t}</dt><dd>${d}</dd>`).join("")}</dl>`;
   $("fb").hidden = false;
   if (ok) finish();
+  requestAnimationFrame(() => reveal($("fb"), "nearest"));
 }
 function partieTail() {
   const p = cur.x.mv.find(o => o[0] === cur.x.pu);
@@ -567,7 +632,7 @@ $("bErr").addEventListener("click", () => {
 
 $("bRetry").addEventListener("click", () => {
   cur.pos = parseFen(cur.x.fen); cur.last = null; cur.marks = {}; cur.locked = false; cur.sel = null;
-  $("fb").hidden = true; $("bRetry").hidden = true;
+  $("fb").hidden = true; $("bRetry").hidden = true; $("verdict").hidden = true;
   drawBoard();
 });
 $("bHint").addEventListener("click", () => {
@@ -579,6 +644,7 @@ $("bHint").addEventListener("click", () => {
   drawBoard();
   const hints = { mate: "Cherche un échec qui ne laisse aucune case au roi.", tactic: "Un seul coup gagne vraiment : regarde les captures et les échecs.", safe: "Plusieurs coups conviennent : vérifie qu'aucune pièce ne reste en prise après ton coup." };
   $("fb").className = "fb"; $("fb").innerHTML = `<div class="v">Indice</div><p>La pièce à jouer est encadrée. ${hints[cur.x.th]}</p>`; $("fb").hidden = false;
+  reveal($("fb"), "nearest");
 });
 $("bSol").addEventListener("click", () => {
   if (cur.done) return;
@@ -597,6 +663,7 @@ $("bSol").addEventListener("click", () => {
     + `<dt>Dans la partie</dt><dd>tu as joué <span class="mono">${esc(cur.x.ps)}</span>${partieTail()}</dd></dl>`;
   $("fb").hidden = false;
   finish();
+  reveal($("fb"), "nearest");
 });
 $("bNext").addEventListener("click", () => {
   // En « À faire » / « À revoir », la liste se recalcule : l'exercice traité en sort.
@@ -610,6 +677,7 @@ $("bNext").addEventListener("click", () => {
   }
   order = D.items.filter(x => inFilter(x) && (x.id !== curId || !nextX));
   load(nextX ? order.indexOf(nextX) : 0);
+  reveal(document.querySelector(".ex-head"), "start");
 });
 
 goFirst();
