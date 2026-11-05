@@ -73,6 +73,7 @@ bucket = "analyse-echecs-data"       # Cloud Storage : base SQLite et cache ches
 machines_max = 4                     # analyse répartie sur au plus N machines de 8 cœurs (chessan/worker.py)
 cost_per_machine = 10000             # une machine de plus par tranche de travail (positions × poids de profondeur ;
                                      # une machine de 8 cœurs en traite ≈ 12 000 par minute)
+first_exercises = 20                 # exercices de la première publication (les autres suivent en arrière-plan)
 chunk_cost = 2500                    # taille d'un paquet de la file d'attente (≈ 10-15 s pour une machine)
 time_classes.bullet = { depth = 12 }
 time_classes.blitz = { depth = 14 }

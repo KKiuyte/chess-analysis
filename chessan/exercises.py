@@ -111,9 +111,10 @@ def _theme(moves, tol):
     return "tactic" if good <= 2 else "safe"
 
 
-def build_data(cfg, con):
+def build_data(cfg, con, first=None):
+    """first : n'évaluer que les `first` erreurs les plus coûteuses (première publication rapide)."""
     ex = cfg["exercises"]
-    cands = _candidates(cfg, con)
+    cands = _candidates(cfg, con)[:first]
     evals = _evaluate(cfg, con, [r["fen_before"] for r in cands])
     by_theme = {t: [] for t in THEMES}
     for r in cands:
@@ -152,9 +153,9 @@ def build_data(cfg, con):
     }
 
 
-def build(cfg, con):
+def build(cfg, con, first=None):
     template = (cfg["root"] / "templates" / "exercises.html").read_text()
-    data = build_data(cfg, con)
+    data = build_data(cfg, con, first)
     payload = json.dumps(data, ensure_ascii=False, separators=(",", ":")).replace("<", "\\u003c")
     fragment = template.replace("__TITLE__", f"Exercices {data['player']}").replace("__DATA__", payload)
     out = cfg["out_dir"]

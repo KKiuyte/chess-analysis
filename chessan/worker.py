@@ -271,16 +271,26 @@ def run(pseudo):
             analyze.analyze(cfg, con, tasks)
         progress.flush()
 
+        # Première publication dès que possible : dashboards + quelques exercices (les erreurs les
+        # plus coûteuses). Les autres exercices sont faits ensuite, sans le dire, puis republiés :
+        # l'appli ne recharge pas la page affichée, la nouvelle version vient au changement d'onglet.
         status(stage=2, step="Préparation des dashboards et des exercices")
         cfg["on_ex_progress"] = throttled("exProgress")
         dashboard.build(cfg, con)
-        exercises.build(cfg, con)
-        con.close()
-
+        exercises.build(cfg, con, first=cfg["app"]["first_exercises"])
         status(stage=3, step="Publication")
         save(cfg, pseudo)
         publish.publish(cfg)
         status(status="done", stage=4, step=None, finished=firestore.SERVER_TIMESTAMP)
+
+        cfg["on_ex_progress"] = None
+        try:
+            exercises.build(cfg, con)
+            save(cfg, pseudo)
+            publish.publish(cfg)
+        except Exception:
+            traceback.print_exc()            # la première publication reste en place
+        con.close()
     except Abandon as e:
         status(status="error", error=str(e), step=None, finished=firestore.SERVER_TIMESTAMP)
     except Exception:

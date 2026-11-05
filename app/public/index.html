@@ -296,7 +296,7 @@ function watch(p) {
     player = snap.data();
     renderUpd();
     renderNav();
-    route();
+    route(true);
   }, fail);
 }
 
@@ -420,11 +420,14 @@ function renderNav() {
   $("nav").hidden = false;
 }
 
-async function route() {
+// fromUpdate : appel dû à une nouvelle publication. La page affichée n'est jamais rechargée sous les
+// yeux (exercice en cours…) : la nouvelle version vient au prochain changement d'onglet.
+async function route(fromUpdate) {
   if (!player) return;
   const pages = player.pages;
   const id = pages.some(pg => pg.id === location.hash.slice(1)) ? location.hash.slice(1) : pages[0].id;
   $("nav").querySelectorAll("a").forEach(a => a.getAttribute("href") === "#" + id ? a.setAttribute("aria-current", "page") : a.removeAttribute("aria-current"));
+  if (fromUpdate && !$("frame").hidden && shown?.startsWith(`${pseudo}/${id}/`)) return;
   // Recharger seulement si la page ou sa version publiée a changé.
   const key = `${pseudo}/${id}/${player.updated?.toMillis?.() ?? ""}`;
   if (shown === key) return show("frame");
