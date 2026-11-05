@@ -54,7 +54,8 @@ def player_config(pseudo):
         cfg["time_classes"] = {tc: dict(v) for tc, v in cfg["app"]["time_classes"].items()}
         cfg["exercises"]["players"] = [pseudo]
         cfg["max_games"] = cfg["app"]["max_games"]
-    cfg["engine"]["processes"] = os.cpu_count() or 1
+    # Sur Cloud Run, os.cpu_count() ne reflète pas les cœurs alloués : le job fixe ENGINE_PROCESSES.
+    cfg["engine"]["processes"] = int(os.environ.get("ENGINE_PROCESSES") or os.cpu_count() or 1)
     cfg["engine"]["nice"] = 0
     return cfg
 

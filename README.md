@@ -45,7 +45,7 @@ ses exercices. La progression des exercices est gardée dans le compte.
   `secrets/firebase-publisher.json` (non versionnée). Sans clé, l'étape est ignorée.
 - **Analyse à la demande (plan Blaze)** : quand `requests/{pseudo}` passe à `pending` (nouveau pseudo, « Mettre à
   jour mes parties », « Réessayer »), la Cloud Function `lancerAnalyse` (`functions/index.js`) lance le job Cloud Run
-  `analyse` (europe-west1, 4 vCPU, 3 h max, compte `analyse-job`), qui exécute `python -m chessan.worker <pseudo>`
+  `analyse` (europe-west1, 8 vCPU, `ENGINE_PROCESSES=8`, 3 h max, compte `analyse-job`), qui exécute `python -m chessan.worker <pseudo>`
   et écrit son avancement dans la demande. Base SQLite et cache chess.com de chaque joueur :
   `gs://analyse-echecs-data/players/<pseudo>.tar.gz`. Réglages des joueurs venus de l'appli : section `[app]` de
   `config.toml` (cadences, au plus 600 parties par cadence). Une relance au plus toutes les 6 h (règles Firestore).
