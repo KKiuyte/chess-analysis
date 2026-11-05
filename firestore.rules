@@ -5,21 +5,35 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
     function signedIn() { return request.auth != null; }
+    // Administrateur : change de pseudo librement et voit toutes les analyses.
+    function isAdmin() { return signedIn() && request.auth.uid in ['rxtIlspbUSc7QPuwop2OnIFHRWF3']; }
+    // Pseudo chess.com choisi par le compte connecté (un seul par compte, verrouillé).
+    function myPseudo() {
+      let u = /databases/$(database)/documents/users/$(request.auth.uid);
+      return exists(u) ? get(u).data.pseudo : null;
+    }
+    function ownPseudo(pseudo) { return signedIn() && (isAdmin() || myPseudo() == pseudo); }
 
-    // Analyses publiées par la VM (SDK Admin, qui ignore ces règles).
-    // Les parties chess.com sont publiques : tout compte connecté peut les lire.
+    // Analyses publiées par le job (SDK Admin, qui ignore ces règles) : chacun ne lit que la sienne.
     match /players/{pseudo} {
-      allow read: if signedIn();
+      allow read: if ownPseudo(pseudo);
       allow write: if false;
       match /pages/{page} {
-        allow read: if signedIn();
+        allow read: if ownPseudo(pseudo);
         allow write: if false;
       }
     }
 
-    // Profil : le pseudo chess.com choisi. Réservé à son propriétaire.
+    // Profil : le pseudo chess.com, choisi une fois puis verrouillé (sauf administrateur).
+    // Plusieurs comptes peuvent choisir le même pseudo.
     match /users/{uid} {
-      allow read, write: if signedIn() && request.auth.uid == uid;
+      allow read: if signedIn() && request.auth.uid == uid;
+      allow create: if signedIn() && request.auth.uid == uid
+        && request.resource.data.keys().hasOnly(['pseudo', 'updated'])
+        && request.resource.data.pseudo is string
+        && request.resource.data.pseudo.matches('^[a-z0-9_-]{3,25}$');
+      allow update: if isAdmin() && request.auth.uid == uid;
+      allow delete: if false;
     }
 
     // Progression des exercices, propre à chaque compte.
@@ -32,15 +46,15 @@ service cloud.firestore {
     // Côté appli : créer la demande, ou relancer une analyse terminée — au plus toutes les 6 h,
     // 10 minutes après une erreur, ou plus tard si elle est restée bloquée — pour borner le coût.
     match /requests/{pseudo} {
-      allow read: if signedIn();
-      allow create: if signedIn()
+      allow read: if ownPseudo(pseudo);
+      allow create: if ownPseudo(pseudo)
         && pseudo.matches('^[a-z0-9_-]{3,25}$')
         && request.resource.data.keys().hasOnly(['pseudo', 'uid', 'created', 'status'])
         && request.resource.data.pseudo == pseudo
         && request.resource.data.uid == request.auth.uid
         && request.resource.data.status == 'pending'
         && request.resource.data.created == request.time;
-      allow update: if signedIn()
+      allow update: if ownPseudo(pseudo)
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['uid', 'created', 'status'])
         && request.resource.data.uid == request.auth.uid
         && request.resource.data.status == 'pending'

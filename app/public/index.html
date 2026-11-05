@@ -162,6 +162,7 @@ iframe { flex: 1; width: 100%; border: 0; display: block; background: var(--bg);
     <form id="fPseudo" novalidate>
       <label for="pseudo">Pseudo</label>
       <input id="pseudo" name="pseudo" autocomplete="username" autocapitalize="none" spellcheck="false" required maxlength="25" placeholder="ex. kiuyte">
+      <p class="note" id="pseudoLock">Choisis bien : ton pseudo est définitif, il ne pourra plus être changé ensuite.</p>
       <p class="err" id="pseudoErr" role="alert" hidden></p>
       <button class="btn" id="bPseudoOk" type="submit">Analyser mes parties</button>
     </form>
@@ -208,6 +209,8 @@ const fb = initializeApp({
   appId: "1:151409040553:web:81b89d57e3238c707c1db8",
 });
 const auth = getAuth(fb), db = getFirestore(fb);
+// Administrateur (même liste que firestore.rules) : seul compte qui peut changer de pseudo.
+const ADMINS = ["rxtIlspbUSc7QPuwop2OnIFHRWF3"];
 const $ = id => document.getElementById(id);
 const VIEWS = ["vLoading", "vLogin", "vPseudo", "vPending", "frame"];
 const show = id => VIEWS.forEach(v => $(v).hidden = v !== id);
@@ -275,6 +278,8 @@ onAuthStateChanged(auth, async u => {
   $("nav").hidden = true;
   $("me").hidden = !u;
   uid = u?.uid || null;
+  $("bPseudo").hidden = !ADMINS.includes(uid);
+  $("pseudoLock").hidden = ADMINS.includes(uid);
   if (!u) return show("vLogin");
   loading("Chargement de ton profil…");
   try {
