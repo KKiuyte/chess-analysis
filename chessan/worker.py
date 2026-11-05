@@ -22,6 +22,7 @@ import json
 import os
 import sys
 import tarfile
+import threading
 import time
 import traceback
 
@@ -55,6 +56,12 @@ def restore(cfg, pseudo):
 
 
 def save(cfg, pseudo):
+    # La base est en WAL : on reporte d'abord dans chess.db tout ce qui est encore dans chess.db-wal,
+    # sinon l'archive perdrait les dernières écritures (parties analysées, bilan…).
+    import sqlite3
+    c = sqlite3.connect(cfg["db_path"], timeout=30)
+    c.execute("PRAGMA wal_checkpoint(TRUNCATE)")
+    c.close()
     buf = io.BytesIO()
     with tarfile.open(fileobj=buf, mode="w:gz") as tar:
         tar.add(cfg["db_path"], arcname="chess.db")
@@ -213,6 +220,16 @@ def run_shard(pseudo, run_id):
     print(f"Machine d'appoint {task} : {done} paquet(s) sur {n}", flush=True)
 
 
+def preview(con):
+    """Dernière partie du joueur, rejouée sur l'écran d'attente pendant l'analyse."""
+    g = con.execute("SELECT * FROM games ORDER BY end_time DESC LIMIT 1").fetchone()
+    if not g:
+        return None
+    moves = [r[0] for r in con.execute("SELECT uci FROM moves WHERE game_id = ? ORDER BY ply", (g["id"],))]
+    return {"adversaire": g["opponent"], "elo": g["opp_elo"], "couleur": g["color"], "resultat": g["result"],
+            "date": g["date"], "cadence": g["time_class"], "coups": moves[:300]}
+
+
 def run(pseudo):
     from firebase_admin import firestore
     pseudo = pseudo.lower()
@@ -236,7 +253,7 @@ def run(pseudo):
     try:
         status(status="running", stage=0, step="Récupération de tes parties sur chess.com", started=firestore.SERVER_TIMESTAMP,
                progress=None, progressDone=0, progressTotal=None, machines=None, exProgress=None,
-               found=None, skipped=None, error=None)
+               found=None, skipped=None, preview=None, error=None)
         restore(cfg, pseudo)
         con = db.connect(cfg["db_path"])
         collect.ingest(cfg, con, collect.collect(cfg, con))
@@ -254,7 +271,7 @@ def run(pseudo):
             elif counts.get(tc, 0):
                 skipped.append({"tc": tc, "n": counts[tc], "min": need})
         cfg["skipped"] = skipped
-        status(found=found, skipped=skipped)
+        status(found=found, skipped=skipped, preview=preview(con))
         if not kept:
             raise Abandon(f"Pas assez de parties classées depuis le {cfg['since'].strftime('%d/%m/%Y')} : "
                           f"il en faut au moins {min_default} dans une cadence (3 en daily).")
@@ -276,7 +293,28 @@ def run(pseudo):
         # l'appli ne recharge pas la page affichée, la nouvelle version vient au changement d'onglet.
         status(stage=2, step="Préparation des dashboards et des exercices")
         cfg["on_ex_progress"] = throttled("exProgress")
+        # Cadences dont le premier bilan IA va être rédigé : annoncé dans le dashboard en attendant.
+        if bilan.api_key(cfg):
+            cfg["bilan_pending"] = {tc for tc in cfg["time_classes"]
+                                    if dashboard.latest_bilan(con, tc) is None and bilan.due(cfg, con, tc)[0]}
         dashboard.build(cfg, con)
+
+        # Bilans IA (Claude) lancés tout de suite, en parallèle des exercices : ils n'ont besoin que
+        # des dashboards et passent leur temps à attendre la réponse de l'API (connexion à part).
+        bilans = {"done": []}
+
+        def write_bilans():
+            c = db.connect(cfg["db_path"])
+            try:
+                bilans["done"] = bilan.run(cfg, c)
+            except Exception:
+                traceback.print_exc()
+            finally:
+                c.close()
+        writer = threading.Thread(target=write_bilans)
+        if cfg.get("bilan_pending") or bilan.api_key(cfg):
+            writer.start()
+
         exercises.build(cfg, con, first=cfg["app"]["first_exercises"])
         status(stage=3, step="Publication")
         save(cfg, pseudo)
@@ -290,14 +328,19 @@ def run(pseudo):
             publish.publish(cfg)
         except Exception:
             traceback.print_exc()            # la première publication reste en place
-        # Bilans IA (Claude) des cadences qui en ont besoin, puis dashboards republiés avec.
-        try:
-            if bilan.run(cfg, con):
+        if writer.is_alive() or writer.ident:
+            writer.join()
+        done = bilans["done"]
+        # Republier si un bilan est arrivé, ou si un bilan annoncé n'a pas pu être rédigé
+        # (le dashboard revient alors aux conseils automatiques).
+        if done or cfg.get("bilan_pending"):
+            cfg["bilan_pending"] = set()
+            try:
                 dashboard.build(cfg, con)
                 save(cfg, pseudo)
                 publish.publish(cfg)
-        except Exception:
-            traceback.print_exc()
+            except Exception:
+                traceback.print_exc()
         con.close()
     except Abandon as e:
         status(status="error", error=str(e), step=None, finished=firestore.SERVER_TIMESTAMP)

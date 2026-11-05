@@ -15,12 +15,13 @@ BLUNDER_KINDS = {
     "mate_missed": "Mat raté",
     "other": "Autre tactique ou plan",
 }
+# Entraînement de l'appli (filtre de l'onglet Exercices) conseillé selon le type de gaffe le plus fréquent.
 PUZZLES = {
-    "hanging": ("Exercices « pièce en prise » sur Lichess", "https://lichess.org/training/hangingPiece"),
-    "missed_capture": ("Exercices « pièce en prise » sur Lichess", "https://lichess.org/training/hangingPiece"),
-    "mate_allowed": ("Exercices « mat en 2 » sur Lichess", "https://lichess.org/training/mateIn2"),
-    "mate_missed": ("Exercices « mat en 1 » sur Lichess", "https://lichess.org/training/mateIn1"),
-    "other": ("Exercices « fourchette » sur Lichess", "https://lichess.org/training/fork"),
+    "hanging": "safe",
+    "missed_capture": "tactic",
+    "mate_allowed": "mate",
+    "mate_missed": "mate",
+    "other": "tactic",
 }
 
 
@@ -217,9 +218,8 @@ def compute(cfg, con, tc, games):
         second = [k for k, _ in kinds.most_common() if k not in (top, "other")][:1]
         if second:
             actions.append(advice[second[0]])
-        actions.append("10 minutes d'exercices tactiques par jour sur le thème ci-dessous, en visant la justesse plutôt "
-                       "que la vitesse.")
-        label, url = PUZZLES[top]
+        actions.append("10 minutes par jour d'exercices tirés de tes parties (bouton ci-dessous), en visant la justesse "
+                       "plutôt que la vitesse.")
         cards.append({"id": "blunders", "level": "priority" if per_game >= 1 else "info",
                       "title": {"hanging": "Tu laisses trop souvent du matériel en prise",
                                 "missed_capture": "Tu passes à côté de captures gagnantes",
@@ -228,7 +228,7 @@ def compute(cfg, con, tc, games):
                                 "other": "Tes gaffes viennent surtout de tactiques plus fines"}[top],
                       "metric": {"value": _n(per_game), "label": "gaffes par partie"},
                       "facts": facts, "bars": bars, "barsTitle": "Répartition des gaffes par type",
-                      "actions": actions, "links": [{"label": label, "url": url}],
+                      "actions": actions, "links": [], "train": PUZZLES[top],
                       "note": "Type détecté automatiquement : « en prise » = après ton coup, l'adversaire peut gagner au "
                               "moins 2 points de matériel par une capture simple.",
                       "weight": len(blunders) / 5})
@@ -248,10 +248,10 @@ def compute(cfg, con, tc, games):
                            "à chaque coup, même quand la position semble calme.",
                            "Quand tu as un avantage, cherche à échanger des pièces pour arriver vite en finale, "
                            "où tu fais moins d'erreurs."],
-            "endgame": ["Travaille les finales de base (roi et pion, tours) dans la section Pratique de Lichess.",
+            "endgame": ["Rejoue tes finales perdues pour repérer le moment où la partie a basculé.",
                         "En finale, active ton roi tôt : c'est une pièce forte quand les dames ont disparu."],
         }[worst]
-        links = [{"label": "Finales de base sur Lichess", "url": "https://lichess.org/practice"}] if worst == "endgame" else []
+        links = []
         bars = [{"label": {"opening": "Ouverture", "middlegame": "Milieu", "endgame": "Finale"}[p],
                  "value": round(v, 1), "text": f"{_n(v)} gaffes / 100 coups"} for p, v in rates.items()]
         spread = ratio < 1.3

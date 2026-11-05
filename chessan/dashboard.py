@@ -69,6 +69,9 @@ def build_data(cfg, con, tc):
                      "lowScore": cfg["openings"]["low_score"]},
         "diag": insights.compute(cfg, con, tc, rows),
         "bilan": latest_bilan(con, tc),
+        # Bilan IA attendu sous peu (worker) : la page l'annonce au lieu d'afficher les conseils automatiques.
+        "bilanPending": tc in cfg.get("bilan_pending", ()),
+        "bilanMin": cfg.get("app", {}).get("bilan_min_games"),
         "games": games,
     }
 

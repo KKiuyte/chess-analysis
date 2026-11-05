@@ -195,6 +195,7 @@ document.title = `Exercices ${D.player}`;
 const sinceD = new Date(D.since);
 $("meta").textContent = `${D.items.length} positions où tu as fait une erreur ou une gaffe depuis ${MOIS[sinceD.getMonth()]} ${sinceD.getFullYear()}. `
   + `Rejoue-les : touche une pièce puis sa case d'arrivée. Tous les coups ont été évalués par Stockfish 19 (profondeur ${D.depth}).`;
+if (D.more) $("meta").textContent += " D'autres exercices sont en préparation : ils apparaîtront dans une minute environ, quand tu reviendras sur cet onglet.";
 $("foot").textContent = `Un coup est accepté s'il perd moins de ${D.tolerance} points de % de gain par rapport au meilleur coup ; `
   + `pour « ${D.themes.mate} », il faut un mat aussi rapide (un coup de plus toléré à partir du mat en 3). Exercice réussi = bon coup du premier essai, sans indice ni solution. `
   + `Données du ${D.generated.replace(" ", " à ")}, issues de l'API publique chess.com (site non affilié à chess.com).`;

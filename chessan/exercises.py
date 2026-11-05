@@ -150,6 +150,7 @@ def build_data(cfg, con, first=None):
         "since": cfg["since"].isoformat(),
         "generated": dt.datetime.now().strftime("%Y-%m-%d %H:%M"),
         "items": items,
+        "more": first is not None,           # première publication : d'autres exercices suivent
     }
 
 

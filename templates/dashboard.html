@@ -155,7 +155,35 @@ tr.fam[aria-expanded="true"] .caret { transform: rotate(90deg); }
 .hbar .track { height: 10px; background: var(--line); border-radius: 4px; overflow: hidden; }
 .hbar .fill { height: 100%; background: var(--s1); border-radius: 4px; }
 .hbar .val { font-variant-numeric: tabular-nums; color: var(--muted); white-space: nowrap; }
-/* Bilan IA */
+.auto-tag { vertical-align: middle; margin-left: 8px; font-family: var(--f-body); font-size: 12px; font-weight: 700;
+  color: var(--muted); padding: 3px 10px; border-radius: 999px; border: 1px solid var(--line); white-space: nowrap; }
+.auto-note { margin: 0 0 12px; padding: 10px 14px; border-radius: var(--r); background: var(--surface); border: 1px dashed var(--line); max-width: 75ch; }
+.ai-tag { display: inline-flex; align-items: center; gap: 4px; vertical-align: middle; margin-left: 8px; font-family: var(--f-body);
+  font-size: 12px; font-weight: 700; letter-spacing: .02em; color: #fff; padding: 3px 10px; border-radius: 999px;
+  background: linear-gradient(135deg, #7c5cff, #2aa7c9); white-space: nowrap; }
+/* Bilan IA en cours de rédaction */
+@property --ai-angle { syntax: "<angle>"; inherits: false; initial-value: 0deg; }
+.ai-wait { position: relative; border-radius: 14px; padding: 20px 20px 22px; display: flex; flex-direction: column; gap: 14px;
+  background: linear-gradient(var(--surface), var(--surface)) padding-box,
+              conic-gradient(from var(--ai-angle), #7c5cff, #3b6a44, #2aa7c9, #c56cf0, #7c5cff) border-box;
+  border: 2px solid transparent; animation: ai-turn 4s linear infinite; box-shadow: 0 8px 30px rgba(124, 92, 255, .12); }
+@keyframes ai-turn { to { --ai-angle: 360deg; } }
+.ai-head { display: flex; gap: 12px; align-items: center; }
+.ai-head b { display: block; font-family: var(--f-display); font-size: 20px; }
+.ai-sub { color: var(--muted); font-size: 14px; }
+.ai-spark { flex: none; width: 40px; height: 40px; border-radius: 12px; display: grid; place-items: center; font-size: 22px; color: #fff;
+  background: linear-gradient(135deg, #7c5cff, #2aa7c9); animation: ai-pulse 1.8s ease-in-out infinite; }
+@keyframes ai-pulse { 50% { transform: scale(1.08) rotate(12deg); box-shadow: 0 0 18px rgba(124, 92, 255, .55); } }
+.ai-line { margin: 0; font-weight: 700; color: var(--accent); min-height: 1.5em; transition: opacity .3s, transform .3s; }
+.ai-line.out { opacity: 0; transform: translateY(-4px); }
+.ai-skel { display: flex; flex-direction: column; gap: 10px; }
+.ai-skel i, .ai-cards i { display: block; height: 12px; border-radius: 6px;
+  background: linear-gradient(90deg, var(--line) 0%, color-mix(in srgb, #7c5cff 22%, var(--line)) 50%, var(--line) 100%);
+  background-size: 200% 100%; animation: ai-shimmer 1.6s linear infinite; }
+.ai-cards { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; margin: 4px 0; }
+.ai-cards i { height: 56px; border-radius: 10px; }
+@keyframes ai-shimmer { from { background-position: 200% 0; } to { background-position: -200% 0; } }
+@media (prefers-reduced-motion: reduce) { .ai-wait, .ai-spark, .ai-skel i, .ai-cards i { animation: none; } }
 .bilan { display: flex; flex-direction: column; gap: 16px; }
 .bilan .lead { font-size: 17px; max-width: 70ch; }
 .bilan .progress-note { background: var(--accent-soft); border-radius: var(--r); padding: 12px 14px; max-width: 70ch; }
@@ -522,6 +550,7 @@ function card(c, lvl, withActions) {
       <div style="display:flex;flex-direction:column;gap:12px;min-width:0">
         ${withActions ? `<div class="todo"><h4>Ce que tu peux faire</h4><ul>${c.actions.map(a => `<li>${esc(a)}</li>`).join("")}</ul></div>` : ""}
         ${links}
+        ${withActions && c.train ? `<div>${trainLink(c.train)}</div>` : ""}
         ${c.note ? `<p class="note">${esc(c.note)}</p>` : ""}
       </div>
     </div>
@@ -533,9 +562,9 @@ const TRAIN = { mate: "Trouve le mat", tactic: "Trouve le coup gagnant", safe: "
 const trainLink = th => `<a class="train" href="exercises.html#th=${th}&tc=${D.tc}" data-th="${th}">S'entraîner : ${esc(TRAIN[th])} →</a>`;
 function renderBilan() {
   const B = D.bilan, [y, m, j] = B.date.split("-");
-  $("diagTitle").textContent = "Ton bilan";
+  $("diagTitle").innerHTML = `Ton bilan <span class="ai-tag">✦ Bilan IA · ${+j} ${MOIS[+m - 1]} · ${D.games.length} parties</span>`;
   $("navDiag").textContent = "Bilan";
-  $("diagIntro").textContent = `Rédigé par une IA (Claude) le ${+j} ${MOIS_LONG[+m - 1]} ${y}, à partir de l'analyse Stockfish de tes parties ${D.tcLabel.toLowerCase()}.`;
+  $("diagIntro").textContent = "";
   let html = `<div class="bilan"><p class="lead">${esc(B.portrait)}</p>`;
   if (B.progres) html += `<p class="progress-note"><b>Depuis le dernier bilan</b> : ${esc(B.progres)}</p>`;
   html += `<div class="strengths">${B.points_forts.map(p => `<div class="strength"><b>${esc(p.titre)}</b><span>${esc(p.detail)}</span></div>`).join("")}</div>`;
@@ -552,17 +581,50 @@ function renderBilan() {
     `<tr><td>${esc(o.indicateur)}</td><td class="r">${esc(o.actuel)}</td><td class="r">${esc(o.cible)}</td></tr>`).join("")}</tbody></table></div>`;
   if (D.diag.length) html += `<details class="constats"><summary>Les constats chiffrés de Stockfish (${D.diag.length})</summary><div class="diag">${D.diag.map(c => card(c, LVL[c.level], false)).join("")}</div></details>`;
   $("diagList").innerHTML = html + "</div>";
-  // Dans l'appli, le bouton ouvre l'onglet Exercices filtré ; seul (GitHub Pages), le lien suffit.
-  $("diagList").addEventListener("click", e => {
-    const a = e.target.closest("a.train"); if (!a) return;
-    let host = null;
-    try { host = window.parent !== window ? window.parent.chessApp : null; } catch (err) {}
-    if (host?.openExercises) { e.preventDefault(); host.openExercises({ th: a.dataset.th, tc: D.tc }); }
-  });
+}
+// Boutons « S'entraîner » (bilan IA ou diagnostic automatique) : dans l'appli, ouvrent l'onglet Exercices
+// filtré ; seule (GitHub Pages), la page suit simplement le lien.
+$("diagList").addEventListener("click", e => {
+  const a = e.target.closest("a.train"); if (!a) return;
+  let host = null;
+  try { host = window.parent !== window ? window.parent.chessApp : null; } catch (err) {}
+  if (host?.openExercises) { e.preventDefault(); host.openExercises({ th: a.dataset.th, tc: D.tc }); }
+});
+
+// L'appli recharge cette page quand le bilan annoncé arrive (pas d'exercice en cours à préserver ici).
+window.__reloadOnUpdate = !D.bilan && !!D.bilanPending;
+// Bilan IA en cours de rédaction : bloc animé, remplacé tout seul par le bilan (l'appli recharge la page).
+function renderBilanPending() {
+  $("diagTitle").textContent = "Ton bilan";
+  $("navDiag").textContent = "Bilan";
+  $("diagIntro").textContent = "";
+  const n = D.games.length, tc = D.tcLabel.toLowerCase();
+  const lines = [`Je relis tes ${n} parties de ${tc}…`, "Je repère ce qui te coûte le plus de points…",
+    "Je compare tes ouvertures, ta pendule et tes erreurs par phase…", "Je choisis des exemples dans tes parties…",
+    "Je prépare ton plan d'entraînement…", "Je fixe des objectifs mesurables…"];
+  $("diagList").innerHTML = `<div class="ai-wait" role="status" aria-live="polite">
+    <div class="ai-head"><span class="ai-spark" aria-hidden="true">✦</span>
+      <div><b>Analyse IA en cours</b><span class="ai-sub">Ton bilan personnalisé arrive dans une minute environ, ici même.</span></div></div>
+    <p class="ai-line" id="aiLine">${esc(lines[0])}</p>
+    <div class="ai-skel" aria-hidden="true"><i style="width:92%"></i><i style="width:78%"></i>
+      <div class="ai-cards"><i></i><i></i></div><i style="width:85%"></i><i style="width:64%"></i></div>
+  </div>`;
+  let k = 0;
+  setInterval(() => {
+    const el = $("aiLine"); if (!el) return;
+    el.classList.add("out");
+    setTimeout(() => { k = (k + 1) % lines.length; el.textContent = lines[k]; el.classList.remove("out"); }, 300);
+  }, 3200);
 }
 
 function renderDiag() {
   if (D.bilan) return renderBilan();
+  if (D.bilanPending) return renderBilanPending();
+  // Pas de bilan IA (trop peu de parties) : diagnostic automatique, et on le dit.
+  $("diagTitle").innerHTML = `Diagnostic automatique <span class="auto-tag">sans IA</span>`;
+  if (D.bilanMin && D.games.length < D.bilanMin)
+    $("diagList").insertAdjacentHTML("beforebegin", `<p class="auto-note">✦ Ton bilan IA personnalisé arrivera à partir de ${D.bilanMin} parties `
+      + `en ${D.tcLabel.toLowerCase()} (tu en as ${D.games.length}). En attendant, voici un diagnostic calculé automatiquement à partir de tes parties.</p>`);
   $("diagIntro").textContent = `Calculé sur toutes tes parties ${D.tcLabel.toLowerCase()} depuis ${MOIS_LONG[sinceD.getMonth()]} ${sinceD.getFullYear()}, `
     + `blancs et noirs confondus : les filtres plus bas ne s'appliquent pas ici. Les priorités sont classées par nombre de parties en jeu.`;
   if (!D.diag.length) { $("diagList").innerHTML = `<div class="empty">Pas encore assez de parties analysées pour un diagnostic.</div>`; return; }

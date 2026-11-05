@@ -77,9 +77,33 @@ input { font: inherit; font-size: 17px; padding: 12px 14px; border-radius: 10px;
 @media (prefers-reduced-motion: reduce) { .spin { animation-duration: 3s; } }
 .upd { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 8px max(16px, env(safe-area-inset-right)) 8px max(16px, env(safe-area-inset-left)); background: var(--accent-soft); font-size: 14px; }
 .upd.ko { background: color-mix(in srgb, var(--bad) 14%, var(--bg)); }
-.steps { list-style: none; margin: 4px 0 0; padding: 0; display: flex; flex-direction: column; gap: 12px; }
-.steps li { display: grid; grid-template-columns: 24px 1fr; column-gap: 10px; align-items: start; }
-.steps .ic { width: 22px; height: 22px; border-radius: 50%; border: 2px solid var(--line); display: grid; place-items: center; font-size: 13px; font-weight: 700; margin-top: 1px; }
+/* Écran d'attente */
+.wait { width: 100%; max-width: 1000px; margin: 0 auto; padding: 40px 16px 48px; display: grid; grid-template-columns: minmax(0, 1fr); gap: 32px; align-items: start; }
+@media (min-width: 820px) { .wait { grid-template-columns: minmax(0, 380px) minmax(0, 1fr); gap: 48px; padding-top: 56px; } }
+.wait-board { margin: 0; display: flex; flex-direction: column; gap: 10px; max-width: 380px; width: 100%; justify-self: center; }
+.mini { display: grid; grid-template-columns: repeat(8, minmax(0, 1fr)); aspect-ratio: 1; border-radius: 10px; overflow: hidden;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, .14); container-type: inline-size; }
+.mini span { display: grid; place-items: center; font-size: 10.5cqi; line-height: 1; font-family: "Segoe UI Symbol", "DejaVu Sans", "Noto Sans Symbols 2", sans-serif; transition: background-color .25s; }
+.mini .l { background: #ebecd0; } .mini .d { background: #739552; }
+.mini .hl.l { background: #f5f682; } .mini .hl.d { background: #b9ca43; }
+.mini .pw { color: #fff; text-shadow: 0 0 1px #000, 0 0 1px #000, 0 1px 1px #000; }
+.mini .pb { color: #111; text-shadow: 0 0 1px #fff8; }
+.wait-main { display: flex; flex-direction: column; gap: 18px; min-width: 0; }
+.eyebrow { font-size: 12px; text-transform: uppercase; letter-spacing: .08em; color: var(--accent); font-weight: 700; }
+.wait-main h1 { font-size: clamp(26px, 5vw, 36px); }
+.wait .lead { color: var(--muted); font-size: 16px; margin: 0; }
+.gauge { display: flex; align-items: center; gap: 18px; }
+.gauge svg { width: 104px; height: 104px; flex: none; transform: rotate(-90deg); }
+.gauge circle { fill: none; stroke-width: 10; }
+.gauge .trk { stroke: var(--line); }
+.gauge .val { stroke: var(--accent); stroke-linecap: round; stroke-dasharray: 326.73; stroke-dashoffset: 326.73; transition: stroke-dashoffset .8s ease; }
+.gauge-txt { display: flex; flex-direction: column; gap: 2px; }
+.gauge .pct { font-family: var(--f-display); font-size: 38px; font-weight: 700; line-height: 1; }
+.steps { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
+.steps li { position: relative; display: grid; grid-template-columns: 24px 1fr; column-gap: 12px; align-items: start; padding-bottom: 18px; }
+.steps li:not(:last-child)::before { content: ""; position: absolute; left: 11px; top: 26px; bottom: 2px; width: 2px; background: var(--line); }
+.steps li.done:not(:last-child)::before { background: var(--accent); }
+.steps .ic { width: 24px; height: 24px; border-radius: 50%; border: 2px solid var(--line); display: grid; place-items: center; font-size: 13px; font-weight: 700; background: var(--bg); position: relative; }
 .steps .done .ic { background: var(--accent); border-color: var(--accent); color: var(--bg); }
 .steps .cur .ic { border-color: var(--line); border-top-color: var(--accent); animation: spin 1s linear infinite; }
 .steps .todo { color: var(--muted); }
@@ -138,18 +162,26 @@ iframe { flex: 1; width: 100%; border: 0; display: block; background: var(--bg);
     <button class="link" id="bPseudoCancel" type="button" hidden>Annuler</button>
   </section>
 
-  <section class="screen" id="vPending" hidden>
-    <h1>Analyse en préparation</h1>
-    <div class="card">
-      <p><strong id="pendWho"></strong> : <span id="pendTxt"></span></p>
+  <section class="wait" id="vPending" hidden>
+    <figure class="wait-board">
+      <div class="mini" id="mini" aria-hidden="true"></div>
+      <figcaption class="note" id="miniCap"></figcaption>
+    </figure>
+    <div class="wait-main">
+      <div class="eyebrow" id="pendEyebrow">Analyse en cours</div>
+      <h1>On analyse tes parties, <span id="pendWho"></span></h1>
+      <p class="lead" id="pendTxt"></p>
+      <div class="gauge" id="gauge">
+        <svg viewBox="0 0 120 120" aria-hidden="true"><circle class="trk" cx="60" cy="60" r="52"/><circle class="val" id="ringVal" cx="60" cy="60" r="52"/></svg>
+        <div class="gauge-txt"><span class="pct num" id="ringPct">0 %</span><span class="note num" id="pendTime"></span><span class="note num" id="pendEta"></span></div>
+      </div>
       <ol class="steps" id="steps"></ol>
-      <p class="note num" id="pendTime"></p>
       <p class="err" id="pendErr" hidden></p>
-      <p class="note" id="pendNote">Cette page s'affichera toute seule dès que l'analyse sera prête : inutile de la recharger.
-        Compte quelques minutes, jusqu'à une vingtaine si tu as beaucoup de parties.</p>
+      <button class="btn" id="bRetry" type="button" hidden>Réessayer</button>
+      <p class="err" id="retryErr" role="alert" hidden></p>
+      <p class="note" id="pendNote">Chacun de tes coups est évalué par Stockfish, le moteur d'échecs le plus fort au monde.
+        Cette page s'affichera toute seule dès que l'analyse sera prête.</p>
     </div>
-    <button class="btn" id="bRetry" type="button" hidden>Réessayer</button>
-    <p class="err" id="retryErr" role="alert" hidden></p>
   </section>
 
   <iframe id="frame" title="Analyse" hidden></iframe>
@@ -314,21 +346,33 @@ const MOIS = ["janvier", "février", "mars", "avril", "mai", "juin", "juillet", 
 const plural = (n, w) => `${n} ${w}${n > 1 ? "s" : ""}`;
 // Avancement de l'analyse : compteur commun à toutes les machines (progressDone / progressTotal).
 const prog = r => r.progressTotal != null ? [Math.min(r.progressDone || 0, r.progressTotal), r.progressTotal] : r.progress || null;
-const stepTxt = r => r.stage === 1 && prog(r) ? `analyse Stockfish : ${prog(r)[0]} / ${prog(r)[1]} parties`
+const stepTxt = r => r.stage === 1 && prog(r) ? `analyse de tes coups : ${prog(r)[0]} / ${prog(r)[1]} parties`
   : r.stage === 2 && r.exProgress ? `exercices : ${r.exProgress[0]} / ${r.exProgress[1]} positions`
   : (r.step || "en file d'attente").replace(/^./, c => c.toLowerCase());
 const skippedTxt = sk => sk.map(x => `${TC[x.tc] || x.tc} : ${plural(x.n, "partie")}, il en faut au moins ${x.min} pour un dashboard`).join(" · ");
 const dur = ms => { const t = Math.max(0, Math.round(ms / 1000)); return t < 60 ? `${t} s` : `${Math.floor(t / 60)} min ${String(t % 60).padStart(2, "0")}`; };
 
-// Estimation du temps restant d'après le rythme observé depuis l'ouverture de la page.
-let rate = null;
-function remaining(key, [i, n]) {
+// Temps restant : rythme des 30 dernières secondes, affiché seulement après 5 % (au début, les
+// machines d'appoint démarrent encore et le rythme est trompeur).
+let samples = [];
+function eta([i, n]) {
   const now = Date.now();
-  if (!rate || rate.key !== key || i < rate.i) rate = { key, i, t: now };
-  if (i - rate.i < 3 || i >= n) return "";
-  return ` · encore ~${dur((n - i) * (now - rate.t) / (i - rate.i))}`;
+  if (samples.length && i < samples[samples.length - 1].i) samples = [];
+  samples.push({ t: now, i });
+  samples = samples.filter(x => now - x.t <= 30000);
+  const a = samples[0];
+  if (i / n < 0.05 || now - a.t < 8000 || i <= a.i || i >= n) return "";
+  return `Encore environ ${dur(Math.max(10000, (n - i) * (now - a.t) / (i - a.i)))}`;
 }
 const bar = ([i, n]) => `<div class="prog"><span style="width:${n ? i / n * 100 : 100}%"></span></div>`;
+
+// Avancement global (anneau) : récupération 0-10 %, analyse 10-85 %, pages 85-97 %, mise en ligne 97-100 %.
+function overall(r) {
+  if (r.status === "done") return 100;
+  if (r.status !== "running") return 2;
+  const p = prog(r), e = r.exProgress;
+  return [5, 10 + 75 * (p?.[1] ? p[0] / p[1] : 0), 85 + 12 * (e?.[1] ? e[0] / e[1] : 0), 98][r.stage ?? 0] ?? 98;
+}
 
 function renderSteps(r) {
   const started = ["running", "done"].includes(r.status);
@@ -337,30 +381,96 @@ function renderSteps(r) {
   if (r.found) {
     const total = Object.values(r.found).reduce((a, b) => a + b, 0);
     found = (total > 1 ? `${total} parties classées trouvées` : `${total} partie classée trouvée`)
-      + (total ? " : " + Object.entries(r.found).map(([tc, n]) => `${n} ${TC[tc] || tc}`).join(", ") : "");
+      // Ordre fixe des cadences (Firestore ne garantit pas l'ordre des clés d'un objet).
+      + (total ? " : " + Object.keys(TC).filter(tc => r.found[tc]).map(tc => `${r.found[tc]} ${TC[tc]}`).join(", ") : "");
     if (r.skipped?.length) found += `<br>${skippedTxt(r.skipped)}.`;
   }
+  const p = prog(r);
   const items = [
     ["Récupération de tes parties sur chess.com", found],
-    ["Analyse de chaque coup par Stockfish", prog(r)?.[1] ? `${prog(r)[0]} / ${plural(prog(r)[1], "partie")}`
-        + (r.machines > 1 ? ` · ${r.machines} machines en parallèle` : "")
-        + (stage === 1 ? remaining("a", prog(r)) + bar(prog(r)) : "")
+    ["Analyse de chacun de tes coups", p?.[1] ? `${p[0]} / ${plural(p[1], "partie")}${stage === 1 ? bar(p) : ""}`
       : stage > 1 ? "aucune nouvelle partie à analyser" : ""],
-    ["Dashboards et exercices", r.exProgress && stage === 2 ? `positions d'exercice évaluées : ${r.exProgress[0]} / ${r.exProgress[1]}${remaining("e", r.exProgress)}${bar(r.exProgress)}` : ""],
-    ["Publication", ""],
+    ["Préparation de tes dashboards et exercices", ""],
+    ["Mise en ligne de tes pages", ""],
   ];
   $("steps").innerHTML = items.map(([t, d], k) => {
     const st = k < stage ? "done" : k === stage ? "cur" : "todo";
     return `<li class="${st}"><span class="ic" aria-hidden="true">${st === "done" ? "✓" : ""}</span><span class="t">${t}</span>${d ? `<span class="d">${d}</span>` : ""}</li>`;
   }).join("");
+  const pct = Math.round(overall(r));
+  $("ringVal").style.strokeDashoffset = 326.73 * (1 - pct / 100);
+  $("ringPct").textContent = `${pct} %`;
+  $("pendEta").textContent = stage === 1 && p?.[1] ? eta(p) : "";
 }
 
 // Chrono de l'écran d'attente.
 setInterval(() => {
   if ($("vPending").hidden || !req || !busy(req)) return;
   const from = req.started && req.status === "running" ? req.started : req.created;
-  if (from?.toMillis) $("pendTime").textContent = `Temps écoulé : ${dur(Date.now() - from.toMillis())}`;
+  if (from?.toMillis) $("pendTime").textContent = `Depuis ${dur(Date.now() - from.toMillis())}`;
 }, 1000);
+
+// ---------- Échiquier animé de l'écran d'attente ----------
+// Rejoue la dernière partie du joueur dès que le job l'a récupérée ; en attendant, la « partie de l'Opéra ».
+const OPERA = "e2e4 e7e5 g1f3 d7d6 d2d4 c8g4 d4e5 g4f3 d1f3 d6e5 f1c4 g8f6 f3b3 d8e7 b1c3 c7c6 c1g5 b7b5 c3b5 c6b5 c4b5 b8d7 e1c1 a8d8 d1d7 d8d7 h1d1 e7e6 b5d7 f6d7 b3b8 d7b8 d1d8".split(" ");
+const GLYPH = { k: "♚", q: "♛", r: "♜", b: "♝", n: "♞", p: "♟" };
+const START = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR";
+const sq = s => "abcdefgh".indexOf(s[0]) + (s[1] - 1) * 8;
+function fenPos(fen) {
+  const pos = Array(64).fill(null);
+  fen.split("/").forEach((row, i) => { let f = 0; for (const ch of row) { if (/\d/.test(ch)) f += +ch; else pos[(7 - i) * 8 + f++] = ch; } });
+  return pos;
+}
+function play(pos, u) {
+  const p = pos.slice(), from = sq(u.slice(0, 2)), to = sq(u.slice(2, 4)), pc = p[from];
+  if (!pc) return p;
+  const white = pc === pc.toUpperCase();
+  if (pc.toLowerCase() === "k" && Math.abs(to - from) === 2) {
+    const [rf, rt] = to > from ? [from + 3, from + 1] : [from - 4, from - 1];
+    p[rt] = p[rf]; p[rf] = null;
+  }
+  if (pc.toLowerCase() === "p" && (to - from) % 8 !== 0 && !p[to]) p[to + (white ? -8 : 8)] = null;
+  p[to] = u[4] ? (white ? u[4].toUpperCase() : u[4]) : pc;
+  p[from] = null;
+  return p;
+}
+const mini = { key: null, moves: OPERA, flip: false, i: 0, pos: fenPos(START), last: null, pause: 0 };
+function drawMini() {
+  const cells = [];
+  for (let r = 7; r >= 0; r--) for (let f = 0; f < 8; f++) cells.push(r * 8 + f);
+  if (mini.flip) cells.reverse();
+  $("mini").innerHTML = cells.map(i => {
+    const pc = mini.pos[i], cls = ((i >> 3) + (i & 7)) % 2 ? "l" : "d";
+    const hl = mini.last && mini.last.includes(i) ? " hl" : "";
+    return `<span class="${cls}${hl}">${pc ? `<b class="${pc === pc.toUpperCase() ? "pw" : "pb"}" style="font-weight:400">${GLYPH[pc.toLowerCase()]}︎</b>` : ""}</span>`;
+  }).join("");
+}
+function setMini(r) {
+  const pv = r?.preview;
+  const key = pv ? `${pv.date}-${pv.adversaire}-${pv.coups.length}` : "opera";
+  if (key === mini.key) return;
+  Object.assign(mini, { key, i: 0, pos: fenPos(START), last: null, pause: 0 });
+  if (pv?.coups?.length) {
+    const res = { win: "gagnée", loss: "perdue", draw: "nulle" }[pv.resultat] || "";
+    const [y, m, d] = pv.date.split("-");
+    mini.moves = pv.coups; mini.flip = pv.couleur === "b";
+    $("miniCap").textContent = `Ta dernière partie : ${TC[pv.cadence] || pv.cadence}, le ${+d} ${MOIS[+m - 1]}, contre ${pv.adversaire}`
+      + (pv.elo ? ` (${pv.elo})` : "") + `, avec les ${pv.couleur === "w" ? "blancs" : "noirs"}${res ? ` : ${res}` : ""}.`;
+  } else {
+    mini.moves = OPERA; mini.flip = false;
+    $("miniCap").textContent = "En attendant tes parties : la « partie de l'Opéra », Morphy contre le duc de Brunswick et le comte Isouard, Paris, 1858.";
+  }
+  drawMini();
+}
+setInterval(() => {
+  if ($("vPending").hidden) return;
+  if (mini.pause > 0) { mini.pause--; return; }
+  if (mini.i >= mini.moves.length) { Object.assign(mini, { i: 0, pos: fenPos(START), last: null }); drawMini(); mini.pause = 2; return; }
+  const u = mini.moves[mini.i++];
+  mini.pos = play(mini.pos, u); mini.last = [sq(u.slice(0, 2)), sq(u.slice(2, 4))];
+  drawMini();
+  if (mini.i >= mini.moves.length) mini.pause = 4;
+}, matchMedia("(prefers-reduced-motion: reduce)").matches ? 2000 : 900);
 
 const busy = r => r && ["pending", "queued", "running"].includes(r.status);
 
@@ -384,13 +494,16 @@ function whyDenied() {
 function pending(p) {
   $("pendWho").textContent = p;
   show("vPending");
-  if (!req) { $("pendTxt").textContent = "envoi de la demande d'analyse…"; $("steps").innerHTML = ""; $("pendErr").hidden = $("bRetry").hidden = true; return; }
+  setMini(req);
+  if (!req) { $("pendTxt").textContent = "Envoi de ta demande…"; $("steps").innerHTML = ""; $("pendErr").hidden = $("bRetry").hidden = true; return; }
   const err = req.status === "error";
-  $("pendTxt").textContent = err ? "l'analyse n'a pas abouti." : req.status === "running" ? "analyse en cours."
-    : "démarrage de la machine d'analyse (environ 30 secondes)…";
+  $("pendEyebrow").textContent = err ? "Analyse interrompue" : "Analyse en cours";
+  $("pendTxt").textContent = err ? "L'analyse n'a pas abouti."
+    : req.status === "running" ? "Chacun de tes coups est passé au crible : tes dashboards, tes exercices et ton bilan arrivent."
+    : "Démarrage de l'analyse, quelques secondes…";
   renderSteps(req);
   $("steps").hidden = err && !req.found;
-  $("pendTime").hidden = err;
+  $("gauge").hidden = err;
   $("pendErr").hidden = !err; $("pendErr").textContent = req.error || "";
   $("pendNote").hidden = err;
   $("bRetry").hidden = !err;
@@ -435,7 +548,9 @@ async function route(fromUpdate) {
   const pages = player.pages;
   const id = pages.some(pg => pg.id === location.hash.slice(1)) ? location.hash.slice(1) : pages[0].id;
   $("nav").querySelectorAll("a").forEach(a => a.getAttribute("href") === "#" + id ? a.setAttribute("aria-current", "page") : a.removeAttribute("aria-current"));
-  if (fromUpdate && !$("frame").hidden && shown?.startsWith(`${pseudo}/${id}/`)) return;
+  let reloadable = false;   // page qui attend son bilan IA : on peut la recharger sans rien interrompre
+  try { reloadable = !!$("frame").contentWindow?.__reloadOnUpdate; } catch (e) {}
+  if (fromUpdate && !$("frame").hidden && shown?.startsWith(`${pseudo}/${id}/`) && !reloadable) return;
   // Recharger seulement si la page ou sa version publiée a changé.
   const key = `${pseudo}/${id}/${player.updated?.toMillis?.() ?? ""}`;
   if (shown === key) return show("frame");
