@@ -61,6 +61,7 @@ nav a[aria-current="page"] { color: var(--fg); border-bottom-color: var(--accent
 main { flex: 1; display: flex; flex-direction: column; min-height: 0; }
 .screen { width: 100%; max-width: 560px; margin: 0 auto; padding: 48px 16px; display: flex; flex-direction: column; gap: 16px; }
 .screen .lead { color: var(--muted); font-size: 16px; }
+.screen .mono { font-family: ui-monospace, "SF Mono", Menlo, monospace; font-weight: 700; word-break: break-all; padding: 10px 12px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); }
 .btn { font: inherit; font-size: 16px; font-weight: 700; border-radius: 10px; padding: 12px 18px; min-height: 48px; cursor: pointer;
   border: 1px solid var(--accent); background: var(--accent); color: var(--bg); align-self: flex-start; display: inline-flex; align-items: center; gap: 10px; }
 .btn.ghost { background: var(--surface); color: var(--fg); border-color: var(--line); font-weight: 400; }
@@ -169,6 +170,14 @@ iframe { flex: 1; width: 100%; border: 0; display: block; background: var(--bg);
     <button class="link" id="bPseudoCancel" type="button" hidden>Annuler</button>
   </section>
 
+  <section class="screen" id="vInvite" hidden>
+    <h1>Accès sur invitation</h1>
+    <p>Ce site est en bêta privée. Pour l'utiliser, demande une invitation en donnant l'adresse de ton compte Google :</p>
+    <p class="mono" id="inviteMail"></p>
+    <p class="note">Une fois invité, recharge simplement cette page.</p>
+    <button class="link" id="bInviteOut" type="button">Changer de compte Google</button>
+  </section>
+
   <section class="wait" id="vPending" hidden>
     <figure class="wait-board">
       <div class="mini" id="mini" aria-hidden="true"></div>
@@ -212,7 +221,7 @@ const auth = getAuth(fb), db = getFirestore(fb);
 // Administrateur (même liste que firestore.rules) : seul compte qui peut changer de pseudo.
 const ADMINS = ["rxtIlspbUSc7QPuwop2OnIFHRWF3"];
 const $ = id => document.getElementById(id);
-const VIEWS = ["vLoading", "vLogin", "vPseudo", "vPending", "frame"];
+const VIEWS = ["vLoading", "vLogin", "vPseudo", "vInvite", "vPending", "frame"];
 const show = id => VIEWS.forEach(v => $(v).hidden = v !== id);
 
 // Thème : celui choisi dans les pages (même clé localStorage, même origine que l'iframe).
@@ -287,9 +296,23 @@ onAuthStateChanged(auth, async u => {
   try {
     const s = await getDoc(doc(db, "users", uid));
     pseudo = s.exists() ? s.data().pseudo : null;
+    if (!pseudo && !ADMINS.includes(uid) && !(await isInvited(u))) {
+      $("inviteMail").textContent = u.email || "";
+      $("inviteMail").hidden = !u.email;
+      return show("vInvite");
+    }
   } catch (e) { return fail(e); }
   pseudo ? watch(pseudo) : askPseudo();
 });
+// Invitation : par compte (uid) ou par adresse Gmail. La règle Firestore fait foi, ceci n'est que l'affichage.
+async function isInvited(u) {
+  const ids = [u.uid, ...(u.email && u.emailVerified ? [u.email.toLowerCase()] : [])];
+  for (const id of ids) {
+    try { if ((await getDoc(doc(db, "invites", id))).exists()) return true; } catch (e) {}
+  }
+  return false;
+}
+$("bInviteOut").addEventListener("click", () => signOut(auth));
 
 // ---------- Pseudo ----------
 function askPseudo() {

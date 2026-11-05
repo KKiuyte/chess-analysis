@@ -13,6 +13,22 @@ service cloud.firestore {
       return exists(u) ? get(u).data.pseudo : null;
     }
     function ownPseudo(pseudo) { return signedIn() && (isAdmin() || myPseudo() == pseudo); }
+    // Accès sur invitation : invites/{uid} ou invites/{adresse Gmail vérifiée, en minuscules}.
+    function myEmail() {
+      return request.auth.token.email_verified == true ? request.auth.token.email.lower() : null;
+    }
+    function invited() {
+      return isAdmin()
+        || exists(/databases/$(database)/documents/invites/$(request.auth.uid))
+        || (myEmail() != null && exists(/databases/$(database)/documents/invites/$(myEmail())));
+    }
+
+    // Invitations (créées par l'administrateur avec le SDK Admin) : chacun peut seulement
+    // vérifier la sienne.
+    match /invites/{id} {
+      allow get: if signedIn() && (id == request.auth.uid || id == myEmail());
+      allow list, write: if false;
+    }
 
     // Analyses publiées par le job (SDK Admin, qui ignore ces règles) : chacun ne lit que la sienne.
     match /players/{pseudo} {
@@ -25,10 +41,11 @@ service cloud.firestore {
     }
 
     // Profil : le pseudo chess.com, choisi une fois puis verrouillé (sauf administrateur).
-    // Plusieurs comptes peuvent choisir le même pseudo.
+    // Plusieurs comptes peuvent choisir le même pseudo. Sans profil, pas de demande d'analyse :
+    // l'invitation se vérifie donc ici, à la création du profil.
     match /users/{uid} {
       allow read: if signedIn() && request.auth.uid == uid;
-      allow create: if signedIn() && request.auth.uid == uid
+      allow create: if signedIn() && request.auth.uid == uid && invited()
         && request.resource.data.keys().hasOnly(['pseudo', 'updated'])
         && request.resource.data.pseudo is string
         && request.resource.data.pseudo.matches('^[a-z0-9_-]{3,25}$');

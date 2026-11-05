@@ -118,7 +118,10 @@ def machines_for(cfg, tasks):
 
 
 def chunks_of(tasks, size):
-    """Paquets consécutifs de coût ≈ size (les parties récentes d'abord, dans l'ordre de pending_tasks)."""
+    """Paquets consécutifs de coût ≈ size. Les profondeurs les plus fortes d'abord (daily, rapide) : leurs
+    positions sont les plus longues, mieux vaut qu'elles ne restent pas pour la fin quand les machines
+    d'appoint s'arrêtent ; à profondeur égale, les parties récentes d'abord (ordre de pending_tasks)."""
+    tasks = sorted(tasks, key=lambda t: -t[0][3].get("depth", 0))
     out, cur, load = [], [], 0.0
     for t in tasks:
         cur.append(t)

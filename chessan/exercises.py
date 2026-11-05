@@ -74,7 +74,9 @@ def _candidates(cfg, con):
     return out[:ex["max"] * 2]
 
 
-def _evaluate(cfg, con, fens):
+def _evaluate(cfg, con, fens, enough=None):
+    """enough : s'arrêter dès que ce nombre de positions de `fens` est évalué (première publication :
+    une position très longue à calculer ne retarde pas tout le monde, elle sera faite au passage complet)."""
     depth = cfg["exercises"]["depth"]
     con.executescript(SCHEMA)
     done = {r[0]: json.loads(r[1]) for r in con.execute(
@@ -83,8 +85,10 @@ def _evaluate(cfg, con, fens):
     if todo:
         procs = cfg["engine"]["processes"]
         print(f"Exercices : {len(todo)} position(s) à évaluer (tous les coups, profondeur {depth}) avec {procs} process")
+        # Jauge d'attente : objectif = positions encore nécessaires (enough), pas toutes celles lancées.
+        goal = len(todo) if not enough else max(1, min(len(todo), enough - (len(set(fens)) - len(todo))))
         if cfg.get("on_ex_progress"):
-            cfg["on_ex_progress"](0, len(todo))
+            cfg["on_ex_progress"](0, goal)
         start = time.time()
         pool = mp.Pool(procs, initializer=analyze._init_worker, initargs=(cfg["engine"],))
         try:
@@ -93,10 +97,13 @@ def _evaluate(cfg, con, fens):
                 con.commit()
                 done[fen] = moves
                 if cfg.get("on_ex_progress"):
-                    cfg["on_ex_progress"](i, len(todo))
+                    cfg["on_ex_progress"](min(i, goal), goal)
                 if i % 20 == 0 or i == len(todo):
                     el = time.time() - start
                     print(f"  {i}/{len(todo)} — {el / 60:.1f} min, ~{el / i * (len(todo) - i) / 60:.0f} min restantes", flush=True)
+                if enough and sum(f in done for f in set(fens)) >= enough:
+                    print(f"  {enough} positions prêtes en {(time.time() - start) / 60:.1f} min : on publie, le reste suit", flush=True)
+                    break
         finally:
             pool.terminate()
             pool.join()
@@ -158,8 +165,12 @@ def _theme(moves, tol):
 def build_data(cfg, con, first=None):
     """first : n'évaluer que les `first` erreurs les plus coûteuses (première publication rapide)."""
     ex = cfg["exercises"]
-    cands = _candidates(cfg, con)[:first]
-    evals = _evaluate(cfg, con, [r["fen_before"] for r in cands])
+    # Première publication : on lance un peu plus de positions que nécessaire et on garde les `first`
+    # premières prêtes (les plus graves d'abord).
+    cands = _candidates(cfg, con)[:first + first // 2 if first else None]
+    evals = _evaluate(cfg, con, [r["fen_before"] for r in cands], enough=first)
+    if first:
+        cands = [r for r in cands if r["fen_before"] in evals][:first]
     by_theme = {t: [] for t in THEMES}
     for r in cands:
         moves = evals.get(r["fen_before"])
