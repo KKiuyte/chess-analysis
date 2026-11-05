@@ -71,7 +71,8 @@ def pending_tasks(cfg, con):
             """SELECT g.id, g.color FROM games g
                LEFT JOIN analyzed_games a ON a.game_id = g.id
                WHERE g.time_class = ? AND (a.limit_key IS NULL OR a.limit_key != ?)
-               ORDER BY g.end_time DESC""", (tc, key)).fetchall()
+                 AND g.id IN (SELECT id FROM games WHERE time_class = ? ORDER BY end_time DESC LIMIT ?)
+               ORDER BY g.end_time DESC""", (tc, key, tc, cfg.get("max_games") or -1)).fetchall()
         for r in rows:
             moves = [tuple(m) for m in con.execute(
                 "SELECT ply, fen_before, uci, is_mine FROM moves WHERE game_id = ? ORDER BY ply", (r["id"],))]
@@ -98,6 +99,8 @@ def analyze(cfg, con):
             con.execute("INSERT OR REPLACE INTO analyzed_games VALUES (?, ?, ?)",
                         (game_id, keys[game_id], dt.datetime.now(dt.timezone.utc).isoformat()))
             con.commit()
+            if (i % 10 == 0 or i == n) and cfg.get("on_progress"):
+                cfg["on_progress"](i, n)
             if i % 10 == 0 or i == n:
                 elapsed = time.time() - start
                 eta = elapsed / i * (n - i)

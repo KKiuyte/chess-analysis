@@ -43,7 +43,15 @@ ses exercices. La progression des exercices est gardée dans le compte.
   traitées automatiquement). Règles dans `firestore.rules`.
 - **Étape `publish`** : envoie `output/<pseudo>/data/*.json` dans Firestore avec la clé de compte de service
   `secrets/firebase-publisher.json` (non versionnée). Sans clé, l'étape est ignorée.
-- **Déployer** : `firebase deploy --only hosting,firestore:rules`
+- **Analyse à la demande (plan Blaze)** : quand `requests/{pseudo}` passe à `pending` (nouveau pseudo, « Mettre à
+  jour mes parties », « Réessayer »), la Cloud Function `lancerAnalyse` (`functions/index.js`) lance le job Cloud Run
+  `analyse` (europe-west1, 4 vCPU, 3 h max, compte `analyse-job`), qui exécute `python -m chessan.worker <pseudo>`
+  et écrit son avancement dans la demande. Base SQLite et cache chess.com de chaque joueur :
+  `gs://analyse-echecs-data/players/<pseudo>.tar.gz`. Réglages des joueurs venus de l'appli : section `[app]` de
+  `config.toml` (cadences, au plus 600 parties par cadence). Une relance au plus toutes les 6 h (règles Firestore).
+- **Déployer** : `firebase deploy --only hosting,firestore:rules,functions`
+- **Reconstruire l'image du job** après un changement de `chessan/`, `templates/` ou `config.toml` : Cloud Build sur
+  le `Dockerfile` → `europe-west1-docker.pkg.dev/analyse-echecs/analyse/worker:latest` (le job prend la dernière image).
 
 ## Installation (déjà faite sur la VM)
 

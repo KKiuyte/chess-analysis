@@ -27,8 +27,10 @@ service cloud.firestore {
       allow read, write: if signedIn() && request.auth.uid == uid;
     }
 
-    // File d'attente des analyses demandées (traitée par la VM, étape 2).
-    // Une seule demande par pseudo ; seul le traitement côté serveur la modifie ensuite.
+    // Demandes d'analyse : la Cloud Function lancerAnalyse démarre le job Cloud Run dès qu'une
+    // demande passe à « pending » ; le job y écrit son avancement (SDK Admin).
+    // Côté appli : créer la demande, ou relancer une analyse terminée — au plus toutes les 6 h,
+    // 10 minutes après une erreur, ou plus tard si elle est restée bloquée — pour borner le coût.
     match /requests/{pseudo} {
       allow read: if signedIn();
       allow create: if signedIn()
@@ -38,7 +40,17 @@ service cloud.firestore {
         && request.resource.data.uid == request.auth.uid
         && request.resource.data.status == 'pending'
         && request.resource.data.created == request.time;
-      allow update, delete: if false;
+      allow update: if signedIn()
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['uid', 'created', 'status'])
+        && request.resource.data.uid == request.auth.uid
+        && request.resource.data.status == 'pending'
+        && request.resource.data.created == request.time
+        && ((resource.data.status == 'done' && request.time > resource.data.finished + duration.value(6, 'h'))
+            || (resource.data.status == 'error' && request.time > resource.data.finished + duration.value(10, 'm'))
+            // Demande restée bloquée (fonction ou job interrompus) : relançable après un délai.
+            || (resource.data.status == 'pending' && request.time > resource.data.created + duration.value(1, 'h'))
+            || (resource.data.status in ['queued', 'running'] && request.time > resource.data.updatedAt + duration.value(2, 'h')));
+      allow delete: if false;
     }
   }
 }

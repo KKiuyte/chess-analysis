@@ -64,3 +64,13 @@ min_win_before = 30              # ignorer les positions déjà très mauvaises 
 # Appli web Firebase (projet analyse-echecs) : étape "publish"
 [firebase]
 credentials = "secrets/firebase-publisher.json"   # clé du compte de service, non versionnée
+
+# Joueurs arrivés par l'appli (pas dans [players]) : analyse lancée sur Cloud Run (chessan/worker.py)
+[app]
+min_games = 10                       # une cadence n'a un dashboard qu'à partir de N parties sur la période
+max_games = 600                      # au plus les N parties les plus récentes analysées par cadence (borne le coût)
+bucket = "analyse-echecs-data"       # Cloud Storage : base SQLite et cache chess.com de chaque joueur
+time_classes.bullet = { depth = 12 }
+time_classes.blitz = { depth = 14 }
+time_classes.rapid = { depth = 16 }
+time_classes.daily = { depth = 18, min_games = 3 }

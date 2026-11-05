@@ -75,6 +75,10 @@ input { font: inherit; font-size: 17px; padding: 12px 14px; border-radius: 10px;
 .spin { width: 22px; height: 22px; border-radius: 50%; border: 3px solid var(--line); border-top-color: var(--accent); animation: spin 1s linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }
 @media (prefers-reduced-motion: reduce) { .spin { animation-duration: 3s; } }
+.upd { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 8px max(16px, env(safe-area-inset-right)) 8px max(16px, env(safe-area-inset-left)); background: var(--accent-soft); font-size: 14px; }
+.upd.ko { background: color-mix(in srgb, var(--bad) 14%, var(--bg)); }
+.prog { height: 8px; border-radius: 999px; background: var(--line); overflow: hidden; }
+.prog span { display: block; height: 100%; background: var(--accent); transition: width .4s; }
 iframe { flex: 1; width: 100%; border: 0; display: block; background: var(--bg); }
 </style>
 </head>
@@ -85,11 +89,14 @@ iframe { flex: 1; width: 100%; border: 0; display: block; background: var(--bg);
   <details class="me" id="me" hidden>
     <summary><span class="who" id="who">Compte</span></summary>
     <div class="menu">
+      <button type="button" id="bUpdate">Mettre à jour mes parties</button>
       <button type="button" id="bPseudo">Changer de pseudo</button>
       <button type="button" id="bOut">Déconnexion</button>
     </div>
   </details>
 </header>
+
+<div class="upd" id="upd" role="status" aria-live="polite" hidden><span id="updTxt"></span><button class="link" id="updClose" type="button" hidden>Fermer</button></div>
 
 <main>
   <section class="screen" id="vLoading" aria-live="polite">
@@ -124,8 +131,13 @@ iframe { flex: 1; width: 100%; border: 0; display: block; background: var(--bg);
     <h1>Analyse en préparation</h1>
     <div class="card">
       <p><strong id="pendWho"></strong> : <span id="pendTxt"></span></p>
-      <p class="note">Cette page s'affichera toute seule dès que l'analyse sera prête : inutile de la recharger.</p>
+      <div class="prog" id="pendProg" hidden><span id="pendBar"></span></div>
+      <p class="err" id="pendErr" hidden></p>
+      <p class="note" id="pendNote">Cette page s'affichera toute seule dès que l'analyse sera prête : inutile de la recharger.
+        Compte quelques minutes, jusqu'à une vingtaine si tu as beaucoup de parties.</p>
     </div>
+    <button class="btn" id="bRetry" type="button" hidden>Réessayer</button>
+    <p class="err" id="retryErr" role="alert" hidden></p>
   </section>
 
   <iframe id="frame" title="Analyse" hidden></iframe>
@@ -134,7 +146,7 @@ iframe { flex: 1; width: 100%; border: 0; display: block; background: var(--bg);
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
 import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
-import { getFirestore, doc, getDoc, setDoc, onSnapshot, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+import { getFirestore, doc, getDoc, setDoc, updateDoc, onSnapshot, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
 // Config web publique (non secrète) du projet analyse-echecs.
 const fb = initializeApp({
@@ -162,7 +174,7 @@ function applyTheme() {
 applyTheme();
 window.addEventListener("storage", e => { if (e.key === "theme") applyTheme(); });
 
-let uid = null, pseudo = null, player = null, unsubPlayer = null, shown = null;
+let uid = null, pseudo = null, player = null, unsubPlayer = null, unsubReq = null, req = null, shown = null;
 const tpl = {};
 
 // Utilisé par les exercices (dans l'iframe) pour garder la progression dans le compte.
@@ -199,7 +211,8 @@ $("bLogin").addEventListener("click", async () => {
 $("bOut").addEventListener("click", () => { $("me").open = false; signOut(auth); });
 
 onAuthStateChanged(auth, async u => {
-  unsubPlayer?.(); unsubPlayer = null; player = null; shown = null;
+  unsubPlayer?.(); unsubPlayer = null; unsubReq?.(); unsubReq = null; player = null; req = null; shown = null;
+  $("upd").hidden = true;
   $("frame").removeAttribute("srcdoc");
   $("nav").hidden = true;
   $("me").hidden = !u;
@@ -248,32 +261,89 @@ $("fPseudo").addEventListener("submit", async e => {
 
 // ---------- Analyse du joueur ----------
 function watch(p) {
-  unsubPlayer?.();
-  shown = null;
+  unsubPlayer?.(); unsubReq?.();
+  shown = null; req = null; player = null; $("upd").hidden = true;
+  // L'écran d'attente n'est décidé qu'une fois les deux documents (joueur, demande) connus.
+  let reqLoaded = false, playerLoaded = false, asked = false;
+  const maybePending = () => {
+    if (!reqLoaded || !playerLoaded || player) return;
+    if (!req && !asked) { asked = true; requestAnalysis(p).catch(e => console.error(e)); }
+    pending(p);
+  };
+  unsubReq = onSnapshot(doc(db, "requests", p), snap => {
+    req = snap.exists() ? snap.data() : null;
+    reqLoaded = true;
+    maybePending();
+    renderUpd();
+  }, e => console.error(e));
   $("who").textContent = p;
   loading("Chargement de ton analyse…");
   unsubPlayer = onSnapshot(doc(db, "players", p), snap => {
-    if (!snap.exists()) { player = null; $("nav").hidden = true; return pending(p); }
+    playerLoaded = true;
+    if (!snap.exists()) { player = null; $("nav").hidden = true; return maybePending(); }
     player = snap.data();
+    renderUpd();
     renderNav();
     route();
   }, fail);
 }
 
-async function pending(p) {
-  $("pendWho").textContent = p;
-  $("pendTxt").textContent = "ta demande d'analyse est enregistrée.";
-  show("vPending");
-  try {
-    const ref = doc(db, "requests", p);
-    const s = await getDoc(ref);
-    if (!s.exists()) await setDoc(ref, { pseudo: p, uid, created: serverTimestamp(), status: "pending" });
-    else if (s.data().created) {
-      const d = s.data().created.toDate();
-      $("pendTxt").textContent = `analyse demandée le ${d.toLocaleDateString("fr-FR", { day: "numeric", month: "long" })} à ${d.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}.`;
-    }
-  } catch (e) { console.error(e); }
+const fmtTime = ts => { const d = ts.toDate(); return `${d.toLocaleDateString("fr-FR", { day: "numeric", month: "long" })} à ${d.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}`; };
+const stepTxt = r => r.progress ? `${r.step} : ${r.progress[0]} / ${r.progress[1]} parties` : (r.step || "en file d'attente");
+const busy = r => r && ["pending", "queued", "running"].includes(r.status);
+
+// Demande (ou relance) d'une analyse : la Cloud Function lancerAnalyse démarre le job Cloud Run.
+async function requestAnalysis(p) {
+  const ref = doc(db, "requests", p);
+  const s = await getDoc(ref);
+  if (!s.exists()) await setDoc(ref, { pseudo: p, uid, created: serverTimestamp(), status: "pending" });
+  else await updateDoc(ref, { uid, created: serverTimestamp(), status: "pending" });
 }
+function whyDenied() {
+  if (req?.status === "done" && req.finished) {
+    const next = new Date(req.finished.toMillis() + 6 * 3600e3);
+    return `Dernière mise à jour le ${fmtTime(req.finished)} : la prochaine est possible à partir de ${next.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}.`;
+  }
+  if (busy(req)) return "Une analyse est déjà en cours.";
+  return "Relance impossible pour l'instant, réessaie dans quelques minutes.";
+}
+
+// Joueur pas encore publié : écran d'attente, alimenté en direct par requests/{pseudo}.
+function pending(p) {
+  $("pendWho").textContent = p;
+  show("vPending");
+  if (!req) { $("pendTxt").textContent = "envoi de la demande d'analyse…"; $("pendProg").hidden = $("pendErr").hidden = $("bRetry").hidden = true; return; }
+  const err = req.status === "error";
+  $("pendTxt").textContent = err ? "l'analyse n'a pas abouti." : req.status === "running" ? stepTxt(req) : "demande enregistrée, l'analyse va démarrer.";
+  $("pendProg").hidden = !(req.status === "running" && req.progress);
+  if (req.progress) $("pendBar").style.width = `${req.progress[0] / req.progress[1] * 100}%`;
+  $("pendErr").hidden = !err; $("pendErr").textContent = req.error || "";
+  $("pendNote").hidden = err;
+  $("bRetry").hidden = !err;
+}
+$("bRetry").addEventListener("click", async () => {
+  $("retryErr").hidden = true;
+  try { await requestAnalysis(pseudo); }
+  catch (e) { $("retryErr").textContent = e.code === "permission-denied" ? "Tu pourras relancer 10 minutes après l'échec." : "Relance impossible, réessaie plus tard."; $("retryErr").hidden = false; }
+});
+
+// Joueur déjà publié : bandeau quand une mise à jour tourne ou vient d'échouer.
+function renderUpd(msg) {
+  const ko = !msg && req?.status === "error" && player && req.finished && (!player.updated || req.finished.toMillis() > player.updated.toMillis());
+  const txt = msg || (player && busy(req) ? `Mise à jour en cours — ${stepTxt(req)}` : ko ? `Mise à jour impossible : ${req.error}` : "");
+  $("updTxt").textContent = txt;
+  $("upd").classList.toggle("ko", !!ko);
+  $("updClose").hidden = !msg && !ko;
+  $("upd").hidden = !txt;
+}
+$("updClose").addEventListener("click", () => { $("upd").hidden = true; });
+$("bUpdate").addEventListener("click", async () => {
+  $("me").open = false;
+  if (!pseudo) return;
+  if (busy(req)) return renderUpd("Une analyse est déjà en cours.");
+  try { await requestAnalysis(pseudo); }
+  catch (e) { renderUpd(e.code === "permission-denied" ? whyDenied() : "Mise à jour impossible pour l'instant."); }
+});
 
 function renderNav() {
   $("nav").innerHTML = player.pages.map(pg => `<a href="#${pg.id}">${pg.label}</a>`).join("");

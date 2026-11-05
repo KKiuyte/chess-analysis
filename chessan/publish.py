@@ -12,13 +12,15 @@ des exercices) et l'appli les réinjecte telles quelles dans les templates.
 [firebase].credentials (fichier non versionné).
 """
 import json
+import os
 from pathlib import Path
 
 ORDER = ["bullet", "blitz", "rapid", "daily"]
 _db = None
 
 
-def _client(cfg):
+def client(cfg):
+    """Client Firestore : clé du compte de service sur la VM, identité du job sur Cloud Run."""
     global _db
     if _db is None:
         import firebase_admin
@@ -26,10 +28,13 @@ def _client(cfg):
         key = Path(cfg["firebase"]["credentials"]).expanduser()
         if not key.is_absolute():
             key = cfg["root"] / key
-        if not key.exists():
+        if key.exists():
+            app = firebase_admin.initialize_app(credentials.Certificate(str(key)))
+        elif os.environ.get("CLOUD_RUN_JOB"):
+            app = firebase_admin.initialize_app(options={"projectId": "analyse-echecs"})
+        else:
             print(f"Publication ignorée : clé du compte de service introuvable ({key})")
             return None
-        app = firebase_admin.initialize_app(credentials.Certificate(str(key)))
         _db = firestore.client(app)
     return _db
 
@@ -52,7 +57,7 @@ def _pages(cfg):
 
 def publish(cfg):
     from firebase_admin import firestore
-    db = _client(cfg)
+    db = client(cfg)
     if db is None:
         return
     user = cfg["username"]

@@ -1,0 +1,9 @@
+# Seuls config.toml, run.py, chessan/, templates/ et le Dockerfile partent dans Cloud Build
+*
+!Dockerfile
+!config.toml
+!run.py
+!chessan/
+!chessan/*.py
+!templates/
+!templates/*.html

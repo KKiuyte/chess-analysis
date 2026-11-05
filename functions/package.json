@@ -1,0 +1,11 @@
+{
+  "name": "analyse-echecs-functions",
+  "private": true,
+  "main": "index.js",
+  "engines": { "node": "22" },
+  "dependencies": {
+    "@google-cloud/run": "^2.0.0",
+    "firebase-admin": "^13.0.0",
+    "firebase-functions": "^6.0.0"
+  }
+}
