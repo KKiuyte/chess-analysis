@@ -72,6 +72,8 @@ def publish(cfg):
     # Le document joueur en dernier : l'appli l'écoute et charge les pages quand il change.
     batch.set(ref, {"pseudo": user, "since": cfg["since"].isoformat(),
                     "pages": [{"id": pid, "label": label} for pid, label, _ in pages],
+                    # Cadences sans dashboard faute de parties (joueurs de l'appli) : l'appli l'explique.
+                    "skipped": cfg.get("skipped", []),
                     "updated": firestore.SERVER_TIMESTAMP})
     batch.commit()
     size = sum(f.stat().st_size for _, _, f in pages) // 1024

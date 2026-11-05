@@ -13,6 +13,7 @@ import io
 import os
 import sys
 import tarfile
+import time
 import traceback
 
 from . import analyze, collect, config, dashboard, db, exercises, publish
@@ -69,8 +70,20 @@ def run(pseudo):
     def status(**kw):
         req.set({**kw, "updatedAt": firestore.SERVER_TIMESTAMP}, merge=True)
 
+    def throttled(field):
+        """Avancement « i / n » écrit au plus toutes les 2 s (et toujours au début et à la fin)."""
+        last = [0.0]
+        def f(i, n):
+            now = time.monotonic()
+            if i in (0, n) or now - last[0] >= 2:
+                last[0] = now
+                status(**{field: [i, n]})
+        return f
+
+    # Étapes (champ « stage ») : 0 récupération, 1 analyse Stockfish, 2 dashboards et exercices, 3 publication.
     try:
-        status(status="running", step="Récupération de tes parties sur chess.com", progress=None, error=None)
+        status(status="running", stage=0, step="Récupération de tes parties sur chess.com", started=firestore.SERVER_TIMESTAMP,
+               progress=None, exProgress=None, found=None, skipped=None, error=None)
         restore(cfg, pseudo)
         con = db.connect(cfg["db_path"])
         collect.ingest(cfg, con, collect.collect(cfg, con))
@@ -79,29 +92,41 @@ def run(pseudo):
         counts = dict(con.execute("SELECT time_class, COUNT(*) FROM games WHERE date >= ? GROUP BY time_class",
                                   (since,)).fetchall())
         min_default = cfg["app"]["min_games"]
-        kept = {tc: v for tc, v in cfg["time_classes"].items() if counts.get(tc, 0) >= v.get("min_games", min_default)}
+        found = {tc: counts.get(tc, 0) for tc in cfg["time_classes"] if counts.get(tc, 0)}
+        kept, skipped = {}, []
+        for tc, v in cfg["time_classes"].items():
+            need = v.get("min_games", min_default)
+            if counts.get(tc, 0) >= need:
+                kept[tc] = v
+            elif counts.get(tc, 0):
+                skipped.append({"tc": tc, "n": counts[tc], "min": need})
+        cfg["skipped"] = skipped
+        status(found=found, skipped=skipped)
         if not kept:
-            raise Abandon(f"Pas assez de parties classées depuis le {cfg['since'].strftime('%d/%m/%Y')} "
-                          f"(il en faut au moins {min_default} dans une cadence).")
+            raise Abandon(f"Pas assez de parties classées depuis le {cfg['since'].strftime('%d/%m/%Y')} : "
+                          f"il en faut au moins {min_default} dans une cadence (3 en daily).")
         cfg["time_classes"] = kept
 
-        cfg["on_progress"] = lambda i, n: status(step="Analyse de tes parties par Stockfish", progress=[i, n])
-        status(step="Analyse de tes parties par Stockfish", progress=None)
+        status(stage=1, step="Analyse de tes parties par Stockfish", progress=None)
+        cfg["on_progress"] = throttled("progress")
         analyze.analyze(cfg, con)
 
-        status(step="Préparation des dashboards et des exercices", progress=None)
+        status(stage=2, step="Préparation des dashboards et des exercices")
+        cfg["on_ex_progress"] = throttled("exProgress")
         dashboard.build(cfg, con)
         exercises.build(cfg, con)
         con.close()
+
+        status(stage=3, step="Publication")
         save(cfg, pseudo)
         publish.publish(cfg)
-        status(status="done", step=None, progress=None, finished=firestore.SERVER_TIMESTAMP)
+        status(status="done", stage=4, step=None, finished=firestore.SERVER_TIMESTAMP)
     except Abandon as e:
-        status(status="error", error=str(e), step=None, progress=None, finished=firestore.SERVER_TIMESTAMP)
+        status(status="error", error=str(e), step=None, finished=firestore.SERVER_TIMESTAMP)
     except Exception:
         traceback.print_exc()
         status(status="error", error="L'analyse a échoué. Réessaie dans quelques minutes.",
-               step=None, progress=None, finished=firestore.SERVER_TIMESTAMP)
+               step=None, finished=firestore.SERVER_TIMESTAMP)
         sys.exit(1)
 
 

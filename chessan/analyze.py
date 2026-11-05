@@ -89,6 +89,8 @@ def analyze(cfg, con):
     n = len(tasks)
     procs = cfg["engine"]["processes"]
     print(f"Analyse moteur : {n} partie(s) à analyser avec {procs} process")
+    if cfg.get("on_progress"):
+        cfg["on_progress"](0, n)
     start = time.time()
     pool = mp.Pool(procs, initializer=_init_worker, initargs=(cfg["engine"],))
     try:
@@ -99,7 +101,7 @@ def analyze(cfg, con):
             con.execute("INSERT OR REPLACE INTO analyzed_games VALUES (?, ?, ?)",
                         (game_id, keys[game_id], dt.datetime.now(dt.timezone.utc).isoformat()))
             con.commit()
-            if (i % 10 == 0 or i == n) and cfg.get("on_progress"):
+            if cfg.get("on_progress"):
                 cfg["on_progress"](i, n)
             if i % 10 == 0 or i == n:
                 elapsed = time.time() - start

@@ -77,6 +77,17 @@ input { font: inherit; font-size: 17px; padding: 12px 14px; border-radius: 10px;
 @media (prefers-reduced-motion: reduce) { .spin { animation-duration: 3s; } }
 .upd { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 8px max(16px, env(safe-area-inset-right)) 8px max(16px, env(safe-area-inset-left)); background: var(--accent-soft); font-size: 14px; }
 .upd.ko { background: color-mix(in srgb, var(--bad) 14%, var(--bg)); }
+.steps { list-style: none; margin: 4px 0 0; padding: 0; display: flex; flex-direction: column; gap: 12px; }
+.steps li { display: grid; grid-template-columns: 24px 1fr; column-gap: 10px; align-items: start; }
+.steps .ic { width: 22px; height: 22px; border-radius: 50%; border: 2px solid var(--line); display: grid; place-items: center; font-size: 13px; font-weight: 700; margin-top: 1px; }
+.steps .done .ic { background: var(--accent); border-color: var(--accent); color: var(--bg); }
+.steps .cur .ic { border-color: var(--line); border-top-color: var(--accent); animation: spin 1s linear infinite; }
+.steps .todo { color: var(--muted); }
+.steps .t { font-weight: 700; }
+.steps .todo .t { font-weight: 400; }
+.steps .d { grid-column: 2; font-size: 14px; color: var(--muted); display: flex; flex-direction: column; gap: 6px; margin-top: 2px; }
+.num { font-variant-numeric: tabular-nums; }
+.upd.info { background: var(--surface); border-bottom: 1px solid var(--line); }
 .prog { height: 8px; border-radius: 999px; background: var(--line); overflow: hidden; }
 .prog span { display: block; height: 100%; background: var(--accent); transition: width .4s; }
 iframe { flex: 1; width: 100%; border: 0; display: block; background: var(--bg); }
@@ -131,7 +142,8 @@ iframe { flex: 1; width: 100%; border: 0; display: block; background: var(--bg);
     <h1>Analyse en préparation</h1>
     <div class="card">
       <p><strong id="pendWho"></strong> : <span id="pendTxt"></span></p>
-      <div class="prog" id="pendProg" hidden><span id="pendBar"></span></div>
+      <ol class="steps" id="steps"></ol>
+      <p class="note num" id="pendTime"></p>
       <p class="err" id="pendErr" hidden></p>
       <p class="note" id="pendNote">Cette page s'affichera toute seule dès que l'analyse sera prête : inutile de la recharger.
         Compte quelques minutes, jusqu'à une vingtaine si tu as beaucoup de parties.</p>
@@ -289,7 +301,55 @@ function watch(p) {
 }
 
 const fmtTime = ts => { const d = ts.toDate(); return `${d.toLocaleDateString("fr-FR", { day: "numeric", month: "long" })} à ${d.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}`; };
-const stepTxt = r => r.progress ? `${r.step} : ${r.progress[0]} / ${r.progress[1]} parties` : (r.step || "en file d'attente");
+const TC = { bullet: "Bullet", blitz: "Blitz", rapid: "Rapide", daily: "Daily" };
+const MOIS = ["janvier", "février", "mars", "avril", "mai", "juin", "juillet", "août", "septembre", "octobre", "novembre", "décembre"];
+const plural = (n, w) => `${n} ${w}${n > 1 ? "s" : ""}`;
+const stepTxt = r => r.stage === 1 && r.progress ? `analyse Stockfish : ${r.progress[0]} / ${r.progress[1]} parties`
+  : r.stage === 2 && r.exProgress ? `exercices : ${r.exProgress[0]} / ${r.exProgress[1]} positions`
+  : (r.step || "en file d'attente").replace(/^./, c => c.toLowerCase());
+const skippedTxt = sk => sk.map(x => `${TC[x.tc] || x.tc} : ${plural(x.n, "partie")}, il en faut au moins ${x.min} pour un dashboard`).join(" · ");
+const dur = ms => { const t = Math.max(0, Math.round(ms / 1000)); return t < 60 ? `${t} s` : `${Math.floor(t / 60)} min ${String(t % 60).padStart(2, "0")}`; };
+
+// Estimation du temps restant d'après le rythme observé depuis l'ouverture de la page.
+let rate = null;
+function remaining(key, [i, n]) {
+  const now = Date.now();
+  if (!rate || rate.key !== key || i < rate.i) rate = { key, i, t: now };
+  if (i - rate.i < 3 || i >= n) return "";
+  return ` · encore ~${dur((n - i) * (now - rate.t) / (i - rate.i))}`;
+}
+const bar = ([i, n]) => `<div class="prog"><span style="width:${n ? i / n * 100 : 100}%"></span></div>`;
+
+function renderSteps(r) {
+  const started = ["running", "done"].includes(r.status);
+  const stage = started ? (r.stage ?? 0) : -1;
+  let found = "";
+  if (r.found) {
+    const total = Object.values(r.found).reduce((a, b) => a + b, 0);
+    found = total > 1 ? `${total} parties classées trouvées` : `${total} partie classée trouvée`
+      + (total ? " : " + Object.entries(r.found).map(([tc, n]) => `${n} ${TC[tc] || tc}`).join(", ") : "");
+    if (r.skipped?.length) found += `<br>${skippedTxt(r.skipped)}.`;
+  }
+  const items = [
+    ["Récupération de tes parties sur chess.com", found],
+    ["Analyse de chaque coup par Stockfish", r.progress ? `${r.progress[0]} / ${plural(r.progress[1], "partie")}${stage === 1 ? remaining("a", r.progress) : ""}${stage === 1 ? bar(r.progress) : ""}`
+      : stage > 1 ? "aucune nouvelle partie à analyser" : ""],
+    ["Dashboards et exercices", r.exProgress && stage === 2 ? `positions d'exercice évaluées : ${r.exProgress[0]} / ${r.exProgress[1]}${remaining("e", r.exProgress)}${bar(r.exProgress)}` : ""],
+    ["Publication", ""],
+  ];
+  $("steps").innerHTML = items.map(([t, d], k) => {
+    const st = k < stage ? "done" : k === stage ? "cur" : "todo";
+    return `<li class="${st}"><span class="ic" aria-hidden="true">${st === "done" ? "✓" : ""}</span><span class="t">${t}</span>${d ? `<span class="d">${d}</span>` : ""}</li>`;
+  }).join("");
+}
+
+// Chrono de l'écran d'attente.
+setInterval(() => {
+  if ($("vPending").hidden || !req || !busy(req)) return;
+  const from = req.started && req.status === "running" ? req.started : req.created;
+  if (from?.toMillis) $("pendTime").textContent = `Temps écoulé : ${dur(Date.now() - from.toMillis())}`;
+}, 1000);
+
 const busy = r => r && ["pending", "queued", "running"].includes(r.status);
 
 // Demande (ou relance) d'une analyse : la Cloud Function lancerAnalyse démarre le job Cloud Run.
@@ -312,11 +372,13 @@ function whyDenied() {
 function pending(p) {
   $("pendWho").textContent = p;
   show("vPending");
-  if (!req) { $("pendTxt").textContent = "envoi de la demande d'analyse…"; $("pendProg").hidden = $("pendErr").hidden = $("bRetry").hidden = true; return; }
+  if (!req) { $("pendTxt").textContent = "envoi de la demande d'analyse…"; $("steps").innerHTML = ""; $("pendErr").hidden = $("bRetry").hidden = true; return; }
   const err = req.status === "error";
-  $("pendTxt").textContent = err ? "l'analyse n'a pas abouti." : req.status === "running" ? stepTxt(req) : "demande enregistrée, l'analyse va démarrer.";
-  $("pendProg").hidden = !(req.status === "running" && req.progress);
-  if (req.progress) $("pendBar").style.width = `${req.progress[0] / req.progress[1] * 100}%`;
+  $("pendTxt").textContent = err ? "l'analyse n'a pas abouti." : req.status === "running" ? "analyse en cours."
+    : "démarrage de la machine d'analyse (environ 30 secondes)…";
+  renderSteps(req);
+  $("steps").hidden = err && !req.found;
+  $("pendTime").hidden = err;
   $("pendErr").hidden = !err; $("pendErr").textContent = req.error || "";
   $("pendNote").hidden = err;
   $("bRetry").hidden = !err;
@@ -328,15 +390,19 @@ $("bRetry").addEventListener("click", async () => {
 });
 
 // Joueur déjà publié : bandeau quand une mise à jour tourne ou vient d'échouer.
+let skipClosed = null;
 function renderUpd(msg) {
   const ko = !msg && req?.status === "error" && player && req.finished && (!player.updated || req.finished.toMillis() > player.updated.toMillis());
-  const txt = msg || (player && busy(req) ? `Mise à jour en cours — ${stepTxt(req)}` : ko ? `Mise à jour impossible : ${req.error}` : "");
+  const skip = !msg && !ko && !busy(req) && player?.skipped?.length && skipClosed !== pseudo
+    ? `Pas de dashboard pour ${skippedTxt(player.skipped).replace(/ · /g, " ; ")}.` : "";
+  const txt = msg || (player && busy(req) ? `Mise à jour en cours — ${stepTxt(req)}` : ko ? `Mise à jour impossible : ${req.error}` : skip);
   $("updTxt").textContent = txt;
   $("upd").classList.toggle("ko", !!ko);
-  $("updClose").hidden = !msg && !ko;
+  $("upd").classList.toggle("info", !!skip && txt === skip);
+  $("updClose").hidden = !msg && !ko && !skip;
   $("upd").hidden = !txt;
 }
-$("updClose").addEventListener("click", () => { $("upd").hidden = true; });
+$("updClose").addEventListener("click", () => { if ($("upd").classList.contains("info")) skipClosed = pseudo; $("upd").hidden = true; });
 $("bUpdate").addEventListener("click", async () => {
   $("me").open = false;
   if (!pseudo) return;

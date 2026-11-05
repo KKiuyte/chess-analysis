@@ -83,6 +83,8 @@ def _evaluate(cfg, con, fens):
     if todo:
         procs = cfg["engine"]["processes"]
         print(f"Exercices : {len(todo)} position(s) à évaluer (tous les coups, profondeur {depth}) avec {procs} process")
+        if cfg.get("on_ex_progress"):
+            cfg["on_ex_progress"](0, len(todo))
         start = time.time()
         pool = mp.Pool(procs, initializer=analyze._init_worker, initargs=(cfg["engine"],))
         try:
@@ -90,6 +92,8 @@ def _evaluate(cfg, con, fens):
                 con.execute("INSERT OR REPLACE INTO exercise_evals VALUES (?, ?, ?)", (fen, d, json.dumps(moves)))
                 con.commit()
                 done[fen] = moves
+                if cfg.get("on_ex_progress"):
+                    cfg["on_ex_progress"](i, len(todo))
                 if i % 20 == 0 or i == len(todo):
                     el = time.time() - start
                     print(f"  {i}/{len(todo)} — {el / 60:.1f} min, ~{el / i * (len(todo) - i) / 60:.0f} min restantes", flush=True)
