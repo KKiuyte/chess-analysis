@@ -326,7 +326,7 @@ function renderSteps(r) {
   let found = "";
   if (r.found) {
     const total = Object.values(r.found).reduce((a, b) => a + b, 0);
-    found = total > 1 ? `${total} parties classées trouvées` : `${total} partie classée trouvée`
+    found = (total > 1 ? `${total} parties classées trouvées` : `${total} partie classée trouvée`)
       + (total ? " : " + Object.entries(r.found).map(([tc, n]) => `${n} ${TC[tc] || tc}`).join(", ") : "");
     if (r.skipped?.length) found += `<br>${skippedTxt(r.skipped)}.`;
   }

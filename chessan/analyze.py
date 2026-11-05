@@ -37,30 +37,45 @@ def _evaluate(board, limit, game_id):
     return info["score"].white().score(mate_score=MATE_CP), pv[0]
 
 
-def _analyze_game(task):
-    game_id, my_color, moves, limit_kwargs = task
-    limit = chess.engine.Limit(**limit_kwargs)
+def _positions(moves):
+    """Positions à évaluer pour une partie : avant et après chacun de mes coups (sans doublon)."""
+    fens = {}
+    for ply, fen_before, uci, is_mine in moves:
+        if is_mine:
+            board = chess.Board(fen_before)
+            board.push_uci(uci)
+            fens[fen_before] = None
+            fens[board.fen()] = None
+    return list(fens)
+
+
+def _eval_position(task):
+    """Une position, évaluée par le Stockfish du process (la répartition se fait par position :
+    tous les process restent occupés jusqu'au bout, même avec peu de parties).
+    Mémoire de Stockfish vidée à chaque position (game unique) : le résultat ne dépend pas de
+    l'ordre de répartition entre process, donc l'analyse est reproductible."""
+    fen, limit_kwargs, game_id = task
+    cp, best = _evaluate(chess.Board(fen), chess.engine.Limit(**limit_kwargs), (game_id, fen))
+    return game_id, fen, cp, best.uci() if best else None
+
+
+def _game_results(game_id, my_color, moves, evals):
+    """Lignes à écrire dans moves, à partir des évaluations {fen: (cp côté blancs, meilleur coup uci)}."""
     sign = 1 if my_color == "w" else -1
-    cache = {}
-
-    def ev(fen):
-        if fen not in cache:
-            cache[fen] = _evaluate(chess.Board(fen), limit, game_id)
-        return cache[fen]
-
     results = []
     for ply, fen_before, uci, is_mine in moves:
         if not is_mine:
             continue
         board = chess.Board(fen_before)
-        cp_before, best = ev(fen_before)
+        cp_before, best = evals[fen_before]
         board.push_uci(uci)
-        cp_after, _ = ev(board.fen())
+        cp_after, _ = evals[board.fen()]
         cp_before, cp_after = sign * cp_before, sign * cp_after
-        best_san = chess.Board(fen_before).san(best) if best else None
+        best_move = chess.Move.from_uci(best) if best else None
+        best_san = chess.Board(fen_before).san(best_move) if best_move else None
         results.append((cp_before, cp_after, win_pct(cp_before), win_pct(cp_after),
-                        best.uci() if best else None, best_san, game_id, ply))
-    return game_id, results
+                        best, best_san, game_id, ply))
+    return results
 
 
 def pending_tasks(cfg, con):
@@ -85,29 +100,43 @@ def analyze(cfg, con):
     if not tasks:
         print("Analyse moteur : rien de nouveau")
         return
-    keys = {t[0][0]: t[1] for t in tasks}
+    games = {t[0][0]: t for t in tasks}            # game_id → ((id, couleur, coups, limite), clé)
+    need = {gid: _positions(t[0][2]) for gid, t in games.items()}
+    jobs = [(fen, t[0][3], gid) for gid, t in games.items() for fen in need[gid]]
+    evals = {gid: {} for gid in games}
     n = len(tasks)
     procs = cfg["engine"]["processes"]
-    print(f"Analyse moteur : {n} partie(s) à analyser avec {procs} process")
+    print(f"Analyse moteur : {n} partie(s), {len(jobs)} positions à analyser avec {procs} process")
     if cfg.get("on_progress"):
         cfg["on_progress"](0, n)
     start = time.time()
+    done = 0
+
+    def save(gid):
+        nonlocal done
+        (game_id, color, moves, _), key = games[gid]
+        con.executemany(
+            """UPDATE moves SET cp_before=?, cp_after=?, win_before=?, win_after=?, best_uci=?, best_san=?
+               WHERE game_id=? AND ply=?""", _game_results(game_id, color, moves, evals.pop(gid)))
+        con.execute("INSERT OR REPLACE INTO analyzed_games VALUES (?, ?, ?)",
+                    (game_id, key, dt.datetime.now(dt.timezone.utc).isoformat()))
+        con.commit()
+        done += 1
+        if cfg.get("on_progress"):
+            cfg["on_progress"](done, n)
+        if done % 10 == 0 or done == n:
+            elapsed = time.time() - start
+            print(f"  {done}/{n} parties — {elapsed / 60:.1f} min écoulées, ~{elapsed / done * (n - done) / 60:.0f} min restantes",
+                  flush=True)
+
+    for gid in [g for g in games if not need[g]]:   # partie sans coup à moi à évaluer
+        save(gid)
     pool = mp.Pool(procs, initializer=_init_worker, initargs=(cfg["engine"],))
     try:
-        for i, (game_id, results) in enumerate(pool.imap_unordered(_analyze_game, [t[0] for t in tasks]), 1):
-            con.executemany(
-                """UPDATE moves SET cp_before=?, cp_after=?, win_before=?, win_after=?, best_uci=?, best_san=?
-                   WHERE game_id=? AND ply=?""", results)
-            con.execute("INSERT OR REPLACE INTO analyzed_games VALUES (?, ?, ?)",
-                        (game_id, keys[game_id], dt.datetime.now(dt.timezone.utc).isoformat()))
-            con.commit()
-            if cfg.get("on_progress"):
-                cfg["on_progress"](i, n)
-            if i % 10 == 0 or i == n:
-                elapsed = time.time() - start
-                eta = elapsed / i * (n - i)
-                print(f"  {i}/{n} parties — {elapsed / 60:.1f} min écoulées, ~{eta / 60:.0f} min restantes",
-                      flush=True)
+        for gid, fen, cp, best in pool.imap_unordered(_eval_position, jobs, chunksize=2):
+            evals[gid][fen] = (cp, best)
+            if len(evals[gid]) == len(need[gid]):
+                save(gid)
     except KeyboardInterrupt:
         print("\nInterrompu : les parties déjà analysées sont enregistrées, relancer pour reprendre.")
         raise
