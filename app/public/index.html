@@ -81,13 +81,19 @@ input { font: inherit; font-size: 17px; padding: 12px 14px; border-radius: 10px;
 .wait { width: 100%; max-width: 1000px; margin: 0 auto; padding: 40px 16px 48px; display: grid; grid-template-columns: minmax(0, 1fr); gap: 32px; align-items: start; }
 @media (min-width: 820px) { .wait { grid-template-columns: minmax(0, 380px) minmax(0, 1fr); gap: 48px; padding-top: 56px; } }
 .wait-board { margin: 0; display: flex; flex-direction: column; gap: 10px; max-width: 380px; width: 100%; justify-self: center; }
-.mini { display: grid; grid-template-columns: repeat(8, minmax(0, 1fr)); aspect-ratio: 1; border-radius: 10px; overflow: hidden;
-  box-shadow: 0 10px 30px rgba(0, 0, 0, .14); container-type: inline-size; }
-.mini span { display: grid; place-items: center; font-size: 10.5cqi; line-height: 1; font-family: "Segoe UI Symbol", "DejaVu Sans", "Noto Sans Symbols 2", sans-serif; transition: background-color .25s; }
+.mini { position: relative; display: grid; grid-template-columns: repeat(8, minmax(0, 1fr)); grid-template-rows: repeat(8, minmax(0, 1fr));
+  aspect-ratio: 1; border-radius: 10px; overflow: hidden; box-shadow: 0 10px 30px rgba(0, 0, 0, .14); container-type: inline-size; }
+.mini .sq { min-width: 0; min-height: 0; transition: background-color .3s; }
 .mini .l { background: #ebecd0; } .mini .d { background: #739552; }
 .mini .hl.l { background: #f5f682; } .mini .hl.d { background: #b9ca43; }
+.mini .pc { position: absolute; width: 12.5%; height: 12.5%; display: grid; place-items: center; font-size: 10.5cqi; line-height: 1;
+  font-family: "Segoe UI Symbol", "DejaVu Sans", "Noto Sans Symbols 2", sans-serif; pointer-events: none;
+  transition: left .45s cubic-bezier(.3, .7, .3, 1), top .45s cubic-bezier(.3, .7, .3, 1), opacity .3s; z-index: 1; }
+.mini .pc.moving { z-index: 2; }
+.mini .pc.gone { opacity: 0; }
 .mini .pw { color: #fff; text-shadow: 0 0 1px #000, 0 0 1px #000, 0 1px 1px #000; }
 .mini .pb { color: #111; text-shadow: 0 0 1px #fff8; }
+@media (prefers-reduced-motion: reduce) { .mini .pc { transition: opacity .3s; } }
 .wait-main { display: flex; flex-direction: column; gap: 18px; min-width: 0; }
 .eyebrow { font-size: 12px; text-transform: uppercase; letter-spacing: .08em; color: var(--accent); font-weight: 700; }
 .wait-main h1 { font-size: clamp(26px, 5vw, 36px); }
@@ -421,35 +427,64 @@ function fenPos(fen) {
   fen.split("/").forEach((row, i) => { let f = 0; for (const ch of row) { if (/\d/.test(ch)) f += +ch; else pos[(7 - i) * 8 + f++] = ch; } });
   return pos;
 }
-function play(pos, u) {
-  const p = pos.slice(), from = sq(u.slice(0, 2)), to = sq(u.slice(2, 4)), pc = p[from];
-  if (!pc) return p;
-  const white = pc === pc.toUpperCase();
-  if (pc.toLowerCase() === "k" && Math.abs(to - from) === 2) {
-    const [rf, rt] = to > from ? [from + 3, from + 1] : [from - 4, from - 1];
-    p[rt] = p[rf]; p[rf] = null;
-  }
-  if (pc.toLowerCase() === "p" && (to - from) % 8 !== 0 && !p[to]) p[to + (white ? -8 : 8)] = null;
-  p[to] = u[4] ? (white ? u[4].toUpperCase() : u[4]) : pc;
-  p[from] = null;
-  return p;
+// Chaque pièce est un élément positionné qui glisse vers sa nouvelle case (transition CSS sur left/top).
+const mini = { key: null, moves: OPERA, flip: false, i: 0, pause: 0, pieces: [], squares: [] };
+function place(p) {
+  const f = p.sq & 7, r = p.sq >> 3;
+  p.el.style.left = `${(mini.flip ? 7 - f : f) * 12.5}%`;
+  p.el.style.top = `${(mini.flip ? r : 7 - r) * 12.5}%`;
 }
-const mini = { key: null, moves: OPERA, flip: false, i: 0, pos: fenPos(START), last: null, pause: 0 };
-function drawMini() {
-  const cells = [];
-  for (let r = 7; r >= 0; r--) for (let f = 0; f < 8; f++) cells.push(r * 8 + f);
-  if (mini.flip) cells.reverse();
-  $("mini").innerHTML = cells.map(i => {
-    const pc = mini.pos[i], cls = ((i >> 3) + (i & 7)) % 2 ? "l" : "d";
-    const hl = mini.last && mini.last.includes(i) ? " hl" : "";
-    return `<span class="${cls}${hl}">${pc ? `<b class="${pc === pc.toUpperCase() ? "pw" : "pb"}" style="font-weight:400">${GLYPH[pc.toLowerCase()]}︎</b>` : ""}</span>`;
-  }).join("");
+function glyph(p) {
+  p.el.className = `pc ${p.ch === p.ch.toUpperCase() ? "pw" : "pb"}`;
+  p.el.textContent = GLYPH[p.ch.toLowerCase()] + "\uFE0E";
+}
+function resetMini() {
+  const board = $("mini");
+  board.innerHTML = "";
+  mini.squares = [];
+  for (let k = 0; k < 64; k++) {                       // cases, dans l'ordre d'affichage
+    const vr = k >> 3, vf = k & 7;
+    const i = mini.flip ? vr * 8 + (7 - vf) : (7 - vr) * 8 + vf;
+    const el = document.createElement("div");
+    el.className = `sq ${((i >> 3) + (i & 7)) % 2 ? "l" : "d"}`;
+    board.appendChild(el);
+    mini.squares[i] = el;
+  }
+  mini.pieces = fenPos(START).flatMap((ch, sqi) => ch ? [{ ch, sq: sqi, el: document.createElement("span") }] : []);
+  for (const p of mini.pieces) { glyph(p); place(p); board.appendChild(p.el); }
+  mini.i = 0;
+}
+function capture(sqi) {
+  const p = mini.pieces.find(x => x.sq === sqi);
+  if (!p) return;
+  mini.pieces = mini.pieces.filter(x => x !== p);
+  p.el.classList.add("gone");
+  setTimeout(() => p.el.remove(), 350);
+}
+function moveMini(u) {
+  const from = sq(u.slice(0, 2)), to = sq(u.slice(2, 4));
+  const p = mini.pieces.find(x => x.sq === from);
+  if (!p) return;
+  const white = p.ch === p.ch.toUpperCase();
+  if (p.ch.toLowerCase() === "p" && (to - from) % 8 !== 0 && !mini.pieces.some(x => x.sq === to))
+    capture(to + (white ? -8 : 8));                      // prise en passant
+  capture(to);
+  if (p.ch.toLowerCase() === "k" && Math.abs(to - from) === 2) {   // roque : la tour glisse aussi
+    const [rf, rt] = to > from ? [from + 3, from + 1] : [from - 4, from - 1];
+    const rook = mini.pieces.find(x => x.sq === rf);
+    if (rook) { rook.sq = rt; place(rook); }
+  }
+  p.sq = to;
+  mini.pieces.forEach(x => x.el.classList.toggle("moving", x === p));
+  place(p);
+  if (u[4]) setTimeout(() => { p.ch = white ? u[4].toUpperCase() : u[4]; glyph(p); }, 450);
+  mini.squares.forEach((el, i) => el.classList.toggle("hl", i === from || i === to));
 }
 function setMini(r) {
   const pv = r?.preview;
   const key = pv ? `${pv.date}-${pv.adversaire}-${pv.coups.length}` : "opera";
   if (key === mini.key) return;
-  Object.assign(mini, { key, i: 0, pos: fenPos(START), last: null, pause: 0 });
+  Object.assign(mini, { key, pause: 0 });
   if (pv?.coups?.length) {
     const res = { win: "gagnée", loss: "perdue", draw: "nulle" }[pv.resultat] || "";
     const [y, m, d] = pv.date.split("-");
@@ -460,15 +495,13 @@ function setMini(r) {
     mini.moves = OPERA; mini.flip = false;
     $("miniCap").textContent = "En attendant tes parties : la « partie de l'Opéra », Morphy contre le duc de Brunswick et le comte Isouard, Paris, 1858.";
   }
-  drawMini();
+  resetMini();
 }
 setInterval(() => {
-  if ($("vPending").hidden) return;
+  if ($("vPending").hidden || !mini.squares.length) return;
   if (mini.pause > 0) { mini.pause--; return; }
-  if (mini.i >= mini.moves.length) { Object.assign(mini, { i: 0, pos: fenPos(START), last: null }); drawMini(); mini.pause = 2; return; }
-  const u = mini.moves[mini.i++];
-  mini.pos = play(mini.pos, u); mini.last = [sq(u.slice(0, 2)), sq(u.slice(2, 4))];
-  drawMini();
+  if (mini.i >= mini.moves.length) { resetMini(); mini.pause = 2; return; }
+  moveMini(mini.moves[mini.i++]);
   if (mini.i >= mini.moves.length) mini.pause = 4;
 }, matchMedia("(prefers-reduced-motion: reduce)").matches ? 2000 : 900);
 
