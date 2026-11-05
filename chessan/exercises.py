@@ -103,6 +103,50 @@ def _evaluate(cfg, con, fens):
     return done
 
 
+def _mate_budget(moves):
+    """Mat : on accepte un mat aussi rapide que le meilleur (un coup de plus à partir du mat en 3)."""
+    best = moves[0][5]
+    return best + (1 if best >= 3 else 0)
+
+
+def _mate_lines(cfg, con, items, max_nodes=30):
+    """Prolonge les exercices de mat jusqu'au mat : après chaque bon coup, l'adversaire joue
+    sa meilleure défense et le joueur continue. Arbre construit niveau par niveau ;
+    item["nx"][uci] = {r, rs, chk, b, mv, nx} pour chaque coup accepté (mat pas encore donné).
+    Au-delà de max_nodes positions par exercice, la ligne s'arrête (le coup est alors validé)."""
+    cfg = {**cfg, "on_ex_progress": None}   # courts calculs : la jauge d'attente ne repart pas à zéro
+    level = []                          # (exercice, nœud parent, fen du nœud parent)
+    for it in items:
+        if it["th"] == "mate":
+            it["b"] = _mate_budget(it["mv"])
+            it["_n"] = 0
+            level.append((it, it, it["fen"]))
+    while level:
+        expand = []                     # (exercice, parent, uci, fen du nœud enfant)
+        for it, node, fen in level:
+            node["nx"] = {}
+            for m in node["mv"]:
+                if not (0 < m[5] <= node["b"]) or m[5] == 1 or not m[3] or it["_n"] >= max_nodes:
+                    continue
+                board = chess.Board(fen)
+                board.push_uci(m[0])
+                board.push_uci(m[3])
+                it["_n"] += 1
+                expand.append((it, node, m, board.fen()))
+        evals = _evaluate(cfg, con, [f for *_, f in expand]) if expand else {}
+        level = []
+        for it, node, m, fen in expand:
+            moves = evals.get(fen)
+            if not moves or moves[0][5] <= 0:
+                continue                # plus de mat vu à cette profondeur : la ligne s'arrête là
+            child = {"r": m[3], "rs": m[4], "chk": chess.Board(fen).is_check(),
+                     "b": max(m[5] - 1, moves[0][5]), "mv": moves}
+            node["nx"][m[0]] = child
+            level.append((it, child, fen))
+    for it in items:
+        it.pop("_n", None)
+
+
 def _theme(moves, tol):
     if moves[0][5] > 0:
         return "mate"
@@ -141,6 +185,7 @@ def build_data(cfg, con, first=None):
             if i < len(v) and len(items) < ex["max"]:
                 items.append(v[i])
         i += 1
+    _mate_lines(cfg, con, items)
     return {
         "player": cfg["username"].capitalize(),
         "themes": THEMES,

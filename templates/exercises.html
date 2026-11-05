@@ -245,7 +245,7 @@ $("meta").textContent = `${D.items.length} positions où tu as fait une erreur o
   + `Rejoue-les : touche une pièce puis sa case d'arrivée. Tous les coups ont été évalués par Stockfish 19 (profondeur ${D.depth}).`;
 if (D.more) $("meta").textContent += " D'autres exercices sont en préparation : ils apparaîtront dans une minute environ, quand tu reviendras sur cet onglet.";
 $("foot").textContent = `Un coup est accepté s'il perd moins de ${D.tolerance} points de % de gain par rapport au meilleur coup ; `
-  + `pour « ${D.themes.mate} », il faut un mat aussi rapide (un coup de plus toléré à partir du mat en 3). Exercice réussi = bon coup du premier essai, sans indice ni solution. `
+  + `pour « ${D.themes.mate} », il faut un mat aussi rapide (un coup de plus toléré à partir du mat en 3). Pour un mat en plusieurs coups, l'adversaire répond par sa meilleure défense et tu continues jusqu'au mat. Exercice réussi = sans aucune erreur, indice ni solution. `
   + `Données du ${D.generated.replace(" ", " à ")}, issues de l'API publique chess.com (site non affilié à chess.com).`;
 
 // ---------- Thème ----------
@@ -442,9 +442,14 @@ function load(i) {
   $("ex").hidden = false; $("empty").hidden = true;
   idx = (i + order.length) % order.length;
   const x = order[idx];
-  cur = { x, pos: parseFen(x.fen), sel: null, last: null, marks: {}, done: false, tried: false, assisted: false, locked: false };
+  // node : position où c'est au joueur de trouver le coup (racine, puis après chaque réponse de l'adversaire
+  // dans une ligne de mat). nodePos / nodeLast : de quoi revenir au début de ce coup.
+  const root = { mv: x.mv, b: x.b, nx: x.nx, chk: x.chk };
+  cur = { x, root, node: root, nodePos: parseFen(x.fen), nodeLast: null, fresh: true, seq: [],
+          pos: parseFen(x.fen), sel: null, last: null, marks: {}, done: false, tried: false, assisted: false, locked: false };
   const white = x.c === "w", g = D.themes[x.th];
   $("theme").textContent = x.th === "mate" ? `${g} en ${x.mv[0][5]}` : g;
+  $("verdict").hidden = true;
   $("sw").style.background = white ? "#fff" : "#111";
   $("turnTxt").textContent = `Tu as les ${white ? "blancs" : "noirs"}, ` + (x.chk ? "ton roi est en échec" : "à toi de jouer");
   $("ctx").textContent = `Coup ${x.n} contre ${x.o} (${x.oe}), ${dateLabel(x.d)} · ${D.tcLabels[x.tc]}. `
@@ -461,7 +466,7 @@ function renderState() {
   $("state").textContent = !p ? "" : p.s === "ok" ? `Déjà réussi (${p.t}).` : `Raté la dernière fois (${p.t}) : à toi de le réussir du premier coup.`;
 }
 
-function legalFrom(sq) { return cur.x.mv.filter(m => m[0].slice(0, 2) === sq); }
+function legalFrom(sq) { return cur.node.mv.filter(m => m[0].slice(0, 2) === sq); }
 function drawBoard() {
   const x = cur.x, flip = x.c === "b";
   const dests = cur.sel ? legalFrom(cur.sel).map(m => m[0].slice(2, 4)) : [];
@@ -475,7 +480,7 @@ function drawBoard() {
     if (cur.marks[n]) cls.push(cur.marks[n]);
     else if (cur.last && cur.last.includes(n)) cls.push("last");
     if (cur.sel === n) cls.push("sel");
-    if (x.chk && !cur.last && !cur.done && pc === (x.c === "w" ? "K" : "k")) cls.push("check");
+    if (cur.node.chk && cur.fresh && !cur.done && pc === (x.c === "w" ? "K" : "k")) cls.push("check");
     if (cur.flash === n) cls.push("flash");
     if (dests.includes(n)) cls.push("dest", ...(pc ? ["cap"] : []));
     const can = !cur.locked && !cur.done && (mine(pc) || dests.includes(n));
@@ -506,7 +511,7 @@ $("board").addEventListener("click", e => {
 // Pièce sans coup légal : on dit pourquoi au lieu de ne rien faire.
 function blocked(n) {
   const c = cur, king = sqName(cur.pos.indexOf(cur.x.c === "w" ? "K" : "k"));
-  const inCheck = cur.x.chk && !cur.last;
+  const inCheck = cur.node.chk && cur.fresh;
   cur.sel = null;
   cur.flash = inCheck ? king : n;
   nudge(!inCheck ? "Cette pièce ne peut pas bouger : elle est clouée ou bloquée."
@@ -532,56 +537,95 @@ function askPromo(cands) {
   };
 }
 
-const best = () => cur.x.mv[0];
+const best = () => cur.node.mv[0];
 function accepted(m) {
   const b = best();
+  // Ligne de mat : budget de coups calculé à la génération (racine : un coup de plus toléré dès le mat en 3).
+  if (cur.x.th === "mate" && cur.node.b) return m[5] > 0 && m[5] <= cur.node.b;
   // Mat : un mat aussi rapide (ou d'un coup plus long pour les mats en 3 et plus).
   return cur.x.th === "mate" ? m[5] > 0 && m[5] <= b[5] + (b[5] >= 3 ? 1 : 0) : m[2] >= b[2] - D.tolerance;
 }
 
+function setVerdict(ok) {
+  $("verdict").className = "verdict " + (ok ? "ok" : "ko"); $("verdict").textContent = ok ? "✓" : "✗"; $("verdict").hidden = false;
+}
 function play(m) {
-  const x = cur.x, ok = accepted(m), first = !cur.tried && !cur.assisted;
-  cur.tried = true; cur.sel = null; $("nudge").hidden = true;
+  const x = cur.x, node = cur.node, ok = accepted(m), clean = !cur.tried && !cur.assisted;
+  cur.sel = null; cur.fresh = false; $("nudge").hidden = true;
   cur.pos = applyUci(cur.pos, m[0]);
   cur.last = [m[0].slice(0, 2), m[0].slice(2, 4)];
   cur.marks = {};
-  if (first) record(x.id, ok);
-  $("verdict").className = "verdict " + (ok ? "ok" : "ko"); $("verdict").textContent = ok ? "✓" : "✗"; $("verdict").hidden = false;
-  if (ok) {
-    cur.done = true;
+  setVerdict(ok);
+  if (!ok) {
+    // Mauvais coup : on montre la réponse de l'adversaire, puis on propose de réessayer ce coup-là.
+    if (clean) record(x.id, false);
+    cur.tried = true; cur.locked = true;
+    cur.marks = { [m[0].slice(2, 4)]: "bad" };
     drawBoard();
-    const isBest = m[0] === best()[0] || m[2] >= best()[2] - 2;
-    showFeedback(true, isBest ? `${m[1]} : c'est le meilleur coup.` : `${m[1]} : bon coup, accepté.`, m);
+    showFeedback(false, `${m[1]} n'est pas le bon coup.`, m);
+    if (m[3]) setTimeout(() => {
+      if (cur.node !== node || !cur.locked) return;
+      cur.pos = applyUci(cur.pos, m[3]);
+      cur.last = [m[3].slice(0, 2), m[3].slice(2, 4)];
+      cur.marks = {};
+      drawBoard();
+    }, 650);
+    $("bRetry").hidden = false;
     return;
   }
-  // Mauvais coup : on montre la réponse de l'adversaire, puis on propose de réessayer.
-  cur.locked = true;
-  cur.marks = { [m[0].slice(2, 4)]: "bad" };
+  cur.seq.push(m[1]);
+  const child = node.nx?.[m[0]];
+  if (!child) {
+    // Fin de l'exercice (mat donné, ou exercice en un coup).
+    if (clean) record(x.id, true);
+    cur.done = true;
+    if (cur.seq.length > 1) $("turnTxt").textContent = "Échec et mat !";
+    drawBoard();
+    const isBest = m[0] === best()[0] || m[2] >= best()[2] - 2;
+    showFeedback(true, cur.seq.length > 1 ? `Mat en ${Math.ceil(cur.seq.length / 2)} trouvé !`
+      : isBest ? `${m[1]} : c'est le meilleur coup.` : `${m[1]} : bon coup, accepté.`, m);
+    return;
+  }
+  // Ligne de mat : l'adversaire répond, et c'est de nouveau au joueur.
+  cur.locked = true; cur.busy = true;
   drawBoard();
-  showFeedback(false, `${m[1]} n'est pas le bon coup.`, m);
-  if (m[3]) setTimeout(() => {
-    if (cur.x !== x) return;
-    cur.pos = applyUci(cur.pos, m[3]);
-    cur.last = [m[3].slice(0, 2), m[3].slice(2, 4)];
-    cur.marks = {};
+  const left = child.mv[0][5];
+  $("fb").className = "fb ok";
+  $("fb").innerHTML = `<div class="v">${esc(m[1])} : bien joué !</div><p>L'adversaire répond <span class="mono">${esc(child.rs)}</span>. `
+    + `Continue : il reste un mat en ${left}.</p>`;
+  $("fb").hidden = false;
+  $("bRetry").hidden = true;
+  setTimeout(() => {
+    if (cur.node !== node) return;
+    cur.pos = applyUci(cur.pos, child.r);
+    cur.last = [child.r.slice(0, 2), child.r.slice(2, 4)];
+    cur.seq.push(child.rs);
+    Object.assign(cur, { node: child, nodePos: cur.pos, nodeLast: cur.last, fresh: true, locked: false, busy: false });
+    $("verdict").hidden = true;
+    $("turnTxt").textContent = (child.chk ? "Ton roi est en échec : " : "À toi : ") + `mat en ${left}`;
     drawBoard();
   }, 650);
-  $("bRetry").hidden = false;
 }
+
+// Coups de la ligne : ceux du joueur en gras, les réponses en plus discret.
+const seqHtml = seq => seq.map((s, i) => i % 2 ? `<span class="muted">${esc(s)}</span>` : `<span class="mono">${esc(s)}</span>`).join(" ");
 
 function showFeedback(ok, verdict, m) {
   const x = cur.x, b = best();
   const lines = [];
   if (ok) {
-    const others = x.mv.filter(o => o[0] !== m[0] && accepted(o)).slice(0, 4);
-    lines.push(["Ton coup", `<span class="mono">${esc(m[1])}</span> · ${pct(m[2])} de gain`]);
-    if (m[0] !== b[0]) lines.push(["Meilleur coup", `<span class="mono">${esc(b[1])}</span> · ${pct(b[2])}`]);
-    if (others.length) lines.push(["Aussi accepté" + (others.length > 1 ? "s" : ""), others.map(o => `<span class="mono">${esc(o[1])}</span>`).join(", ")]);
+    if (cur.seq.length > 1) lines.push(["Ta combinaison", seqHtml(cur.seq)]);
+    else {
+      const others = cur.node.mv.filter(o => o[0] !== m[0] && accepted(o)).slice(0, 4);
+      lines.push(["Ton coup", `<span class="mono">${esc(m[1])}</span> · ${pct(m[2])} de gain`]);
+      if (m[0] !== b[0]) lines.push(["Meilleur coup", `<span class="mono">${esc(b[1])}</span> · ${pct(b[2])}`]);
+      if (others.length) lines.push(["Aussi accepté" + (others.length > 1 ? "s" : ""), others.map(o => `<span class="mono">${esc(o[1])}</span>`).join(", ")]);
+    }
     lines.push(["Dans la partie", `tu as joué <span class="mono">${esc(x.ps)}</span>${partieTail()}`]);
   } else {
     const reply = m[4] ? `L'adversaire répond <span class="mono">${esc(m[4])}</span> et ` : "Après ce coup, ";
     lines.push(["Pourquoi", `${reply}tu tombes à ${pct(m[2])} de gain (contre ${pct(b[2])} avec le meilleur coup).`]);
-    if (m[0] === x.pu) lines.push(["Dans la partie", "c'est exactement le coup que tu avais joué."]);
+    if (m[0] === x.pu && cur.node === cur.root) lines.push(["Dans la partie", "c'est exactement le coup que tu avais joué."]);
   }
   $("fb").className = "fb " + (ok ? "ok" : "ko");
   $("fb").innerHTML = `<div class="v">${esc(verdict)}</div><dl>${lines.map(([t, d]) => `<dt>${t}</dt><dd>${d}</dd>`).join("")}</dl>`;
@@ -631,12 +675,12 @@ $("bErr").addEventListener("click", () => {
 });
 
 $("bRetry").addEventListener("click", () => {
-  cur.pos = parseFen(cur.x.fen); cur.last = null; cur.marks = {}; cur.locked = false; cur.sel = null;
+  cur.pos = cur.nodePos; cur.last = cur.nodeLast; cur.marks = {}; cur.locked = false; cur.sel = null; cur.fresh = true;
   $("fb").hidden = true; $("bRetry").hidden = true; $("verdict").hidden = true;
   drawBoard();
 });
 $("bHint").addEventListener("click", () => {
-  if (cur.done) return;
+  if (cur.done || cur.busy) return;
   if (!cur.tried && !cur.assisted) record(cur.x.id, false);
   cur.assisted = true;
   if (cur.locked) { $("bRetry").click(); }
@@ -647,18 +691,35 @@ $("bHint").addEventListener("click", () => {
   reveal($("fb"), "nearest");
 });
 $("bSol").addEventListener("click", () => {
-  if (cur.done) return;
+  if (cur.done || cur.busy) return;
   if (!cur.tried && !cur.assisted) record(cur.x.id, false);
   cur.assisted = true;
-  const b = best();
-  cur.pos = applyUci(parseFen(cur.x.fen), b[0]);
-  cur.last = null; cur.locked = false; cur.sel = null;
-  cur.marks = { [b[0].slice(0, 2)]: "best", [b[0].slice(2, 4)]: "best" };
-  cur.done = true;
-  drawBoard();
-  const others = cur.x.mv.filter(o => o[0] !== b[0] && accepted(o)).slice(0, 4);
+  // On rejoue la fin de la ligne depuis le coup en cours : meilleur coup, réponse, meilleur coup… jusqu'au mat.
+  const c = cur, start = c.node, plies = [];
+  for (let n = start; n; ) {
+    const b = n.mv[0], child = n.nx?.[b[0]];
+    plies.push([b[0], b[1]]);
+    if (child) plies.push([child.r, child.rs]);
+    n = child;
+  }
+  const b = start.mv[0];
+  c.pos = c.nodePos; c.last = c.nodeLast; c.locked = false; c.sel = null; c.fresh = false; c.done = true;
+  $("verdict").hidden = true;
+  const step = k => {
+    if (cur !== c) return;
+    const [u] = plies[k];
+    c.pos = applyUci(c.pos, u);
+    c.marks = k % 2 ? {} : { [u.slice(0, 2)]: "best", [u.slice(2, 4)]: "best" };
+    c.last = k % 2 ? [u.slice(0, 2), u.slice(2, 4)] : null;
+    drawBoard();
+    if (k + 1 < plies.length) setTimeout(() => step(k + 1), 800);
+  };
+  step(0);
+  const others = start.mv.filter(o => o[0] !== b[0] && accepted(o)).slice(0, 4);
   $("fb").className = "fb";
-  $("fb").innerHTML = `<div class="v">Solution : <span class="mono">${esc(b[1])}</span> (${pct(b[2])} de gain)</div><dl>`
+  $("fb").innerHTML = (plies.length > 1
+      ? `<div class="v">Solution : ${seqHtml(plies.map(p => p[1]))}</div><dl>`
+      : `<div class="v">Solution : <span class="mono">${esc(b[1])}</span> (${pct(b[2])} de gain)</div><dl>`)
     + (others.length ? `<dt>Aussi accepté${others.length > 1 ? "s" : ""}</dt><dd>${others.map(o => `<span class="mono">${esc(o[1])}</span>`).join(", ")}</dd>` : "")
     + `<dt>Dans la partie</dt><dd>tu as joué <span class="mono">${esc(cur.x.ps)}</span>${partieTail()}</dd></dl>`;
   $("fb").hidden = false;
