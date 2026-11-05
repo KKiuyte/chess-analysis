@@ -289,6 +289,14 @@ async function progressRef() {
 // ---------- Filtres ----------
 const tcs = [...new Set(D.items.map(x => x.tc))];
 const filt = { th: "all", tc: "all", st: "todo" };
+// Filtre de départ (bouton « S'entraîner » d'un bilan) : transmis par l'appli, ou dans l'adresse #th=…&tc=…
+(() => {
+  let f = null;
+  try { f = window.parent !== window ? window.parent.chessApp?.takeExerciseFilter?.() : null; } catch (e) {}
+  if (!f && location.hash.includes("th=")) f = Object.fromEntries(new URLSearchParams(location.hash.slice(1)));
+  if (f?.th && (f.th === "all" || f.th in D.themes)) filt.th = f.th;
+  if (f?.tc && tcs.includes(f.tc)) filt.tc = f.tc;
+})();
 function seg(el, key, opts) {
   $(el).innerHTML = opts.map(([v, l]) => `<button type="button" data-v="${v}" aria-pressed="${filt[key] === v}">${esc(l)}</button>`).join("");
   $(el).onclick = e => {

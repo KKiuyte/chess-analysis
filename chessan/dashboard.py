@@ -68,8 +68,15 @@ def build_data(cfg, con, tc):
         "openings": {"minGames": tc_cfg.get("min_games", cfg["openings"]["min_games"]),
                      "lowScore": cfg["openings"]["low_score"]},
         "diag": insights.compute(cfg, con, tc, rows),
+        "bilan": latest_bilan(con, tc),
         "games": games,
     }
+
+
+def latest_bilan(con, tc):
+    """Dernier bilan IA de la cadence (table bilans), ou None."""
+    r = con.execute("SELECT created, bilan FROM bilans WHERE tc = ? ORDER BY created DESC LIMIT 1", (tc,)).fetchone()
+    return {**json.loads(r["bilan"]), "date": r["created"][:10]} if r else None
 
 
 def page_html(template, data):

@@ -155,6 +155,24 @@ tr.fam[aria-expanded="true"] .caret { transform: rotate(90deg); }
 .hbar .track { height: 10px; background: var(--line); border-radius: 4px; overflow: hidden; }
 .hbar .fill { height: 100%; background: var(--s1); border-radius: 4px; }
 .hbar .val { font-variant-numeric: tabular-nums; color: var(--muted); white-space: nowrap; }
+/* Bilan IA */
+.bilan { display: flex; flex-direction: column; gap: 16px; }
+.bilan .lead { font-size: 17px; max-width: 70ch; }
+.bilan .progress-note { background: var(--accent-soft); border-radius: var(--r); padding: 12px 14px; max-width: 70ch; }
+.strengths { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+@media (max-width: 700px) { .strengths { grid-template-columns: minmax(0, 1fr); } }
+.strength { background: var(--surface); border: 1px solid var(--line); border-left: 4px solid var(--win); border-radius: var(--r); padding: 12px 14px; display: flex; flex-direction: column; gap: 4px; }
+.strength b { font-size: 15px; }
+.strength span { color: var(--muted); font-size: 14px; }
+.prio { display: flex; flex-direction: column; gap: 10px; }
+.prio .act { background: var(--accent-soft); border-radius: 8px; padding: 10px 12px; }
+.prio .row { display: flex; flex-wrap: wrap; gap: 8px 18px; align-items: center; font-size: 14px; }
+.train { display: inline-flex; align-items: center; gap: 6px; font-weight: 700; text-decoration: none; background: var(--accent); color: var(--bg); border-radius: 8px; padding: 8px 12px; }
+.bilan h3.sub { font-size: 16px; margin: 4px 0 0; }
+.bilan table { max-width: 760px; }
+details.constats { border-top: 1px solid var(--line); padding-top: 12px; }
+details.constats summary { cursor: pointer; font-weight: 700; color: var(--accent); }
+details.constats .diag { margin-top: 14px; }
 footer { font-size: 13px; color: var(--muted); border-top: 1px solid var(--line); padding-top: 16px; }
 @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
 </style>
@@ -171,7 +189,7 @@ footer { font-size: 13px; color: var(--muted); border-top: 1px solid var(--line)
 
   <section id="diag">
     <div class="sec-head">
-      <h2>Diagnostic et conseils</h2>
+      <h2 id="diagTitle">Diagnostic et conseils</h2>
       <p id="diagIntro"></p>
     </div>
     <div class="diag" id="diagList"></div>
@@ -190,7 +208,7 @@ footer { font-size: 13px; color: var(--muted); border-top: 1px solid var(--line)
       </div>
     </div>
     <div class="row jump">
-      <a href="#diag">Conseils</a><a href="#overview">Vue d'ensemble</a><a href="#openings">Ouvertures</a><a href="#errors">Erreurs par phase</a>
+      <a href="#diag" id="navDiag">Conseils</a><a href="#overview">Vue d'ensemble</a><a href="#openings">Ouvertures</a><a href="#errors">Erreurs par phase</a>
     </div>
   </nav>
 
@@ -488,33 +506,68 @@ function renderErrors(list) {
 
 // ---------- Diagnostic (toute la période, non filtré) ----------
 const LVL = { priority: "Priorité", info: "À surveiller", good: "Point fort" };
+function card(c, lvl, withActions) {
+  const max = Math.max(...c.bars.map(b => b.value), 1);
+  const bars = c.bars.length ? `<div class="hbars"><span class="t">${esc(c.barsTitle)}</span>${c.bars.map(b =>
+    `<div class="hbar"><span>${esc(b.label)}</span><span class="track"><span class="fill" style="width:${b.value / max * 100}%;display:block"></span></span><span class="val">${esc(b.text)}</span></div>`).join("")}</div>` : "";
+  const links = withActions && c.links.length ? `<div class="pos-links">${c.links.map(l => `<a href="${esc(l.url)}" target="_blank" rel="noopener">${esc(l.label)} ↗</a>`).join("")}</div>` : "";
+  return `<article class="adv">
+    <div class="adv-head"><span class="lvl lvl-${c.level}">${lvl}</span><h3>${esc(c.title)}</h3></div>
+    <div class="adv-body"${withActions ? "" : ' style="grid-template-columns:minmax(0,1fr)"'}>
+      <div style="display:flex;flex-direction:column;gap:12px;min-width:0">
+        <div class="adv-metric"><span class="v">${esc(c.metric.value)}</span><span class="l">${esc(c.metric.label)}</span></div>
+        <ul>${c.facts.map(f => `<li>${esc(f)}</li>`).join("")}</ul>
+        ${bars}
+      </div>
+      <div style="display:flex;flex-direction:column;gap:12px;min-width:0">
+        ${withActions ? `<div class="todo"><h4>Ce que tu peux faire</h4><ul>${c.actions.map(a => `<li>${esc(a)}</li>`).join("")}</ul></div>` : ""}
+        ${links}
+        ${c.note ? `<p class="note">${esc(c.note)}</p>` : ""}
+      </div>
+    </div>
+  </article>`;
+}
+
+// Bilan IA (Claude) : remplace les conseils automatiques ; les constats chiffrés restent en dessous, repliés.
+const TRAIN = { mate: "Trouve le mat", tactic: "Trouve le coup gagnant", safe: "Joue un coup sûr", all: "Tous les exercices" };
+const trainLink = th => `<a class="train" href="exercises.html#th=${th}&tc=${D.tc}" data-th="${th}">S'entraîner : ${esc(TRAIN[th])} →</a>`;
+function renderBilan() {
+  const B = D.bilan, [y, m, j] = B.date.split("-");
+  $("diagTitle").textContent = "Ton bilan";
+  $("navDiag").textContent = "Bilan";
+  $("diagIntro").textContent = `Rédigé par une IA (Claude) le ${+j} ${MOIS_LONG[+m - 1]} ${y}, à partir de l'analyse Stockfish de tes parties ${D.tcLabel.toLowerCase()}.`;
+  let html = `<div class="bilan"><p class="lead">${esc(B.portrait)}</p>`;
+  if (B.progres) html += `<p class="progress-note"><b>Depuis le dernier bilan</b> : ${esc(B.progres)}</p>`;
+  html += `<div class="strengths">${B.points_forts.map(p => `<div class="strength"><b>${esc(p.titre)}</b><span>${esc(p.detail)}</span></div>`).join("")}</div>`;
+  html += B.priorites.map((p, i) => `<article class="adv prio">
+      <div class="adv-head"><span class="lvl lvl-priority">Priorité ${i + 1}</span><h3>${esc(p.titre)}</h3></div>
+      <p>${esc(p.constat)}</p>
+      <p class="act">→ ${esc(p.action)}</p>
+      <div class="row">${p.entrainement ? trainLink(p.entrainement) : ""}
+        ${p.exemple ? `<span><a href="${esc(p.exemple.lien)}" target="_blank" rel="noopener">Voir un exemple dans tes parties ↗</a> — ${esc(p.exemple.explication)}</span>` : ""}</div>
+    </article>`).join("");
+  html += `<h3 class="sub">Ton plan sur 2 semaines</h3><div class="tbl-wrap"><table><tbody>${B.plan.map(x =>
+    `<tr><td>${esc(x.quand)}</td><td class="r">${x.minutes} min</td><td>${esc(x.activite)}${x.entrainement ? `<br>${trainLink(x.entrainement)}` : ""}</td></tr>`).join("")}</tbody></table></div>`;
+  html += `<h3 class="sub">Objectifs pour le prochain bilan</h3><div class="tbl-wrap"><table><thead><tr><th>Indicateur</th><th class="r">Aujourd'hui</th><th class="r">Cible</th></tr></thead><tbody>${B.objectifs.map(o =>
+    `<tr><td>${esc(o.indicateur)}</td><td class="r">${esc(o.actuel)}</td><td class="r">${esc(o.cible)}</td></tr>`).join("")}</tbody></table></div>`;
+  if (D.diag.length) html += `<details class="constats"><summary>Les constats chiffrés de Stockfish (${D.diag.length})</summary><div class="diag">${D.diag.map(c => card(c, LVL[c.level], false)).join("")}</div></details>`;
+  $("diagList").innerHTML = html + "</div>";
+  // Dans l'appli, le bouton ouvre l'onglet Exercices filtré ; seul (GitHub Pages), le lien suffit.
+  $("diagList").addEventListener("click", e => {
+    const a = e.target.closest("a.train"); if (!a) return;
+    let host = null;
+    try { host = window.parent !== window ? window.parent.chessApp : null; } catch (err) {}
+    if (host?.openExercises) { e.preventDefault(); host.openExercises({ th: a.dataset.th, tc: D.tc }); }
+  });
+}
+
 function renderDiag() {
+  if (D.bilan) return renderBilan();
   $("diagIntro").textContent = `Calculé sur toutes tes parties ${D.tcLabel.toLowerCase()} depuis ${MOIS_LONG[sinceD.getMonth()]} ${sinceD.getFullYear()}, `
     + `blancs et noirs confondus : les filtres plus bas ne s'appliquent pas ici. Les priorités sont classées par nombre de parties en jeu.`;
   if (!D.diag.length) { $("diagList").innerHTML = `<div class="empty">Pas encore assez de parties analysées pour un diagnostic.</div>`; return; }
   let p = 0;
-  $("diagList").innerHTML = D.diag.map(c => {
-    const lvl = c.level === "priority" ? `${LVL.priority} ${++p}` : LVL[c.level];
-    const max = Math.max(...c.bars.map(b => b.value), 1);
-    const bars = c.bars.length ? `<div class="hbars"><span class="t">${esc(c.barsTitle)}</span>${c.bars.map(b =>
-      `<div class="hbar"><span>${esc(b.label)}</span><span class="track"><span class="fill" style="width:${b.value / max * 100}%;display:block"></span></span><span class="val">${esc(b.text)}</span></div>`).join("")}</div>` : "";
-    const links = c.links.length ? `<div class="pos-links">${c.links.map(l => `<a href="${esc(l.url)}" target="_blank" rel="noopener">${esc(l.label)} ↗</a>`).join("")}</div>` : "";
-    return `<article class="adv">
-      <div class="adv-head"><span class="lvl lvl-${c.level}">${lvl}</span><h3>${esc(c.title)}</h3></div>
-      <div class="adv-body">
-        <div style="display:flex;flex-direction:column;gap:12px;min-width:0">
-          <div class="adv-metric"><span class="v">${esc(c.metric.value)}</span><span class="l">${esc(c.metric.label)}</span></div>
-          <ul>${c.facts.map(f => `<li>${esc(f)}</li>`).join("")}</ul>
-          ${bars}
-        </div>
-        <div style="display:flex;flex-direction:column;gap:12px;min-width:0">
-          <div class="todo"><h4>Ce que tu peux faire</h4><ul>${c.actions.map(a => `<li>${esc(a)}</li>`).join("")}</ul></div>
-          ${links}
-          ${c.note ? `<p class="note">${esc(c.note)}</p>` : ""}
-        </div>
-      </div>
-    </article>`;
-  }).join("");
+  $("diagList").innerHTML = D.diag.map(c => card(c, c.level === "priority" ? `${LVL.priority} ${++p}` : LVL[c.level], true)).join("");
 }
 renderDiag();
 

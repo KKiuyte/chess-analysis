@@ -25,7 +25,7 @@ import tarfile
 import time
 import traceback
 
-from . import analyze, collect, config, dashboard, db, exercises, publish
+from . import analyze, bilan, collect, config, dashboard, db, exercises, publish
 
 REGION = "europe-west1"
 
@@ -290,6 +290,14 @@ def run(pseudo):
             publish.publish(cfg)
         except Exception:
             traceback.print_exc()            # la première publication reste en place
+        # Bilans IA (Claude) des cadences qui en ont besoin, puis dashboards republiés avec.
+        try:
+            if bilan.run(cfg, con):
+                dashboard.build(cfg, con)
+                save(cfg, pseudo)
+                publish.publish(cfg)
+        except Exception:
+            traceback.print_exc()
         con.close()
     except Abandon as e:
         status(status="error", error=str(e), step=None, finished=firestore.SERVER_TIMESTAMP)

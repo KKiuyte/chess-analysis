@@ -47,6 +47,15 @@ CREATE TABLE IF NOT EXISTS moves (
     PRIMARY KEY (game_id, ply)
 );
 
+-- Bilans rédigés par Claude (chessan/bilan.py), un par cadence et par génération.
+CREATE TABLE IF NOT EXISTS bilans (
+    tc TEXT,
+    created TEXT,            -- date ISO de génération
+    games INTEGER,           -- parties de la cadence à ce moment-là
+    bilan TEXT,              -- JSON conforme à bilan.SCHEMA
+    meta TEXT,               -- JSON : modèle, jetons, coût
+    PRIMARY KEY (tc, created)
+);
 CREATE TABLE IF NOT EXISTS analyzed_games (
     game_id TEXT PRIMARY KEY,
     limit_key TEXT,

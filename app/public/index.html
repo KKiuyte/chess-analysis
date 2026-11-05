@@ -189,8 +189,16 @@ window.addEventListener("storage", e => { if (e.key === "theme") applyTheme(); }
 let uid = null, pseudo = null, player = null, unsubPlayer = null, unsubReq = null, req = null, shown = null;
 const tpl = {};
 
-// Utilisé par les exercices (dans l'iframe) pour garder la progression dans le compte.
+// Utilisé par les pages dans l'iframe : progression des exercices dans le compte, et boutons
+// « S'entraîner » des bilans (ouvrent l'onglet Exercices avec un filtre).
+let exerciseFilter = null;
 window.chessApp = {
+  openExercises(f) {
+    if (!player?.pages.some(pg => pg.id === "exercises")) return;
+    exerciseFilter = f;
+    location.hash = "#exercises";
+  },
+  takeExerciseFilter() { const f = exerciseFilter; exerciseFilter = null; return f; },
   progressDoc() {
     if (!uid) return null;
     const ref = doc(db, "progress", uid);

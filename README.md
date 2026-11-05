@@ -49,6 +49,12 @@ ses exercices. La progression des exercices est gardée dans le compte.
   et écrit son avancement dans la demande. Base SQLite et cache chess.com de chaque joueur :
   `gs://analyse-echecs-data/players/<pseudo>.tar.gz`. Réglages des joueurs venus de l'appli : section `[app]` de
   `config.toml` (cadences, au plus 600 parties par cadence). Une relance au plus toutes les 6 h (règles Firestore).
+- **Bilan IA (Claude Opus 5.5)** : `chessan/bilan.py`. Pour chaque cadence d'au moins 50 parties, un dossier de faits
+  Stockfish → un bilan court au format imposé (portrait, 2 points forts, 3 priorités avec entraînement dans l'appli,
+  plan sur 2 semaines, objectifs), affiché en tête du dashboard à la place des conseils automatiques. Refait après
+  20 nouvelles parties ou 7 jours, avec le bilan précédent pour suivre les objectifs. Table `bilans` de la base.
+  Clé : `secrets/anthropic-api-key` sur la VM (non versionnée), secret `anthropic-api-key` (Secret Manager) dans le
+  job. Coût mesuré : ~0,08 $ par bilan. Étape `run.py bilan`.
 - **Déployer** : `firebase deploy --only hosting,firestore:rules,functions`
 - **Reconstruire l'image du job** après un changement de `chessan/`, `templates/` ou `config.toml` : Cloud Build sur
   le `Dockerfile` → `europe-west1-docker.pkg.dev/analyse-echecs/analyse/worker:latest` (le job prend la dernière image).

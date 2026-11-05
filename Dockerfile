@@ -5,7 +5,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends curl ca-certifi
     | tar xz -C /tmp \
  && mkdir -p /app/bin && cp /tmp/stockfish/stockfish-linux-x86-64-universal /app/bin/stockfish && rm -rf /tmp/stockfish \
  && apt-get purge -y curl && rm -rf /var/lib/apt/lists/*
-RUN pip install --no-cache-dir chess==1.11.2 firebase-admin==7.7.0
+RUN pip install --no-cache-dir chess==1.11.2 firebase-admin==7.7.0 anthropic==2.5.0
 WORKDIR /app
 COPY config.toml run.py ./
 COPY chessan ./chessan
