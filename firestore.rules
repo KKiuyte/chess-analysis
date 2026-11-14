@@ -38,6 +38,11 @@ service cloud.firestore {
         allow read: if ownPseudo(pseudo);
         allow write: if false;
       }
+      // Fiches des parties à rejouer (onglet Parties), lues une à une.
+      match /games/{game} {
+        allow read: if ownPseudo(pseudo);
+        allow write: if false;
+      }
     }
 
     // Profil : le pseudo chess.com, choisi une fois puis verrouillé (sauf administrateur).
@@ -49,7 +54,10 @@ service cloud.firestore {
         && request.resource.data.keys().hasOnly(['pseudo', 'updated'])
         && request.resource.data.pseudo is string
         && request.resource.data.pseudo.matches('^[a-z0-9_-]{3,25}$');
-      allow update: if isAdmin() && request.auth.uid == uid;
+      allow update: if signedIn() && request.auth.uid == uid && (isAdmin()
+        // Dernière connexion (relance nocturne des joueurs actifs, bandeau « depuis ta dernière visite »).
+        || (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['seen', 'lastVisit'])
+            && request.resource.data.seen == request.time));
       allow delete: if false;
     }
 
@@ -60,19 +68,22 @@ service cloud.firestore {
 
     // Demandes d'analyse : la Cloud Function lancerAnalyse démarre le job Cloud Run dès qu'une
     // demande passe à « pending » ; le job y écrit son avancement (SDK Admin).
+    // La relance nocturne (Cloud Function relanceNocturne) y met auto: true ; une demande de l'appli remet false.
     // Côté appli : créer la demande, ou relancer une analyse terminée — au plus toutes les 6 h,
     // 10 minutes après une erreur, ou plus tard si elle est restée bloquée — pour borner le coût.
     match /requests/{pseudo} {
       allow read: if ownPseudo(pseudo);
       allow create: if ownPseudo(pseudo)
         && pseudo.matches('^[a-z0-9_-]{3,25}$')
-        && request.resource.data.keys().hasOnly(['pseudo', 'uid', 'created', 'status'])
+        && request.resource.data.keys().hasOnly(['pseudo', 'uid', 'created', 'status', 'auto'])
+        && request.resource.data.get('auto', false) == false
         && request.resource.data.pseudo == pseudo
         && request.resource.data.uid == request.auth.uid
         && request.resource.data.status == 'pending'
         && request.resource.data.created == request.time;
       allow update: if ownPseudo(pseudo)
-        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['uid', 'created', 'status'])
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['uid', 'created', 'status', 'auto'])
+        && request.resource.data.get('auto', false) == false
         && request.resource.data.uid == request.auth.uid
         && request.resource.data.status == 'pending'
         && request.resource.data.created == request.time

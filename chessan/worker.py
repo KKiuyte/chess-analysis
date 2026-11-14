@@ -252,6 +252,11 @@ def run(pseudo):
                 status(**{field: [i, n]})
         return f
 
+    # Relance nocturne (functions/index.js, relanceNocturne) : fin notée dans autoFinished, pas dans finished,
+    # pour ne pas retarder la prochaine mise à jour demandée par le joueur (6 h après « finished »).
+    auto = bool((req.get().to_dict() or {}).get("auto"))
+    fin = "autoFinished" if auto else "finished"
+
     # Étapes (champ « stage ») : 0 récupération, 1 analyse Stockfish, 2 dashboards et exercices, 3 publication.
     try:
         status(status="running", stage=0, step="Récupération de tes parties sur chess.com", started=firestore.SERVER_TIMESTAMP,
@@ -259,7 +264,9 @@ def run(pseudo):
                found=None, skipped=None, preview=None, error=None)
         restore(cfg, pseudo)
         con = db.connect(cfg["db_path"])
+        before = con.execute("SELECT COUNT(*) FROM games").fetchone()[0]
         collect.ingest(cfg, con, collect.collect(cfg, con))
+        new_games = con.execute("SELECT COUNT(*) FROM games").fetchone()[0] - before
 
         since = cfg["since"].isoformat()
         counts = dict(con.execute("SELECT time_class, COUNT(*) FROM games WHERE date >= ? GROUP BY time_class",
@@ -281,6 +288,12 @@ def run(pseudo):
         cfg["time_classes"] = kept
 
         tasks = analyze.pending_tasks(cfg, con)
+        if auto and not new_games and not tasks:
+            print("Relance nocturne : aucune nouvelle partie, rien à refaire", flush=True)
+            save(cfg, pseudo)             # cache chess.com à jour (mois en cours relu)
+            status(status="done", stage=4, step=None, **{fin: firestore.SERVER_TIMESTAMP})
+            con.close()
+            return
         machines = machines_for(cfg, tasks)
         status(stage=1, step="Analyse de tes parties par Stockfish", progressTotal=len(tasks), machines=1)
         progress = Progress(req)
@@ -322,7 +335,7 @@ def run(pseudo):
         status(stage=3, step="Publication")
         save(cfg, pseudo)
         publish.publish(cfg)
-        status(status="done", stage=4, step=None, finished=firestore.SERVER_TIMESTAMP)
+        status(status="done", stage=4, step=None, **{fin: firestore.SERVER_TIMESTAMP})
 
         cfg["on_ex_progress"] = None
         try:

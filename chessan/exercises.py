@@ -11,13 +11,14 @@ import time
 import chess
 import chess.engine
 
-from . import analyze
+from . import analyze, repertoire
 from .dashboard import TC_LABELS, ignored, save_json, standalone
 
 THEMES = {
     "mate": "Trouve le mat",
     "tactic": "Trouve le coup gagnant",
     "safe": "Joue un coup sûr",
+    "opening": "Le bon coup d'ouverture",
 }
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS exercise_evals (
@@ -162,6 +163,37 @@ def _theme(moves, tol):
     return "tactic" if good <= 2 else "safe"
 
 
+def _opening_items(cfg, con, seen):
+    """Exercices d'ouverture : les « fuites » du répertoire (position vue plusieurs fois, coup habituel
+    qui perd en moyenne au moins la tolérance), sur la dernière partie où le coup a été joué."""
+    tol = cfg["exercises"]["tolerance"]
+    rows = []
+    for lk in repertoire.leaks(cfg, con):
+        r = con.execute(
+            """SELECT m.*, g.url, g.date, g.time_class, g.opponent, g.opp_elo, g.color AS my_color
+               FROM moves m JOIN games g ON g.id = m.game_id WHERE m.game_id = ? AND m.ply = ?""", lk["last"]).fetchone()
+        key = " ".join(r["fen_before"].split()[:4]) if r else None
+        if r and key not in seen and r["win_before"] is not None:
+            seen.add(key)
+            rows.append((r, lk))
+    evals = _evaluate(cfg, con, [r["fen_before"] for r, _ in rows])
+    out = []
+    for r, lk in rows:
+        moves = evals.get(r["fen_before"])
+        played = next((m for m in moves or [] if m[0] == r["uci"]), None)
+        # La réévaluation doit confirmer que le coup habituel est à éviter.
+        if not played or moves[0][2] - played[2] < tol:
+            continue
+        out.append({
+            "id": f"{r['game_id']}-{r['ply']}", "fen": r["fen_before"], "th": "opening",
+            "tc": r["time_class"], "u": r["url"], "d": r["date"], "o": r["opponent"], "oe": r["opp_elo"],
+            "n": r["move_no"], "c": r["my_color"], "pu": r["uci"], "ps": r["san"],
+            "wb": round(r["win_before"], 1), "chk": chess.Board(r["fen_before"]).is_check(), "mv": moves,
+            "rep": {"n": lk["n"], "l": lk["l"], "path": lk["path"], "name": lk["name"]},
+        })
+    return out
+
+
 def build_data(cfg, con, first=None):
     """first : n'évaluer que les `first` erreurs les plus coûteuses (première publication rapide)."""
     ex = cfg["exercises"]
@@ -196,6 +228,8 @@ def build_data(cfg, con, first=None):
             if i < len(v) and len(items) < ex["max"]:
                 items.append(v[i])
         i += 1
+    if not first:
+        items += _opening_items(cfg, con, {" ".join(x["fen"].split()[:4]) for x in items})
     _mate_lines(cfg, con, items)
     return {
         "player": cfg["username"].capitalize(),

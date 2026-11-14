@@ -29,3 +29,31 @@ exports.lancerAnalyse = onDocumentWritten({ document: "requests/{pseudo}", regio
     });
   }
 });
+
+// Mise à jour automatique chaque nuit à 4 h (heure de Paris) : une demande « pending » par pseudo dont
+// un compte s'est connecté depuis moins de 30 jours (users/{uid}.seen, écrit par l'appli), sauf analyse
+// déjà en cours. Le job s'arrête aussitôt s'il n'y a aucune nouvelle partie ; le bilan IA garde ses
+// propres règles (20 nouvelles parties ou 7 jours), la relance nocturne ne coûte donc aucun jeton de plus.
+const { onSchedule } = require("firebase-functions/v2/scheduler");
+const { getFirestore, Timestamp } = require("firebase-admin/firestore");
+const ACTIVE_DAYS = 30;
+
+exports.relanceNocturne = onSchedule({ schedule: "0 4 * * *", timeZone: "Europe/Paris", region: REGION }, async () => {
+  const db = getFirestore();
+  const limit = Date.now() - ACTIVE_DAYS * 86400e3;
+  const seen = {};                       // pseudo → dernière connexion (tous comptes confondus)
+  for (const d of (await db.collection("users").get()).docs) {
+    const { pseudo, seen: s } = d.data();
+    if (pseudo && s?.toMillis) seen[pseudo] = Math.max(seen[pseudo] || 0, s.toMillis());
+  }
+  let launched = 0, skipped = 0;
+  for (const [pseudo, t] of Object.entries(seen)) {
+    if (t < limit) { skipped++; continue; }
+    const ref = db.collection("requests").doc(pseudo);
+    const r = (await ref.get()).data();
+    if (r && ["pending", "queued", "running"].includes(r.status)) { skipped++; continue; }
+    await ref.set({ pseudo, status: "pending", auto: true, created: Timestamp.now() }, { merge: true });
+    launched++;
+  }
+  logger.info(`relance nocturne : ${launched} lancée(s), ${skipped} ignorée(s)`);
+});

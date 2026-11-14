@@ -1,5 +1,5 @@
 # Données personnelles et volumineuses, régénérables
-data/
+/data/
 output/
 bin/
 .venv/

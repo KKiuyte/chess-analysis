@@ -1,0 +1,278 @@
+<title>__TITLE__</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700&family=Atkinson+Hyperlegible:wght@400;700&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+/* Répertoire : les positions d'ouverture vues plusieurs fois, tes coups, Stockfish et la théorie (base Lichess). */
+:root {
+  --bg: #f4f5f1; --surface: #fcfcfa; --fg: #171a17; --muted: #586058; --faint: #8a918a;
+  --line: #dde1d9; --accent: #3b6a44; --accent-soft: #e3ece2;
+  --bad: #c43535; --bad-soft: #f8e3e1; --warn: #9a6a00; --warn-soft: #fbefc9;
+  --sq-light: #ebecd0; --sq-dark: #739552;
+  --arrow-good: rgba(24, 120, 60, .85); --arrow-bad: rgba(200, 40, 40, .8);
+  --f-display: "Bricolage Grotesque", "Segoe UI", system-ui, sans-serif;
+  --f-body: "Atkinson Hyperlegible", system-ui, -apple-system, sans-serif;
+  --f-mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
+  --r: 10px;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #121513; --surface: #1a1d1b; --fg: #edefeb; --muted: #a4aca5; --faint: #747c75;
+    --line: #2b312d; --accent: #86b98e; --accent-soft: #223026;
+    --bad: #ef7070; --bad-soft: #3d2020; --warn: #e0b440; --warn-soft: #3a3118;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #121513; --surface: #1a1d1b; --fg: #edefeb; --muted: #a4aca5; --faint: #747c75;
+  --line: #2b312d; --accent: #86b98e; --accent-soft: #223026;
+  --bad: #ef7070; --bad-soft: #3d2020; --warn: #e0b440; --warn-soft: #3a3118;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body {
+  background: var(--bg); color: var(--fg); font-family: var(--f-body); font-size: 15px; line-height: 1.5; margin: 0;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 0 48px;
+}
+.wrap { max-width: 1040px; margin: 0 auto; display: flex; flex-direction: column; gap: 24px; }
+h1, h2, h3 { font-family: var(--f-display); text-wrap: balance; margin: 0; line-height: 1.15; }
+h1 { font-size: clamp(28px, 6vw, 40px); font-weight: 700; letter-spacing: -.01em; }
+h2 { font-size: 22px; font-weight: 700; }
+h3 { font-size: 16px; font-weight: 700; }
+p { margin: 0; }
+a { color: var(--accent); }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.eyebrow { font-size: 12px; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); font-weight: 700; }
+.muted { color: var(--muted); }
+.mono { font-family: var(--f-mono); font-weight: 600; }
+.num { font-variant-numeric: tabular-nums; }
+.top { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; padding-top: 28px; flex-wrap: wrap; }
+.top .meta { color: var(--muted); max-width: 66ch; margin-top: 8px; }
+.theme-btn { font: inherit; font-size: 13px; color: var(--fg); background: var(--surface); border: 1px solid var(--line); border-radius: 999px; padding: 6px 12px; cursor: pointer; }
+.seg { align-self: flex-start; display: inline-flex; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; background: var(--surface); }
+.seg button { font: inherit; font-size: 15px; border: 0; background: none; color: var(--fg); padding: 8px 16px; cursor: pointer; min-height: 44px; }
+.seg button[aria-pressed="true"] { background: var(--accent); color: var(--bg); font-weight: 700; }
+.sec-head { display: flex; flex-direction: column; gap: 4px; margin-bottom: 12px; }
+.sec-head p { color: var(--muted); font-size: 14px; max-width: 70ch; }
+
+.leaks { display: grid; grid-template-columns: repeat(auto-fill, minmax(360px, 1fr)); gap: 12px; }
+.leak { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); padding: 14px; display: grid; grid-template-columns: 160px minmax(0, 1fr); gap: 14px; align-items: start; }
+.leak .txt { display: flex; flex-direction: column; gap: 6px; font-size: 14px; }
+.leak .name { font-size: 12px; color: var(--muted); font-weight: 700; }
+.leak .loss { color: var(--bad); font-weight: 700; }
+.leak .acts { display: flex; gap: 12px; flex-wrap: wrap; margin-top: 2px; }
+.link { all: unset; cursor: pointer; color: var(--accent); font-weight: 700; font-size: 14px; text-decoration: underline; text-underline-offset: 2px; }
+.empty { background: var(--surface); border: 1px dashed var(--line); border-radius: var(--r); padding: 20px 16px; color: var(--muted); }
+
+.mb { position: relative; display: grid; grid-template-columns: repeat(8, minmax(0, 1fr)); aspect-ratio: 1; width: 100%; border-radius: 4px; overflow: hidden; container-type: inline-size; }
+.mb div { aspect-ratio: 1; display: flex; align-items: center; justify-content: center; font-size: 10.5cqi; line-height: 1; min-width: 0; }
+.mb .l { background: var(--sq-light); } .mb .d { background: var(--sq-dark); }
+.mb .pc { font-family: "Segoe UI Symbol", "DejaVu Sans", "Noto Sans Symbols 2", sans-serif; }
+.mb .pw { color: #fff; text-shadow: 0 0 1px #000, 0 0 1px #000, 0 1px 1px #000; }
+.mb .pb { color: #111; text-shadow: 0 0 1px #fff8; }
+.mb svg { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+
+.tree { display: flex; flex-direction: column; border: 1px solid var(--line); border-radius: var(--r); background: var(--surface); overflow: hidden; }
+.pos { border-top: 1px solid var(--line); }
+.pos:first-child { border-top: 0; }
+.pos summary { list-style: none; cursor: pointer; display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 2px 12px; padding: 12px 14px; align-items: center; }
+.pos summary::-webkit-details-marker { display: none; }
+.pos summary:hover { background: var(--accent-soft); }
+.pos .line { font-family: var(--f-mono); font-size: 14px; overflow-wrap: anywhere; }
+.pos .line .q { color: var(--accent); font-weight: 600; }
+.pos .nm { grid-column: 1; font-size: 13px; color: var(--muted); }
+.pos .rt { grid-column: 2; grid-row: 1 / span 2; display: flex; flex-direction: column; align-items: flex-end; gap: 4px; font-size: 13px; color: var(--muted); }
+.badge { font-size: 12px; font-weight: 700; border-radius: 999px; padding: 1px 8px; white-space: nowrap; }
+.badge.b-out { color: var(--warn); background: var(--warn-soft); }
+.badge.b-leak { color: var(--bad); background: var(--bad-soft); }
+.pos .body { display: grid; grid-template-columns: 200px minmax(0, 1fr); gap: 16px; padding: 4px 14px 16px; align-items: start; }
+table { border-collapse: collapse; width: 100%; font-size: 14px; }
+th, td { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--line); }
+th { font-size: 12px; color: var(--muted); font-weight: 700; }
+td.n { text-align: right; font-variant-numeric: tabular-nums; }
+th.n { text-align: right; }
+tr.best td:first-child::after { content: " ★"; color: var(--accent); }
+td.bad { color: var(--bad); font-weight: 700; }
+.sf { font-size: 14px; margin-top: 8px; }
+.more { align-self: center; }
+.btn { font: inherit; font-size: 15px; border-radius: 8px; padding: 9px 16px; cursor: pointer; border: 1px solid var(--line); background: var(--surface); color: var(--fg); min-height: 44px; }
+@media (max-width: 640px) {
+  .top { padding-top: 14px; align-items: center; flex-wrap: nowrap; }
+  .top .eyebrow, .top .meta { display: none; }
+  h1 { font-size: 22px; }
+  .theme-btn { flex: none; padding: 4px 10px; font-size: 12px; }
+  .leaks { grid-template-columns: minmax(0, 1fr); }
+  .leak { grid-template-columns: 130px minmax(0, 1fr); }
+  .pos .body { grid-template-columns: minmax(0, 1fr); }
+  .pos .body .mb { max-width: 260px; }
+}
+footer { font-size: 13px; color: var(--muted); border-top: 1px solid var(--line); padding-top: 16px; }
+</style>
+
+<div class="wrap">
+  <header class="top">
+    <div>
+      <div class="eyebrow">Tes ouvertures, position par position</div>
+      <h1 id="title"></h1>
+      <p class="meta" id="meta"></p>
+    </div>
+    <button class="theme-btn" id="themeBtn" type="button">Thème : auto</button>
+  </header>
+
+  <div class="seg" id="fColor" role="group" aria-label="Couleur"></div>
+
+  <section>
+    <div class="sec-head">
+      <h2>Tes fuites</h2>
+      <p id="leakIntro"></p>
+    </div>
+    <div class="leaks" id="leaks"></div>
+  </section>
+
+  <section>
+    <div class="sec-head">
+      <h2>Ton répertoire</h2>
+      <p id="treeIntro"></p>
+    </div>
+    <div class="tree" id="tree"></div>
+    <p style="text-align:center;margin-top:14px"><button class="btn more" id="bMore" type="button" hidden>Afficher plus</button></p>
+  </section>
+
+  <footer id="foot"></footer>
+</div>
+
+<script>
+const D = __DATA__;
+const $ = id => document.getElementById(id);
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const MOIS = ["janv.", "févr.", "mars", "avr.", "mai", "juin", "juil.", "août", "sept.", "oct.", "nov.", "déc."];
+const dateLabel = d => { const [y, m, j] = d.split("-"); return `${+j} ${MOIS[+m - 1]} ${y}`; };
+const nb = x => String(x).replace(".", ",");
+const GLYPH = { k: "♚", q: "♛", r: "♜", b: "♝", n: "♞", p: "♟" };
+const FILES = "abcdefgh";
+const app = (() => { try { return window.parent !== window ? window.parent.chessApp : null; } catch (e) { return null; } })();
+
+$("title").textContent = `${D.player} · Répertoire`;
+document.title = `Répertoire ${D.player}`;
+$("meta").textContent = `Les positions de tes ${D.maxMoves} premiers coups que tu as eues au moins ${D.minSeen} fois depuis le ${dateLabel(D.since)} : `
+  + "ce que tu y joues, ton score, ce que Stockfish préfère, et si tu restes dans la théorie.";
+$("foot").innerHTML = "Théorie : lignes nommées de la base d'ouvertures Lichess (domaine public). "
+  + "Perte = points de % de gain perdus par le coup, en moyenne, d'après Stockfish. Score = points marqués dans ces parties (victoire 1, nulle ½). "
+  + "Données issues de l'API publique chess.com (site non affilié à chess.com).";
+
+// ---------- Thème ----------
+const THEMES = ["auto", "clair", "sombre"];
+let theme = "auto";
+try { theme = localStorage.getItem("theme") || "auto"; } catch (e) {}
+function applyTheme() {
+  const r = document.documentElement;
+  if (theme === "clair") r.setAttribute("data-theme", "light");
+  else if (theme === "sombre") r.setAttribute("data-theme", "dark");
+  else r.removeAttribute("data-theme");
+  $("themeBtn").textContent = "Thème : " + theme;
+}
+$("themeBtn").addEventListener("click", () => {
+  theme = THEMES[(THEMES.indexOf(theme) + 1) % 3];
+  try { localStorage.setItem("theme", theme); } catch (e) {}
+  applyTheme();
+});
+applyTheme();
+
+// ---------- Mini-échiquier ----------
+function parseFen(fen) {
+  const pos = Array(64).fill(null);
+  fen.split(" ")[0].split("/").forEach((row, i) => {
+    let f = 0;
+    for (const ch of row) { if (/\d/.test(ch)) f += +ch; else pos[(7 - i) * 8 + f++] = ch; }
+  });
+  return pos;
+}
+const sqIdx = s => FILES.indexOf(s[0]) + (s[1] - 1) * 8;
+function arrow(from, to, color, flip) {
+  const c = s => { const i = sqIdx(s); let f = i % 8, r = 7 - Math.floor(i / 8); if (flip) { f = 7 - f; r = 7 - r; } return [f + .5, r + .5]; };
+  const [x1, y1] = c(from), [x2, y2] = c(to);
+  const dx = x2 - x1, dy = y2 - y1, len = Math.hypot(dx, dy), ux = dx / len, uy = dy / len;
+  const ex = x2 - ux * .34, ey = y2 - uy * .34, hx = x2 - ux * .02, hy = y2 - uy * .02, px = -uy * .24, py = ux * .24;
+  return `<line x1="${x1}" y1="${y1}" x2="${ex}" y2="${ey}" stroke="${color}" stroke-width=".2" stroke-linecap="round"/>`
+    + `<polygon points="${hx},${hy} ${ex + px},${ey + py} ${ex - px},${ey - py}" fill="${color}"/>`;
+}
+// arrows : [[uci, couleur], …]
+function miniBoard(fen, flip, arrows, label) {
+  const pos = parseFen(fen), cells = [];
+  for (let r = 7; r >= 0; r--) for (let f = 0; f < 8; f++) cells.push(r * 8 + f);
+  if (flip) cells.reverse();
+  const sq = cells.map(i => {
+    const pc = pos[i];
+    return `<div class="${(Math.floor(i / 8) + i % 8) % 2 ? "l" : "d"}">${pc ? `<span class="pc ${pc === pc.toUpperCase() ? "pw" : "pb"}">${GLYPH[pc.toLowerCase()]}︎</span>` : ""}</div>`;
+  }).join("");
+  const svg = arrows.filter(a => a[0]).map(([u, col]) => arrow(u.slice(0, 2), u.slice(2, 4), col, flip)).join("");
+  return `<div class="mb" role="img" aria-label="${esc(label)}">${sq}<svg viewBox="0 0 8 8" aria-hidden="true">${svg}</svg></div>`;
+}
+
+// ---------- Rendu ----------
+const toPlay = ply => ply % 2 === 0 ? `${ply / 2 + 1}.` : `${(ply - 1) / 2 + 1}…`;
+const lineHtml = x => `${esc(x.path || "Position de départ")} <span class="q">${toPlay(x.ply)} ?</span>`;
+let color = D.games.w >= D.games.b ? "w" : "b", shownN = 30;
+$("fColor").innerHTML = ["w", "b"].map(c => `<button type="button" data-c="${c}">Avec les ${c === "w" ? "blancs" : "noirs"} (${D.games[c]})</button>`).join("");
+$("fColor").addEventListener("click", e => { const b = e.target.closest("button"); if (!b) return; color = b.dataset.c; shownN = 30; render(); });
+const leakKeys = new Set(D.leaks.map(l => l.k + "|" + l.s));
+
+function render() {
+  $("fColor").querySelectorAll("button").forEach(b => b.setAttribute("aria-pressed", b.dataset.c === color));
+  const flip = color === "b";
+  const leaks = D.leaks.filter(l => l.c === color);
+  $("leakIntro").textContent = `Les positions où ton coup habituel te coûte le plus (vu au moins ${D.minSeen} fois, perte moyenne d'au moins ${D.tolerance} points). `
+    + "Flèche rouge : ton coup. Flèche verte : celui de Stockfish.";
+  $("leaks").innerHTML = leaks.length ? leaks.map(l => `<article class="leak">
+      ${miniBoard(l.fen, flip, [[l.u, "var(--arrow-bad)"], [l.b?.[1], "var(--arrow-good)"]], `Position après ${l.path || "le départ"}`)}
+      <div class="txt">
+        ${l.name ? `<span class="name">${esc(l.name)}</span>` : ""}
+        <span>Après <span class="mono">${esc(l.path || "le départ")}</span>, tu joues <span class="mono">${toPlay(l.ply)}${esc(l.s)}</span> (${l.n} fois)
+          et perds en moyenne <span class="loss">${nb(l.l)} points</span> de gain.</span>
+        <span>Stockfish : <span class="mono">${toPlay(l.ply)}${esc(l.b?.[0] || "?")}</span>.</span>
+        <span class="acts">${app?.openExercises ? '<button class="link" type="button" data-train>S\'entraîner</button>' : ""}
+          <button class="link" type="button" data-go="${l.k}">Voir la position</button></span>
+      </div></article>`).join("")
+    : `<p class="empty">Aucune fuite nette avec les ${color === "w" ? "blancs" : "noirs"} : dans les positions que tu as souvent, ton coup habituel ne perd jamais plus de ${D.tolerance} points en moyenne.</p>`;
+
+  const pos = D.pos.filter(x => x.c === color);
+  const outs = pos.filter(x => x.out).length;
+  $("treeIntro").textContent = `${pos.length} positions, de la plus tôt à la plus tard dans la partie.`
+    + (outs ? ` « Sortie de théorie » : position connue de la base Lichess, mais ton coup le plus joué n'y figure pas (${outs}).` : "");
+  $("tree").innerHTML = pos.slice(0, shownN).map(x => {
+    const main = x.mv[0];
+    const isLeak = x.mv.some(m => leakKeys.has(x.k + "|" + m.s));
+    const rows = x.mv.map(m => `<tr class="${x.b && m.s === x.b[0] ? "best" : ""}">
+        <td class="mono">${esc(m.s)}</td><td class="n">${m.n}</td><td class="n">${m.sc} %</td>
+        <td class="n ${m.l != null && m.l >= D.tolerance ? "bad" : ""}">${m.l == null ? "–" : nb(m.l)}</td>
+        <td>${m.th ? "oui" : "non"}</td></tr>`).join("");
+    return `<details class="pos" id="${x.k}">
+      <summary>
+        <span class="line">${lineHtml(x)}</span>
+        <span class="nm">${esc(x.name || "")}${x.name ? " · " : ""}tu joues surtout <span class="mono">${esc(main.s)}</span></span>
+        <span class="rt"><span class="num">${x.n} fois</span>${isLeak ? '<span class="badge b-leak">fuite</span>' : x.out ? '<span class="badge b-out">sortie de théorie</span>' : ""}</span>
+      </summary>
+      <div class="body">
+        ${miniBoard(x.fen, flip, [[main.u, main.l != null && main.l >= D.tolerance ? "var(--arrow-bad)" : "rgba(42,120,214,.7)"], [x.b && x.b[0] !== main.s ? x.b[1] : null, "var(--arrow-good)"]], `Position après ${x.path || "le départ"}`)}
+        <div>
+          <table><thead><tr><th>Ton coup</th><th class="n">Joué</th><th class="n">Score</th><th class="n">Perte</th><th>Théorie</th></tr></thead><tbody>${rows}</tbody></table>
+          <p class="sf">Stockfish : <span class="mono">${esc(x.b?.[0] || "–")}</span> ★${x.th ? "" : " · position déjà hors théorie"}</p>
+        </div>
+      </div>
+    </details>`;
+  }).join("");
+  $("bMore").hidden = pos.length <= shownN;
+}
+$("bMore").addEventListener("click", () => { shownN += 30; render(); });
+$("leaks").addEventListener("click", e => {
+  const go = e.target.closest("[data-go]");
+  if (go) {
+    const k = go.dataset.go, i = D.pos.filter(x => x.c === color).findIndex(x => x.k === k);
+    if (i >= shownN) { shownN = i + 1; render(); }
+    const el = $(k); if (el) { el.open = true; el.scrollIntoView({ behavior: "smooth", block: "start" }); }
+  }
+  if (e.target.closest("[data-train]")) app?.openExercises?.({ th: "opening" });
+});
+render();
+</script>

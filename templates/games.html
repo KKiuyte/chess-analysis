@@ -1,0 +1,521 @@
+<title>__TITLE__</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700&family=Atkinson+Hyperlegible:wght@400;700&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+/* Parties : liste filtrable, puis relecture d'une partie (échiquier, courbe d'évaluation, coups annotés).
+   La fiche de chaque partie est chargée à la demande par l'appli (players/{pseudo}/games/{id}). */
+:root {
+  --bg: #f4f5f1; --surface: #fcfcfa; --fg: #171a17; --muted: #586058; --faint: #8a918a;
+  --line: #dde1d9; --accent: #3b6a44; --accent-soft: #e3ece2;
+  --win: #0c8a0c; --loss: #c43535; --draw: #6d736e;
+  --k1: #9a6a00; --k2: #c25418; --k3: #c43535;
+  --k1-bg: #fbefc9; --k2-bg: #fbe1d2; --k3-bg: #f8dcda;
+  --sq-light: #ebecd0; --sq-dark: #739552;
+  --hl-last: rgba(246, 222, 70, .55); --hl-bad: rgba(208, 59, 59, .45);
+  --arrow: rgba(24, 120, 60, .8);
+  --f-display: "Bricolage Grotesque", "Segoe UI", system-ui, sans-serif;
+  --f-body: "Atkinson Hyperlegible", system-ui, -apple-system, sans-serif;
+  --f-mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
+  --r: 10px;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #121513; --surface: #1a1d1b; --fg: #edefeb; --muted: #a4aca5; --faint: #747c75;
+    --line: #2b312d; --accent: #86b98e; --accent-soft: #223026;
+    --win: #5cc95c; --loss: #ec6b6b; --draw: #a4aca5;
+    --k1: #e0b440; --k2: #f0915c; --k3: #ef7070;
+    --k1-bg: #3a3118; --k2-bg: #3d2619; --k3-bg: #3d2020;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #121513; --surface: #1a1d1b; --fg: #edefeb; --muted: #a4aca5; --faint: #747c75;
+  --line: #2b312d; --accent: #86b98e; --accent-soft: #223026;
+  --win: #5cc95c; --loss: #ec6b6b; --draw: #a4aca5;
+  --k1: #e0b440; --k2: #f0915c; --k3: #ef7070;
+  --k1-bg: #3a3118; --k2-bg: #3d2619; --k3-bg: #3d2020;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body {
+  background: var(--bg); color: var(--fg); font-family: var(--f-body); font-size: 15px; line-height: 1.5; margin: 0;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 0 48px;
+}
+.wrap { max-width: 1040px; margin: 0 auto; display: flex; flex-direction: column; gap: 20px; }
+h1, h2, h3 { font-family: var(--f-display); text-wrap: balance; margin: 0; line-height: 1.15; }
+h1 { font-size: clamp(28px, 6vw, 40px); font-weight: 700; letter-spacing: -.01em; }
+h2 { font-size: 22px; font-weight: 700; }
+p { margin: 0; }
+a { color: var(--accent); }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.eyebrow { font-size: 12px; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); font-weight: 700; }
+.muted { color: var(--muted); }
+.mono { font-family: var(--f-mono); font-weight: 600; }
+.num { font-variant-numeric: tabular-nums; }
+.top { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; padding-top: 28px; flex-wrap: wrap; }
+.top .meta { color: var(--muted); max-width: 62ch; margin-top: 8px; }
+.theme-btn { font: inherit; font-size: 13px; color: var(--fg); background: var(--surface); border: 1px solid var(--line); border-radius: 999px; padding: 6px 12px; cursor: pointer; }
+
+/* Liste */
+.fbody { display: flex; flex-wrap: wrap; gap: 10px 16px; align-items: center; }
+.seg { display: inline-flex; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; background: var(--surface); flex-wrap: wrap; }
+.seg button { font: inherit; font-size: 14px; border: 0; background: none; color: var(--fg); padding: 8px 12px; cursor: pointer; min-height: 40px; }
+.seg button[aria-pressed="true"] { background: var(--accent); color: var(--bg); font-weight: 700; }
+.count { font-size: 14px; color: var(--muted); }
+.list { display: flex; flex-direction: column; border: 1px solid var(--line); border-radius: var(--r); overflow: hidden; background: var(--surface); }
+.row { all: unset; box-sizing: border-box; cursor: pointer; display: grid; grid-template-columns: 34px minmax(0, 1fr) auto; gap: 4px 12px; align-items: center; padding: 12px 14px; border-top: 1px solid var(--line); }
+.row:first-child { border-top: 0; }
+.row:hover { background: var(--accent-soft); }
+.row:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+.res { width: 34px; height: 34px; border-radius: 8px; display: grid; place-items: center; font-weight: 700; color: #fff; grid-row: span 2; }
+.res.W { background: var(--win); } .res.L { background: var(--loss); } .res.D { background: var(--draw); }
+.row .who { font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; display: flex; align-items: center; gap: 8px; }
+.row .who .dot { width: 12px; height: 12px; border-radius: 50%; border: 1px solid var(--faint); flex: none; }
+.row .sub { grid-column: 2; font-size: 13px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.row .right { grid-column: 3; grid-row: 1 / span 2; display: flex; flex-direction: column; align-items: flex-end; gap: 4px; font-size: 13px; color: var(--muted); }
+.chips { display: flex; gap: 4px; }
+.chip { font-size: 12px; font-weight: 700; border-radius: 999px; padding: 1px 8px; }
+.chip.k1 { color: var(--k1); background: var(--k1-bg); } .chip.k2 { color: var(--k2); background: var(--k2-bg); } .chip.k3 { color: var(--k3); background: var(--k3-bg); }
+.more { align-self: center; }
+.btn { font: inherit; font-size: 15px; border-radius: 8px; padding: 9px 16px; cursor: pointer; border: 1px solid var(--line); background: var(--surface); color: var(--fg); min-height: 44px; }
+.btn.primary { background: var(--accent); color: var(--bg); border-color: var(--accent); font-weight: 700; }
+.btn[disabled] { opacity: .45; cursor: default; }
+.empty { background: var(--surface); border: 1px dashed var(--line); border-radius: var(--r); padding: 28px 16px; text-align: center; color: var(--muted); }
+
+/* Relecture */
+.back { all: unset; cursor: pointer; color: var(--accent); font-weight: 700; padding: 8px 0; align-self: flex-start; }
+.ghead { display: flex; flex-direction: column; gap: 4px; }
+.ghead .meta { color: var(--muted); font-size: 14px; }
+.ghead .meta a { margin-left: 6px; }
+.view { display: grid; grid-template-columns: 1fr; gap: 20px; align-items: start; }
+@media (min-width: 860px) { .view { grid-template-columns: minmax(0, 520px) minmax(0, 1fr); } }
+.board-wrap { position: relative; width: 100%; max-width: 520px; margin: 0 auto; display: flex; flex-direction: column; gap: 6px; }
+.clock { display: flex; justify-content: space-between; font-size: 14px; color: var(--muted); }
+.clock b { color: var(--fg); font-family: var(--f-mono); font-weight: 600; }
+.board { position: relative; display: grid; grid-template-columns: repeat(8, minmax(0, 1fr)); aspect-ratio: 1; width: 100%; border-radius: 6px; overflow: hidden; container-type: inline-size; touch-action: pan-y; user-select: none; }
+.board .sq { position: relative; aspect-ratio: 1; min-width: 0; min-height: 0; display: flex; align-items: center; justify-content: center; font-size: 10.5cqi; line-height: 1; }
+.board .l { background: var(--sq-light); } .board .d { background: var(--sq-dark); }
+.board .sq::after { content: ""; position: absolute; inset: 0; pointer-events: none; }
+.board .last::after { background: var(--hl-last); }
+.board .bad::after { background: var(--hl-bad); }
+.board .pc { position: relative; z-index: 1; font-family: "Segoe UI Symbol", "DejaVu Sans", "Noto Sans Symbols 2", sans-serif; }
+.board .pw { color: #fff; text-shadow: 0 0 1px #000, 0 0 1px #000, 0 1px 1px #000; }
+.board .pb { color: #111; text-shadow: 0 0 1px #fff8; }
+.board .co { position: absolute; font-size: 2.4cqi; font-weight: 700; font-family: var(--f-body); z-index: 1; }
+.board .co.f { right: 6%; bottom: 3%; } .board .co.r { left: 6%; top: 3%; }
+.board .l .co { color: var(--sq-dark); } .board .d .co { color: var(--sq-light); }
+.arrows { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 2; }
+.ctrl { display: flex; gap: 6px; }
+.ctrl .btn { flex: 1 1 0; padding: 8px 4px; font-size: 18px; line-height: 1; }
+.ctrl .btn.jump { font-size: 13px; }
+.panel { display: flex; flex-direction: column; gap: 14px; min-width: 0; }
+.card { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); padding: 14px; }
+.curve svg { width: 100%; height: 110px; display: block; cursor: pointer; touch-action: pan-y; }
+.curve .lbl { display: flex; justify-content: space-between; font-size: 12px; color: var(--muted); margin-bottom: 4px; }
+.info { display: flex; flex-direction: column; gap: 6px; min-height: 92px; }
+.info .v { font-weight: 700; font-size: 16px; }
+.info .v.k1 { color: var(--k1); } .info .v.k2 { color: var(--k2); } .info .v.k3 { color: var(--k3); } .info .v.ok { color: var(--win); }
+.info .d { font-size: 14px; color: var(--muted); }
+.moves { display: grid; grid-template-columns: 40px 1fr 1fr; gap: 2px 4px; max-height: 340px; overflow-y: auto; font-size: 14px; padding: 8px; }
+.moves .no { color: var(--faint); text-align: right; padding: 4px 6px 4px 0; font-variant-numeric: tabular-nums; }
+.moves button { all: unset; cursor: pointer; padding: 4px 8px; border-radius: 6px; font-family: var(--f-mono); font-weight: 400; white-space: nowrap; }
+.moves button.mine { font-weight: 600; }
+.moves button:hover { background: var(--accent-soft); }
+.moves button[aria-current="true"] { background: var(--accent); color: var(--bg); }
+.moves .k1 { color: var(--k1); } .moves .k2 { color: var(--k2); } .moves .k3 { color: var(--k3); }
+.moves button[aria-current="true"].k1, .moves button[aria-current="true"].k2, .moves button[aria-current="true"].k3 { color: var(--bg); }
+.legend { display: flex; flex-wrap: wrap; gap: 4px 14px; font-size: 13px; color: var(--muted); }
+.legend span::before { content: ""; display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 6px; vertical-align: -1px; background: currentColor; }
+.legend .k1 { color: var(--k1); } .legend .k2 { color: var(--k2); } .legend .k3 { color: var(--k3); }
+.legend .ar { color: var(--arrow); }
+@media (max-width: 859px) {
+  .wrap { gap: 14px; }
+
+  .top { padding-top: 14px; align-items: center; flex-wrap: nowrap; }
+  .top .eyebrow, .top .meta { display: none; }
+  h1 { font-size: 22px; }
+  .theme-btn { flex: none; padding: 4px 10px; font-size: 12px; }
+  .view { gap: 8px; }
+  .panel, .board-wrap { display: contents; }
+  #clkTop { order: 1; } .board { order: 2; } #clkBot { order: 3; }
+  .info { order: 4; }
+  .curve { order: 5; }
+  .moves { order: 6; max-height: 220px; }
+  .legend { order: 7; }
+  .ctrl { order: 8; position: sticky; bottom: 0; z-index: 20; margin: 0 -16px; padding: 8px 16px calc(8px + env(safe-area-inset-bottom, 0px)); background: var(--bg); border-top: 1px solid var(--line); }
+}
+footer { font-size: 13px; color: var(--muted); border-top: 1px solid var(--line); padding-top: 16px; }
+</style>
+
+<div class="wrap">
+  <header class="top">
+    <div>
+      <div class="eyebrow">Tes parties, coup par coup</div>
+      <h1 id="title"></h1>
+      <p class="meta" id="meta"></p>
+    </div>
+    <button class="theme-btn" id="themeBtn" type="button">Thème : auto</button>
+  </header>
+
+  <section id="vList">
+    <div class="fbody" style="margin-bottom:14px">
+      <div class="seg" id="fTc" role="group" aria-label="Cadence"></div>
+      <div class="seg" id="fRes" role="group" aria-label="Résultat"></div>
+      <span class="count" id="count"></span>
+    </div>
+    <div class="list" id="list"></div>
+    <div class="empty" id="lEmpty" hidden>Aucune partie dans cette sélection.</div>
+    <p style="text-align:center;margin-top:14px"><button class="btn more" id="bMore" type="button" hidden>Afficher plus</button></p>
+  </section>
+
+  <section id="vGame" hidden>
+    <div class="ghead">
+      <button class="back" id="bBack" type="button">← Toutes les parties</button>
+      <h2 id="gTitle"></h2>
+      <p class="meta" id="gMeta"></p>
+    </div>
+    <div class="view" style="margin-top:14px">
+      <div class="board-wrap">
+        <div class="clock" id="clkTop"></div>
+        <div class="board" id="board" role="img" aria-label="Échiquier"></div>
+        <div class="clock" id="clkBot"></div>
+        <div class="ctrl">
+          <button class="btn" id="bStart" type="button" aria-label="Début de la partie">⏮</button>
+          <button class="btn jump" id="bPrevErr" type="button">‹ Faute</button>
+          <button class="btn" id="bPrev" type="button" aria-label="Coup précédent">◀</button>
+          <button class="btn" id="bNext" type="button" aria-label="Coup suivant">▶</button>
+          <button class="btn jump" id="bNextErr" type="button">Faute ›</button>
+          <button class="btn" id="bEnd" type="button" aria-label="Fin de la partie">⏭</button>
+        </div>
+      </div>
+      <div class="panel">
+        <div class="card info" id="info" aria-live="polite"></div>
+        <div class="card curve">
+          <div class="lbl"><span>Tes chances de gain</span><span id="curveNow"></span></div>
+          <svg id="curve" viewBox="0 0 400 100" preserveAspectRatio="none" role="img" aria-label="Courbe d'évaluation de la partie"></svg>
+        </div>
+        <div class="card moves" id="moves"></div>
+        <div class="legend"><span class="k1">Imprécision ?!</span><span class="k2">Erreur ?</span><span class="k3">Gaffe ??</span><span class="ar">Flèche : coup de Stockfish</span></div>
+      </div>
+    </div>
+    <p class="empty" id="gErr" hidden></p>
+  </section>
+
+  <footer id="foot"></footer>
+</div>
+
+<script>
+const D = __DATA__;
+const $ = id => document.getElementById(id);
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const pct = x => `${Math.round(x)} %`;
+const MOIS = ["janv.", "févr.", "mars", "avr.", "mai", "juin", "juil.", "août", "sept.", "oct.", "nov.", "déc."];
+const dateLabel = d => { const [y, m, j] = d.split("-"); return `${+j} ${MOIS[+m - 1]} ${y}`; };
+const GLYPH = { k: "♚", q: "♛", r: "♜", b: "♝", n: "♞", p: "♟" };
+const FILES = "abcdefgh";
+const START = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR";
+const RES = { W: "Victoire", L: "Défaite", D: "Nulle" };
+const RES1 = { W: "V", L: "D", D: "N" };
+const KLBL = ["", "Imprécision", "Erreur", "Gaffe"], KSYM = ["", "?!", "?", "??"];
+const HOW = { checkmated: "mat", resigned: "abandon", timeout: "temps", abandoned: "partie abandonnée", agreed: "nulle par accord",
+  repetition: "répétition", stalemate: "pat", insufficient: "matériel insuffisant", "50move": "règle des 50 coups",
+  timevsinsufficient: "temps contre matériel insuffisant", win: "" };
+const app = (() => { try { return window.parent !== window ? window.parent.chessApp : null; } catch (e) { return null; } })();
+
+$("title").textContent = `${D.player} · Parties`;
+document.title = `Parties ${D.player}`;
+$("meta").textContent = `${D.items.length} parties depuis ${dateLabel(D.since)}. Choisis-en une pour la rejouer : courbe d'évaluation, `
+  + "tes imprécisions, erreurs et gaffes, et le coup que Stockfish aurait joué.";
+$("foot").textContent = "Seuls tes coups sont évalués en détail : les fautes de l'adversaire se lisent sur la courbe. "
+  + "Données issues de l'API publique chess.com (site non affilié à chess.com).";
+
+// ---------- Thème ----------
+const THEMES = ["auto", "clair", "sombre"];
+let theme = "auto";
+try { theme = localStorage.getItem("theme") || "auto"; } catch (e) {}
+function applyTheme() {
+  const r = document.documentElement;
+  if (theme === "clair") r.setAttribute("data-theme", "light");
+  else if (theme === "sombre") r.setAttribute("data-theme", "dark");
+  else r.removeAttribute("data-theme");
+  $("themeBtn").textContent = "Thème : " + theme;
+}
+$("themeBtn").addEventListener("click", () => {
+  theme = THEMES[(THEMES.indexOf(theme) + 1) % 3];
+  try { localStorage.setItem("theme", theme); } catch (e) {}
+  applyTheme();
+});
+applyTheme();
+
+// ---------- Liste ----------
+const filt = { tc: "all", r: "all" };
+const PAGE = 40;
+let shownN = PAGE;
+function seg(el, key, opts) {
+  el.innerHTML = opts.map(([v, l]) => `<button type="button" data-v="${v}" aria-pressed="${filt[key] === v}">${esc(l)}</button>`).join("");
+  el.onclick = e => {
+    const b = e.target.closest("button"); if (!b) return;
+    filt[key] = b.dataset.v; shownN = PAGE;
+    el.querySelectorAll("button").forEach(x => x.setAttribute("aria-pressed", x === b));
+    renderList();
+  };
+}
+const tcs = [...new Set(D.items.map(x => x.tc))];
+if (tcs.length > 1) seg($("fTc"), "tc", [["all", "Toutes cadences"], ...tcs.map(t => [t, D.tcLabels[t] || t])]);
+else $("fTc").hidden = true;
+seg($("fRes"), "r", [["all", "Tous résultats"], ["W", "Victoires"], ["D", "Nulles"], ["L", "Défaites"]]);
+
+function chipsOf(q) {
+  return [3, 2, 1].filter(k => q[k - 1]).map(k => `<span class="chip k${k}" title="${q[k - 1]} ${KLBL[k].toLowerCase()}${q[k - 1] > 1 ? "s" : ""}">${q[k - 1]} ${KSYM[k]}</span>`).join("");
+}
+function renderList() {
+  const rows = D.items.filter(x => (filt.tc === "all" || x.tc === filt.tc) && (filt.r === "all" || x.r === filt.r));
+  $("count").textContent = `${rows.length} partie${rows.length > 1 ? "s" : ""}`;
+  $("lEmpty").hidden = rows.length > 0;
+  $("list").hidden = !rows.length;
+  $("list").innerHTML = rows.slice(0, shownN).map(x => {
+    const how = HOW[x.rd] ?? "";
+    return `<button class="row" type="button" data-id="${esc(x.id)}">
+      <span class="res ${x.r}" aria-label="${RES[x.r]}">${RES1[x.r]}</span>
+      <span class="who"><span class="dot" style="background:${x.c === "w" ? "#fff" : "#111"}" aria-label="${x.c === "w" ? "blancs" : "noirs"}"></span>${esc(x.o)} <span class="muted num" style="font-weight:400">(${x.oe ?? "?"})</span></span>
+      <span class="sub">${esc(x.f || "Ouverture inconnue")}${x.v ? " · " + esc(x.v) : ""}</span>
+      <span class="right"><span>${dateLabel(x.d)} · ${esc(D.tcLabels[x.tc] || x.tc)}${how ? " · " + how : ""}</span>
+        <span class="chips">${x.a ? chipsOf(x.q) || '<span class="muted">sans faute</span>' : '<span class="muted">non analysée</span>'}</span></span>
+    </button>`;
+  }).join("");
+  $("bMore").hidden = rows.length <= shownN;
+}
+$("bMore").addEventListener("click", () => { shownN += PAGE; renderList(); });
+$("list").addEventListener("click", e => { const b = e.target.closest(".row"); if (b) openGame(b.dataset.id); });
+renderList();
+
+// ---------- Position ----------
+function parseFen(fen) {
+  const pos = Array(64).fill(null);
+  fen.split(" ")[0].split("/").forEach((row, i) => {
+    let f = 0;
+    for (const ch of row) { if (/\d/.test(ch)) f += +ch; else pos[(7 - i) * 8 + f++] = ch; }
+  });
+  return pos;
+}
+const sqIdx = s => FILES.indexOf(s[0]) + (s[1] - 1) * 8;
+const sqName = i => FILES[i % 8] + (Math.floor(i / 8) + 1);
+function applyUci(pos, uci) {
+  const p = pos.slice(), from = sqIdx(uci.slice(0, 2)), to = sqIdx(uci.slice(2, 4)), pc = p[from];
+  if (!pc) return p;
+  const white = pc === pc.toUpperCase();
+  if (pc.toLowerCase() === "k" && Math.abs(to - from) === 2) {
+    const [rf, rt] = to > from ? [from + 3, from + 1] : [from - 4, from - 1];
+    p[rt] = p[rf]; p[rf] = null;
+  }
+  if (pc.toLowerCase() === "p" && (to - from) % 8 !== 0 && !p[to]) p[to + (white ? -8 : 8)] = null;
+  p[to] = uci[4] ? (white ? uci[4].toUpperCase() : uci[4]) : pc;
+  p[from] = null;
+  return p;
+}
+
+// ---------- Relecture ----------
+// G : { x (entrée de la liste), m (demi-coups), pos[i] (position après i demi-coups), w[i] (% de gain après i), i }
+let G = null, loadSeq = 0;
+async function openGame(id, ply) {
+  const x = D.items.find(g => g.id === id);
+  if (!x) return;
+  const seq = ++loadSeq;
+  $("vList").hidden = true; $("vGame").hidden = false;
+  $("gTitle").textContent = `${x.c === "w" ? D.player : x.o} – ${x.c === "w" ? x.o : D.player}`;
+  const how = HOW[x.rd] ?? "";
+  $("gMeta").innerHTML = `${RES[x.r]}${how ? " (" + how + ")" : ""} · ${dateLabel(x.d)} · ${esc(D.tcLabels[x.tc] || x.tc)} · `
+    + `${esc(x.f || "")}${x.v ? " · " + esc(x.v) : ""} <a href="${esc(x.u)}" target="_blank" rel="noopener">chess.com ↗</a>`;
+  $("info").innerHTML = '<span class="d">Chargement de la partie…</span>';
+  $("gErr").hidden = true;
+  window.scrollTo({ top: 0 });
+  let fiche = null;
+  try {
+    if (!app?.gameJson) throw new Error("hors appli");
+    fiche = JSON.parse(await app.gameJson(id));
+  } catch (e) {
+    if (seq !== loadSeq) return;
+    $("gErr").textContent = app?.gameJson ? "Partie introuvable pour l'instant : réessaie après la prochaine mise à jour." : "La relecture des parties est disponible dans l'appli.";
+    $("gErr").hidden = false; $("info").innerHTML = "";
+    return;
+  }
+  if (seq !== loadSeq) return;
+  const pos = [parseFen(START)], w = [null];
+  fiche.m.forEach((e, p) => {
+    pos.push(applyUci(pos[p], e[1]));
+    w.push(null);
+    if (e.length > 3) { if (w[p] == null) w[p] = e[3]; w[p + 1] = e[4]; }
+  });
+  G = { x, m: fiche.m, pos, w, i: 0, flip: x.c === "b" };
+  renderMoves();
+  go(ply != null ? Math.min(ply + 1, fiche.m.length) : 0);
+}
+function backToList() { loadSeq++; G = null; $("vGame").hidden = true; $("vList").hidden = false; }
+$("bBack").addEventListener("click", backToList);
+// Ouverture depuis un autre onglet de l'appli (bouton « Rejouer la partie » d'un exercice) ou par l'appli elle-même.
+window.__openGame = (id, ply) => openGame(id, ply);
+const target = app?.takeGameTarget?.();
+if (target) openGame(target.id, target.ply);
+
+const mine = p => G && (p % 2 === 0) === (G.x.c === "w");
+function renderMoves() {
+  let h = "";
+  G.m.forEach((e, p) => {
+    if (p % 2 === 0) h += `<span class="no">${p / 2 + 1}.</span>`;
+    const k = e.length > 5 ? e[5] : 0;
+    h += `<button type="button" data-p="${p}" class="${mine(p) ? "mine" : ""}${k ? " k" + k : ""}">${esc(e[0])}${k ? KSYM[k] : ""}</button>`;
+  });
+  if (G.m.length % 2) h += "<span></span>";
+  $("moves").innerHTML = h || '<span class="muted" style="grid-column:1/-1">Aucun coup joué.</span>';
+}
+$("moves").addEventListener("click", e => { const b = e.target.closest("button[data-p]"); if (b) go(+b.dataset.p + 1); });
+
+function go(i) {
+  if (!G) return;
+  G.i = Math.max(0, Math.min(G.m.length, i));
+  drawBoard(); drawCurve(); renderInfo(); renderClocks();
+  $("moves").querySelectorAll("button[aria-current]").forEach(b => b.removeAttribute("aria-current"));
+  const cur = $("moves").querySelector(`button[data-p="${G.i - 1}"]`);
+  if (cur) {
+    cur.setAttribute("aria-current", "true");
+    const box = $("moves"), top = cur.offsetTop - box.offsetTop;
+    if (top < box.scrollTop || top > box.scrollTop + box.clientHeight - 30) box.scrollTop = top - box.clientHeight / 2;
+  }
+  $("bPrev").disabled = $("bStart").disabled = G.i === 0;
+  $("bNext").disabled = $("bEnd").disabled = G.i === G.m.length;
+  $("bPrevErr").disabled = errAt(-1) == null;
+  $("bNextErr").disabled = errAt(1) == null;
+}
+const isErr = p => G.m[p]?.length > 5 && G.m[p][5] >= 1;
+function errAt(dir) {
+  // Fautes : le demi-coup p est affiché quand i = p + 1.
+  for (let p = G.i - 1 + dir; p >= 0 && p < G.m.length; p += dir) if (isErr(p)) return p + 1;
+  return null;
+}
+
+function arrow(from, to, color) {
+  const c = s => { const i = sqIdx(s); let f = i % 8, r = 7 - Math.floor(i / 8); if (G.flip) { f = 7 - f; r = 7 - r; } return [f + .5, r + .5]; };
+  const [x1, y1] = c(from), [x2, y2] = c(to);
+  const dx = x2 - x1, dy = y2 - y1, len = Math.hypot(dx, dy), ux = dx / len, uy = dy / len;
+  const ex = x2 - ux * .32, ey = y2 - uy * .32, hx = x2 - ux * .02, hy = y2 - uy * .02;
+  const px = -uy * .2, py = ux * .2;
+  return `<line x1="${x1}" y1="${y1}" x2="${ex}" y2="${ey}" stroke="${color}" stroke-width=".16" stroke-linecap="round"/>`
+    + `<polygon points="${hx},${hy} ${ex + px},${ey + py} ${ex - px},${ey - py}" fill="${color}"/>`;
+}
+function drawBoard() {
+  const pos = G.pos[G.i], last = G.i ? G.m[G.i - 1] : null;
+  const k = last && last.length > 5 ? last[5] : 0;
+  const cells = [];
+  for (let r = 7; r >= 0; r--) for (let f = 0; f < 8; f++) cells.push(r * 8 + f);
+  if (G.flip) cells.reverse();
+  const lastSq = last ? [last[1].slice(0, 2), last[1].slice(2, 4)] : [];
+  let h = cells.map((i, n) => {
+    const s = sqName(i), pc = pos[i];
+    const cls = ["sq", (Math.floor(i / 8) + i % 8) % 2 ? "l" : "d"];
+    if (lastSq.includes(s)) cls.push(k >= 2 ? "bad" : "last");
+    const glyph = pc ? `<span class="pc ${pc === pc.toUpperCase() ? "pw" : "pb"}">${GLYPH[pc.toLowerCase()]}︎</span>` : "";
+    const co = (n % 8 === 0 ? `<span class="co r">${s[1]}</span>` : "") + (n >= 56 ? `<span class="co f">${s[0]}</span>` : "");
+    return `<div class="${cls.join(" ")}">${co}${glyph}</div>`;
+  }).join("");
+  // Coup de Stockfish quand le mien était une faute (dessiné sur la position d'après, comme sur Lichess).
+  if (k >= 1 && last[7]) h += `<svg class="arrows" viewBox="0 0 8 8" aria-hidden="true">${arrow(last[7].slice(0, 2), last[7].slice(2, 4), "var(--arrow)")}</svg>`;
+  $("board").innerHTML = h;
+  $("board").setAttribute("aria-label", `Échiquier après ${G.i} demi-coup${G.i > 1 ? "s" : ""}`);
+}
+
+function fmtClock(s) {
+  if (s == null) return "";
+  if (s >= 3600) return `${Math.floor(s / 3600)} h ${String(Math.floor(s % 3600 / 60)).padStart(2, "0")}`;
+  return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
+}
+function renderClocks() {
+  // Pendule de chaque camp après son dernier coup joué jusqu'ici.
+  const clk = side => { for (let p = G.i - 1; p >= 0; p--) if ((p % 2 === 0) === (side === "w") && G.m[p][2] != null) return G.m[p][2]; return null; };
+  const me = G.x.c, opp = me === "w" ? "b" : "w";
+  const line = (name, side) => `<span>${esc(name)}</span><b>${fmtClock(clk(side))}</b>`;
+  $("clkTop").innerHTML = line(G.x.o, opp);
+  $("clkBot").innerHTML = line(D.player, me);
+}
+
+function renderInfo() {
+  const i = G.i, e = i ? G.m[i - 1] : null;
+  const moveNo = p => `${Math.floor(p / 2) + 1}${p % 2 ? "…" : "."}`;
+  let v = "", cls = "", d = [];
+  if (!e) {
+    v = "Position de départ";
+    d.push(`Avance avec ▶, les flèches du clavier ou en glissant sur l'échiquier. ${G.m.length ? "Les boutons « Faute » sautent directement à tes erreurs." : ""}`);
+  } else if (!mine(i - 1)) {
+    v = `${moveNo(i - 1)} ${e[0]} · coup de ${G.x.o}`;
+    if (G.w[i] != null) d.push(`Tes chances de gain : ${pct(G.w[i])}.`);
+  } else if (e.length <= 3) {
+    v = `${moveNo(i - 1)} ${e[0]}`;
+    d.push("Coup non analysé par Stockfish.");
+  } else {
+    const [, uci, , wb, wa, k, bsan, buci, kind] = e;
+    if (k) { v = `${KLBL[k]} : ${moveNo(i - 1)} ${e[0]}${KSYM[k]}`; cls = "k" + k; }
+    else if (buci === uci) { v = `${moveNo(i - 1)} ${e[0]} · le coup de Stockfish`; cls = "ok"; }
+    else v = `${moveNo(i - 1)} ${e[0]} · bon coup`;
+    d.push(`Tes chances de gain : ${pct(wb)} → ${pct(wa)}.`);
+    if (k && bsan) d.push(`Stockfish préférait <span class="mono">${esc(bsan)}</span> (flèche verte).`);
+    if (kind && D.kinds[kind]) d.push(`Type de faute : ${esc(D.kinds[kind].toLowerCase())}.`);
+    if (!k && wb - wa >= 10) d.push("Position déjà jouée d'avance : ce coup n'est pas compté comme une faute.");
+  }
+  if (i === G.m.length && i) d.push(`<b>${RES[G.x.r]}</b>${HOW[G.x.rd] ? " (" + HOW[G.x.rd] + ")" : ""}.`);
+  $("info").innerHTML = `<div class="v ${cls}">${esc(v)}</div>` + d.map(t => `<p class="d">${t}</p>`).join("");
+}
+
+// Courbe : % de gain du joueur après chaque demi-coup (points connus seulement), fautes marquées.
+function drawCurve() {
+  const n = Math.max(1, G.m.length), X = i => i / n * 400, Y = w => 100 - w;
+  let line = "", seg = [];
+  const segs = [];
+  G.w.forEach((w, i) => { if (w == null) { if (seg.length) segs.push(seg); seg = []; } else seg.push([X(i), Y(w)]); });
+  if (seg.length) segs.push(seg);
+  for (const s of segs) {
+    line += `<path d="M${s[0][0]},50 ${s.map(([x, y]) => `L${x},${y}`).join(" ")} L${s[s.length - 1][0]},50Z" fill="var(--accent-soft)"/>`;
+    line += `<path d="${s.map(([x, y], k) => `${k ? "L" : "M"}${x},${y}`).join(" ")}" fill="none" stroke="var(--accent)" stroke-width="1.6" vector-effect="non-scaling-stroke"/>`;
+  }
+  let marks = "";
+  G.m.forEach((e, p) => { if (e.length > 5 && e[5]) marks += `<rect x="${X(p + 1) - 1.5}" y="${Y(e[4]) - 4}" width="3" height="8" rx="1" fill="var(--k${e[5]})"/>`; });
+  const cx = X(G.i);
+  $("curve").innerHTML = `<line x1="0" y1="50" x2="400" y2="50" stroke="var(--line)" stroke-dasharray="4 4" vector-effect="non-scaling-stroke"/>`
+    + line + marks + `<line x1="${cx}" y1="0" x2="${cx}" y2="100" stroke="var(--fg)" stroke-width="1" vector-effect="non-scaling-stroke"/>`;
+  let w = null;
+  for (let i = G.i; i >= 0 && w == null; i--) w = G.w[i];
+  $("curveNow").textContent = w == null ? "" : pct(w);
+}
+$("curve").addEventListener("click", e => {
+  if (!G) return;
+  const r = $("curve").getBoundingClientRect();
+  go(Math.round((e.clientX - r.left) / r.width * G.m.length));
+});
+
+$("bStart").addEventListener("click", () => go(0));
+$("bEnd").addEventListener("click", () => go(G.m.length));
+$("bPrev").addEventListener("click", () => go(G.i - 1));
+$("bNext").addEventListener("click", () => go(G.i + 1));
+$("bPrevErr").addEventListener("click", () => { const j = errAt(-1); if (j != null) go(j); });
+$("bNextErr").addEventListener("click", () => { const j = errAt(1); if (j != null) go(j); });
+document.addEventListener("keydown", e => {
+  if (!G || $("vGame").hidden || e.target.closest?.("input, select, textarea")) return;
+  const k = { ArrowLeft: G.i - 1, ArrowRight: G.i + 1, Home: 0, End: G.m.length }[e.key];
+  if (k == null) return;
+  e.preventDefault(); go(k);
+});
+// Glisser sur l'échiquier : gauche = coup suivant, droite = coup précédent.
+let swipe = null;
+$("board").addEventListener("pointerdown", e => { swipe = { x: e.clientX, y: e.clientY }; });
+$("board").addEventListener("pointerup", e => {
+  if (!swipe || !G) return;
+  const dx = e.clientX - swipe.x, dy = e.clientY - swipe.y;
+  swipe = null;
+  if (Math.abs(dx) > 40 && Math.abs(dx) > Math.abs(dy) * 1.5) go(G.i + (dx < 0 ? 1 : -1));
+  else if (Math.abs(dx) < 8 && Math.abs(dy) < 8) {
+    // Toucher : moitié droite = suivant, moitié gauche = précédent.
+    const r = $("board").getBoundingClientRect();
+    go(G.i + (e.clientX - r.left > r.width / 2 ? 1 : -1));
+  }
+});
+</script>

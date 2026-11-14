@@ -236,6 +236,7 @@ const MOIS = ["janv.", "févr.", "mars", "avr.", "mai", "juin", "juil.", "août"
 const dateLabel = d => { const [y, m, j] = d.split("-"); return `${+j} ${MOIS[+m - 1]} ${y}`; };
 const GLYPH = { k: "♚", q: "♛", r: "♜", b: "♝", n: "♞", p: "♟" };
 const FILES = "abcdefgh";
+const APP = (() => { try { return window.parent !== window ? window.parent.chessApp : null; } catch (e) { return null; } })();
 
 // ---------- En-tête ----------
 $("title").textContent = `${D.player} · Exercices`;
@@ -458,7 +459,10 @@ function load(i) {
   $("verdict").hidden = true;
   $("sw").style.background = white ? "#fff" : "#111";
   $("turnTxt").textContent = `Tu as les ${white ? "blancs" : "noirs"}, ` + (x.chk ? "ton roi est en échec" : "à toi de jouer");
-  $("ctx").textContent = `Coup ${x.n} contre ${x.o} (${x.oe}), ${dateLabel(x.d)} · ${D.tcLabels[x.tc]}. `
+  $("ctx").textContent = x.rep
+    ? `${x.rep.name ? x.rep.name + " : " : ""}${x.rep.path || "position de départ"}. Tu as joué ${x.ps} ici ${x.rep.n} fois, `
+      + `en perdant en moyenne ${String(x.rep.l).replace(".", ",")} points de % de gain. Dernière fois : contre ${x.o} (${x.oe}), ${dateLabel(x.d)} · ${D.tcLabels[x.tc]}.`
+    : `Coup ${x.n} contre ${x.o} (${x.oe}), ${dateLabel(x.d)} · ${D.tcLabels[x.tc]}. `
     + `Avant ton coup, tu avais ${pct(x.wb)} de gain.`;
   $("counter").textContent = `Exercice ${idx + 1} sur ${order.length}`;
   $("orient").textContent = white ? "" : "Échiquier vu des noirs";
@@ -668,7 +672,13 @@ function finish() {
   const x = cur.x;
   const lichess = "https://lichess.org/analysis/" + x.fen.replace(/ /g, "_") + "?color=" + (x.c === "b" ? "black" : "white");
   $("links").innerHTML = `<a href="${lichess}" target="_blank" rel="noopener">Analyser sur Lichess</a>`
+    + (APP?.openGame ? `<a href="#" id="lReplay">Rejouer la partie</a>` : "")
     + `<a href="${esc(x.u)}" target="_blank" rel="noopener">Voir la partie sur chess.com</a>`;
+  $("lReplay")?.addEventListener("click", e => {
+    e.preventDefault();
+    const k = x.id.lastIndexOf("-");
+    APP.openGame(x.id.slice(0, k), +x.id.slice(k + 1));
+  });
   $("links").hidden = false;
   $("bErr").hidden = !x.mv.some(o => o[0] === x.pu);
   renderState();

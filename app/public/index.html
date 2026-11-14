@@ -119,8 +119,49 @@ input { font: inherit; font-size: 17px; padding: 12px 14px; border-radius: 10px;
 .steps .d { grid-column: 2; font-size: 14px; color: var(--muted); display: flex; flex-direction: column; gap: 6px; margin-top: 2px; }
 .num { font-variant-numeric: tabular-nums; }
 .upd.info { background: var(--surface); border-bottom: 1px solid var(--line); }
+.news-act { display: flex; gap: 8px; flex: none; }
 .prog { height: 8px; border-radius: 999px; background: var(--line); overflow: hidden; }
 .prog span { display: block; height: 100%; background: var(--accent); transition: width .4s; }
+/* Page d'accueil (non connecté) */
+.land { width: 100%; max-width: 1080px; margin: 0 auto; padding: 40px 16px 56px; display: flex; flex-direction: column; gap: 56px; }
+.hero { display: grid; grid-template-columns: minmax(0, 1fr); gap: 32px; align-items: center; }
+@media (min-width: 880px) { .hero { grid-template-columns: minmax(0, 1.1fr) minmax(0, .9fr); gap: 48px; } .land { padding-top: 64px; } }
+.hero-txt { display: flex; flex-direction: column; gap: 18px; }
+.land h1 { font-size: clamp(32px, 5.6vw, 52px); letter-spacing: -.02em; }
+.land .lead { color: var(--muted); font-size: 17px; max-width: 56ch; }
+.cta { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 16px; }
+.demo { margin: 0; display: flex; flex-direction: column; gap: 12px; }
+.demo-card { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 16px; box-shadow: 0 10px 30px rgba(0, 0, 0, .08); }
+.demo-head { display: flex; justify-content: space-between; align-items: baseline; }
+.demo-big { font-family: var(--f-display); font-size: 22px; font-weight: 700; margin-top: 6px; }
+.demo-prio { margin-top: 8px; font-size: 15px; }
+.demo-ex { display: grid; grid-template-columns: 150px minmax(0, 1fr); gap: 14px; align-items: center; }
+.demo-q { font-weight: 700; margin: 6px 0 4px; }
+.tag { display: inline-flex; font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: var(--accent); background: var(--accent-soft); border-radius: 999px; padding: 3px 10px; }
+.hb { position: relative; display: grid; grid-template-columns: repeat(8, minmax(0, 1fr)); aspect-ratio: 1; border-radius: 6px; overflow: hidden; container-type: inline-size; }
+.hb div { aspect-ratio: 1; display: flex; align-items: center; justify-content: center; font-size: 12.5cqi; line-height: 1; font-family: "Segoe UI Symbol", "DejaVu Sans", "Noto Sans Symbols 2", sans-serif; }
+.hb .l { background: #ebecd0; } .hb .d { background: #739552; }
+.hb .pw { color: #fff; text-shadow: 0 0 1px #000, 0 0 1px #000, 0 1px 1px #000; } .hb .pb { color: #111; text-shadow: 0 0 1px #fff8; }
+.hb svg { position: absolute; inset: 0; width: 100%; height: 100%; }
+.steps3 { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 24px; }
+.steps3 .n { display: grid; place-items: center; width: 36px; height: 36px; border-radius: 50%; background: var(--accent); color: var(--bg); font-weight: 700; font-family: var(--f-display); font-size: 18px; margin-bottom: 10px; }
+.land h2 { font-family: var(--f-display); font-size: 22px; line-height: 1.2; margin: 0 0 6px; }
+.land h3 { font-family: var(--f-display); font-size: 17px; margin: 0 0 6px; }
+.steps3 p, .feats p { color: var(--muted); }
+.feats { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 12px; }
+.feats article { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 18px; }
+.cmp { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 12px; margin-top: 14px; }
+.cmp > div { border: 1px solid var(--line); border-radius: 12px; padding: 18px; background: var(--surface); }
+.cmp .us { border-color: var(--accent); background: var(--accent-soft); }
+.cmp ul { margin: 0; padding-left: 18px; display: flex; flex-direction: column; gap: 6px; }
+.faq { display: flex; flex-direction: column; gap: 8px; max-width: 760px; }
+.faq details { border: 1px solid var(--line); border-radius: 10px; background: var(--surface); }
+.faq summary { cursor: pointer; padding: 14px 16px; font-weight: 700; min-height: 48px; }
+.faq details p { padding: 0 16px 14px; color: var(--muted); }
+.cta-end { display: flex; justify-content: center; }
+.cta-end .btn { align-self: center; }
+.land .foot { text-align: center; }
+@media (max-width: 600px) { .land { gap: 40px; padding-top: 24px; } .demo-ex { grid-template-columns: 110px minmax(0, 1fr); } }
 iframe { flex: 1; width: 100%; border: 0; display: block; background: var(--bg); }
 </style>
 </head>
@@ -139,6 +180,7 @@ iframe { flex: 1; width: 100%; border: 0; display: block; background: var(--bg);
 </header>
 
 <div class="upd" id="upd" role="status" aria-live="polite" hidden><span id="updTxt"></span><button class="link" id="updClose" type="button" hidden>Fermer</button></div>
+<div class="upd info" id="news" role="status" hidden><span id="newsTxt"></span><span class="news-act"><a class="link" href="#games" id="newsGo">Voir les parties</a><button class="link" id="newsClose" type="button">Fermer</button></span></div>
 
 <main>
   <section class="screen" id="vLoading" aria-live="polite">
@@ -146,16 +188,77 @@ iframe { flex: 1; width: 100%; border: 0; display: block; background: var(--bg);
     <p id="loadingTxt">Chargement…</p>
   </section>
 
-  <section class="screen" id="vLogin" hidden>
-    <h1>Tes parties d'échecs, analysées</h1>
-    <p class="lead">Connecte-toi, donne ton pseudo chess.com : tes parties des 6 derniers mois passent dans Stockfish.
-      Tu obtiens un dashboard par cadence (ouvertures, erreurs par phase de jeu, conseils) et des exercices tirés de tes propres erreurs.</p>
-    <button class="btn" id="bLogin" type="button">
-      <svg class="g" viewBox="0 0 48 48" aria-hidden="true"><path fill="#EA4335" d="M24 9.5c3.5 0 6.6 1.2 9.1 3.6l6.8-6.8C35.8 2.4 30.3 0 24 0 14.6 0 6.6 5.4 2.7 13.3l7.9 6.1C12.5 13.6 17.8 9.5 24 9.5z"/><path fill="#4285F4" d="M46.1 24.5c0-1.6-.1-3.1-.4-4.5H24v9h12.4c-.5 2.9-2.2 5.3-4.6 6.9l7.3 5.7c4.3-3.9 7-9.8 7-17.1z"/><path fill="#FBBC05" d="M10.6 28.6c-.5-1.4-.8-3-.8-4.6s.3-3.2.8-4.6l-7.9-6.1C1 16.6 0 20.2 0 24s1 7.4 2.7 10.7l7.9-6.1z"/><path fill="#34A853" d="M24 48c6.5 0 11.9-2.1 15.9-5.8l-7.3-5.7c-2 1.4-4.7 2.3-8.6 2.3-6.2 0-11.5-4.1-13.4-9.9l-7.9 6.1C6.6 42.6 14.6 48 24 48z"/></svg>
-      Se connecter avec Google
-    </button>
-    <p class="err" id="loginErr" role="alert" hidden></p>
-    <p class="note">Site personnel, non affilié à chess.com. Seules les données publiques de chess.com sont utilisées.</p>
+  <section class="land" id="vLogin" hidden>
+    <div class="hero">
+      <div class="hero-txt">
+        <div class="eyebrow">Bêta privée · gratuit</div>
+        <h1>Ton coach d'échecs analyse toutes tes parties pendant que tu dors.</h1>
+        <p class="lead">Donne ton pseudo chess.com. Chaque nuit, Stockfish passe au crible chacune de tes nouvelles parties.
+          Le matin, tu sais quoi travailler : un bilan en français, des exercices tirés de tes propres erreurs, et tes fuites d'ouverture.</p>
+        <div class="cta">
+          <button class="btn" id="bLogin" type="button"><svg class="g" viewBox="0 0 48 48" aria-hidden="true"><path fill="#EA4335" d="M24 9.5c3.5 0 6.6 1.2 9.1 3.6l6.8-6.8C35.8 2.4 30.3 0 24 0 14.6 0 6.6 5.4 2.7 13.3l7.9 6.1C12.5 13.6 17.8 9.5 24 9.5z"/><path fill="#4285F4" d="M46.1 24.5c0-1.6-.1-3.1-.4-4.5H24v9h12.4c-.5 2.9-2.2 5.3-4.6 6.9l7.3 5.7c4.3-3.9 7-9.8 7-17.1z"/><path fill="#FBBC05" d="M10.6 28.6c-.5-1.4-.8-3-.8-4.6s.3-3.2.8-4.6l-7.9-6.1C1 16.6 0 20.2 0 24s1 7.4 2.7 10.7l7.9-6.1z"/><path fill="#34A853" d="M24 48c6.5 0 11.9-2.1 15.9-5.8l-7.3-5.7c-2 1.4-4.7 2.3-8.6 2.3-6.2 0-11.5-4.1-13.4-9.9l-7.9 6.1C6.6 42.6 14.6 48 24 48z"/></svg>
+            Se connecter avec Google
+          </button>
+          <span class="note">Sur invitation pendant la bêta.</span>
+        </div>
+        <p class="err" id="loginErr" role="alert" hidden></p>
+      </div>
+      <figure class="demo" aria-label="Exemple de ce que tu retrouves le matin">
+        <div class="demo-card">
+          <div class="demo-head"><span class="eyebrow">Ce matin</span><span class="note">exemple</span></div>
+          <p class="demo-big">12 nouvelles parties · 7 V, 1 N, 4 D</p>
+          <p class="demo-prio"><b>Priorité :</b> tu gaffes surtout en finale, deux fois plus qu'en ouverture.
+            Active ton roi tôt quand les dames ont disparu.</p>
+        </div>
+        <div class="demo-card demo-ex">
+          <div class="hb" id="heroBoard" aria-hidden="true"></div>
+          <div>
+            <span class="tag">Exercice tiré de ta partie</span>
+            <p class="demo-q">Mat en 2 : tu avais joué h3, Stockfish voyait le mat.</p>
+            <p class="note">Tu joues, l'adversaire répond, tu continues jusqu'au mat.</p>
+          </div>
+        </div>
+      </figure>
+    </div>
+
+    <section class="steps3" aria-label="Comment ça marche">
+      <div><span class="n">1</span><h2>Ton pseudo, c'est tout</h2><p>Aucun mot de passe chess.com : seules tes parties publiques sont lues.</p></div>
+      <div><span class="n">2</span><h2>Analyse chaque nuit</h2><p>Chaque coup est évalué par Stockfish 19, plus profondément si ton niveau est élevé. Tu n'as rien à lancer.</p></div>
+      <div><span class="n">3</span><h2>Tu t'entraînes sur toi</h2><p>Pas des puzzles génériques : les positions où, toi, tu t'es trompé.</p></div>
+    </section>
+
+    <section class="feats" aria-label="Ce que tu obtiens">
+      <article><h3>Un bilan de coach, en français</h3><p>Rédigé par IA à partir des chiffres de Stockfish : ce qui te coûte des points, dans quel ordre le corriger.</p></article>
+      <article><h3>Des exercices tirés de tes erreurs</h3><p>Mats joués jusqu'au bout, coups gagnants, coups sûrs à trouver, et les bons coups d'ouverture.</p></article>
+      <article><h3>Rejoue tes parties</h3><p>Courbe de tes chances de gain, imprécisions, erreurs et gaffes marquées, et le coup que Stockfish aurait joué.</p></article>
+      <article><h3>Ton répertoire et ses fuites</h3><p>Les positions d'ouverture que tu as souvent, ce que tu y joues, où tu quittes la théorie et où tu perds le plus.</p></article>
+      <article><h3>Un tableau de bord par cadence</h3><p>Bullet, blitz, rapide, daily : Elo, résultats par ouverture, erreurs par phase de jeu, mois après mois.</p></article>
+      <article><h3>Toujours à jour</h3><p>Un bandeau te résume ce qui s'est passé depuis ta dernière visite : nouvelles parties, gaffes, nouveaux exercices.</p></article>
+    </section>
+
+    <section class="why">
+      <h2>Pourquoi pas simplement l'analyse de chess.com ?</h2>
+      <div class="cmp">
+        <div><h3>Analyse classique</h3><ul><li>Partie par partie, à lancer soi-même</li><li>Des chiffres à interpréter seul</li><li>Puzzles génériques</li></ul></div>
+        <div class="us"><h3>Ici</h3><ul><li>Toutes tes parties, automatiquement</li><li>Un diagnostic qui croise tes parties et fixe des priorités</li><li>Des exercices construits sur tes propres erreurs</li></ul></div>
+      </div>
+    </section>
+
+    <section class="faq">
+      <h2>Questions fréquentes</h2>
+      <details><summary>C'est gratuit ?</summary><p>Oui, pendant la bêta privée.</p></details>
+      <details><summary>Faut-il mon mot de passe chess.com ?</summary><p>Non. L'appli utilise uniquement l'API publique de chess.com : tes parties y sont déjà visibles par tout le monde. La connexion Google sert seulement à garder ton profil et ta progression.</p></details>
+      <details><summary>Et Lichess ?</summary><p>Pour l'instant, seules les parties chess.com sont prises en compte.</p></details>
+      <details><summary>Combien de temps prend la première analyse ?</summary><p>Quelques minutes pour tes parties des 6 derniers mois. Ensuite, seules les nouvelles parties sont analysées, chaque nuit.</p></details>
+      <details><summary>Comment obtenir une invitation ?</summary><p>Connecte-toi avec Google : si tu n'es pas encore invité, l'appli t'affiche l'adresse à transmettre.</p></details>
+    </section>
+
+    <div class="cta-end">
+      <button class="btn" id="bLogin2" type="button"><svg class="g" viewBox="0 0 48 48" aria-hidden="true"><path fill="#EA4335" d="M24 9.5c3.5 0 6.6 1.2 9.1 3.6l6.8-6.8C35.8 2.4 30.3 0 24 0 14.6 0 6.6 5.4 2.7 13.3l7.9 6.1C12.5 13.6 17.8 9.5 24 9.5z"/><path fill="#4285F4" d="M46.1 24.5c0-1.6-.1-3.1-.4-4.5H24v9h12.4c-.5 2.9-2.2 5.3-4.6 6.9l7.3 5.7c4.3-3.9 7-9.8 7-17.1z"/><path fill="#FBBC05" d="M10.6 28.6c-.5-1.4-.8-3-.8-4.6s.3-3.2.8-4.6l-7.9-6.1C1 16.6 0 20.2 0 24s1 7.4 2.7 10.7l7.9-6.1z"/><path fill="#34A853" d="M24 48c6.5 0 11.9-2.1 15.9-5.8l-7.3-5.7c-2 1.4-4.7 2.3-8.6 2.3-6.2 0-11.5-4.1-13.4-9.9l-7.9 6.1C6.6 42.6 14.6 48 24 48z"/></svg>
+        Se connecter avec Google
+      </button>
+    </div>
+    <p class="note foot">Site personnel, non affilié à chess.com. Seules les données publiques de chess.com sont utilisées.</p>
   </section>
 
   <section class="screen" id="vPseudo" hidden>
@@ -241,7 +344,7 @@ const tpl = {};
 
 // Utilisé par les pages dans l'iframe : progression des exercices dans le compte, et boutons
 // « S'entraîner » des bilans (ouvrent l'onglet Exercices avec un filtre).
-let exerciseFilter = null;
+let exerciseFilter = null, gameTarget = null;
 window.chessApp = {
   openExercises(f) {
     if (!player?.pages.some(pg => pg.id === "exercises")) return;
@@ -249,6 +352,24 @@ window.chessApp = {
     location.hash = "#exercises";
   },
   takeExerciseFilter() { const f = exerciseFilter; exerciseFilter = null; return f; },
+  // Relecture d'une partie (onglet Parties) : fiche players/{pseudo}/games/{id}, chaîne JSON.
+  async gameJson(id) {
+    const s = await getDoc(doc(db, "players", pseudo, "games", id));
+    if (!s.exists()) throw new Error("partie absente : " + id);
+    return s.data().json;
+  },
+  openGame(id, ply) {
+    if (!player?.pages.some(pg => pg.id === "games")) return false;
+    gameTarget = { id, ply };
+    // Onglet Parties déjà affiché : la page ouvre la partie elle-même.
+    if (shown?.startsWith(`${pseudo}/games/`) && !$("frame").hidden) {
+      try { $("frame").contentWindow.__openGame?.(id, ply); gameTarget = null; } catch (e) {}
+      return true;
+    }
+    location.hash = "#games";
+    return true;
+  },
+  takeGameTarget() { const t = gameTarget; gameTarget = null; return t; },
   progressDoc() {
     if (!uid) return null;
     const ref = doc(db, "progress", uid);
@@ -268,7 +389,22 @@ function fail(e) {
 }
 
 // ---------- Connexion ----------
-$("bLogin").addEventListener("click", async () => {
+// Échiquier d'exemple de la page d'accueil : un mat en 2 réel (1.De8+ Txe8 2.Txe8#), flèche du premier coup.
+// Différé : fenPos et GLYPH sont définis plus bas dans ce module.
+setTimeout(() => {
+  const pos = fenPos("3r2k1/5ppp/8/q7/8/8/4QPPP/4R1K1");
+  let h = "";
+  for (let r = 7; r >= 0; r--) for (let f = 0; f < 8; f++) {
+    const ch = pos[r * 8 + f];
+    h += `<div class="${(r + f) % 2 ? "l" : "d"}">${ch ? `<span class="${ch === ch.toUpperCase() ? "pw" : "pb"}">${GLYPH[ch.toLowerCase()]}\uFE0E</span>` : ""}</div>`;
+  }
+  // e2 → e8
+  h += '<svg viewBox="0 0 8 8"><line x1="4.5" y1="6.5" x2="4.5" y2="0.86" stroke="rgba(24,120,60,.85)" stroke-width=".2" stroke-linecap="round"/>'
+    + '<polygon points="4.5,0.52 4.26,0.86 4.74,0.86" fill="rgba(24,120,60,.85)"/></svg>';
+  $("heroBoard").innerHTML = h;
+});
+
+async function login() {
   $("loginErr").hidden = true;
   try { await signInWithPopup(auth, new GoogleAuthProvider()); }
   catch (e) {
@@ -279,12 +415,14 @@ $("bLogin").addEventListener("click", async () => {
       : "Connexion impossible (" + e.code + ").";
     $("loginErr").hidden = false;
   }
-});
+}
+$("bLogin").addEventListener("click", login);
+$("bLogin2").addEventListener("click", login);
 $("bOut").addEventListener("click", () => { $("me").open = false; signOut(auth); });
 
 onAuthStateChanged(auth, async u => {
   unsubPlayer?.(); unsubPlayer = null; unsubReq?.(); unsubReq = null; player = null; req = null; shown = null;
-  $("upd").hidden = true;
+  $("upd").hidden = true; $("news").hidden = true; newsShown = false; visitSince = null;
   $("frame").removeAttribute("srcdoc");
   $("nav").hidden = true;
   $("me").hidden = !u;
@@ -296,6 +434,7 @@ onAuthStateChanged(auth, async u => {
   try {
     const s = await getDoc(doc(db, "users", uid));
     pseudo = s.exists() ? s.data().pseudo : null;
+    visitSince = pseudo ? trackVisit(s.data()) : null;
     if (!pseudo && !ADMINS.includes(uid) && !(await isInvited(u))) {
       $("inviteMail").textContent = u.email || "";
       $("inviteMail").hidden = !u.email;
@@ -304,6 +443,36 @@ onAuthStateChanged(auth, async u => {
   } catch (e) { return fail(e); }
   pseudo ? watch(pseudo) : askPseudo();
 });
+// Dernière visite : users/{uid}.seen (connexion) et lastVisit (la précédente, à plus d'une heure d'écart :
+// recharger la page ne fait pas disparaître le bandeau « depuis ta dernière visite »).
+let visitSince = null, newsShown = false;
+function trackVisit(ud) {
+  const prev = ud.seen?.toMillis?.() ?? null;
+  if (prev && Date.now() - prev < 3600e3) return ud.lastVisit?.toMillis?.() ?? null;
+  updateDoc(doc(db, "users", uid), { seen: serverTimestamp(), lastVisit: ud.seen ?? null }).catch(e => console.error(e));
+  return prev;
+}
+async function showNews() {
+  if (newsShown || !visitSince || !player?.pages.some(pg => pg.id === "games")) return;
+  newsShown = true;
+  try {
+    const snap = await getDoc(doc(db, "players", pseudo, "pages", "games"));
+    if (!snap.exists()) return;
+    const items = JSON.parse(snap.data().json).items.filter(x => x.t * 1000 > visitSince);
+    if (!items.length) return;
+    const n = r => items.filter(x => x.r === r).length;
+    const blunders = items.reduce((a, x) => a + x.q[2], 0), ex = items.reduce((a, x) => a + (x.ex || 0), 0);
+    const d = new Date(visitSince);
+    $("newsTxt").textContent = `Depuis ta dernière visite (${d.toLocaleDateString("fr-FR", { day: "numeric", month: "long" })}) : `
+      + [plural(items.length, "nouvelle partie").replace("nouvelle parties", "nouvelles parties"),
+         `${n("W")} V, ${n("D")} N, ${n("L")} D`, plural(blunders, "gaffe"),
+         ex ? plural(ex, "nouvel exercice").replace("nouvel exercices", "nouveaux exercices") : ""].filter(Boolean).join(" · ") + ".";
+    $("news").hidden = false;
+  } catch (e) { console.error(e); }
+}
+$("newsClose").addEventListener("click", () => { $("news").hidden = true; });
+$("newsGo").addEventListener("click", () => { $("news").hidden = true; });
+
 // Invitation : par compte (uid) ou par adresse Gmail. La règle Firestore fait foi, ceci n'est que l'affichage.
 async function isInvited(u) {
   const ids = [u.uid, ...(u.email && u.emailVerified ? [u.email.toLowerCase()] : [])];
@@ -373,6 +542,7 @@ function watch(p) {
     renderUpd();
     renderNav();
     route(true);
+    showNews();
   }, fail);
 }
 
@@ -542,7 +712,7 @@ async function requestAnalysis(p) {
   const ref = doc(db, "requests", p);
   const s = await getDoc(ref);
   if (!s.exists()) await setDoc(ref, { pseudo: p, uid, created: serverTimestamp(), status: "pending" });
-  else await updateDoc(ref, { uid, created: serverTimestamp(), status: "pending" });
+  else await updateDoc(ref, { uid, created: serverTimestamp(), status: "pending", auto: false });
 }
 function whyDenied() {
   if (req?.status === "done" && req.finished) {
@@ -620,7 +790,7 @@ async function route(fromUpdate) {
   shown = key;
   loading("Chargement de la page…");
   try {
-    const kind = id.startsWith("dashboard") ? "dashboard" : "exercises";
+    const kind = id.startsWith("dashboard") ? "dashboard" : ["games", "repertoire"].includes(id) ? id : "exercises";
     tpl[kind] ??= fetch(`views/${kind}.html`).then(r => { if (!r.ok) throw new Error(r.status); return r.text(); });
     const [html, snap] = await Promise.all([tpl[kind], getDoc(doc(db, "players", pseudo, "pages", id))]);
     if (shown !== key) return;
