@@ -4,7 +4,9 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700&family=Atkinson+Hyperlegible:wght@400;700&family=JetBrains+Mono:wght@400;600&display=swap">
 <style>
-/* Layout : échiquier puis panneau sur mobile, côte à côte au-delà de 860px. */
+/* Un exercice = un écran, sans défilement : barre (progression, filtres), consigne, échiquier dimensionné
+   à la place disponible, verdict, boutons. Écran en hauteur : tout empilé, boutons en bas.
+   Écran en largeur : échiquier à gauche, panneau à droite. */
 :root {
   --bg: #f4f5f1; --surface: #fcfcfa; --fg: #171a17; --muted: #586058; --faint: #8a918a;
   --line: #dde1d9; --accent: #3b6a44; --accent-soft: #e3ece2;
@@ -33,53 +35,67 @@
 }
 
 * { box-sizing: border-box; }
-body {
-  background: var(--bg); color: var(--fg); font-family: var(--f-body); font-size: 15px; line-height: 1.5;
-  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
-  padding-block: 0 48px;
-}
-body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px); z-index: 10; background: var(--bg); }
-.wrap { max-width: 1040px; margin: 0 auto; display: flex; flex-direction: column; gap: 24px; }
-h1, h2, h3 { font-family: var(--f-display); text-wrap: balance; margin: 0; line-height: 1.15; }
-h1 { font-size: clamp(28px, 6vw, 40px); font-weight: 700; letter-spacing: -.01em; }
-h2 { font-size: 22px; font-weight: 700; }
+[hidden] { display: none !important; }
+html, body { height: 100%; }
+body { margin: 0; background: var(--bg); color: var(--fg); font-family: var(--f-body); font-size: 15px; line-height: 1.45; }
+h1, h2 { font-family: var(--f-display); margin: 0; line-height: 1.15; }
 p { margin: 0; }
 a { color: var(--accent); }
 :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
-.eyebrow { font-size: 12px; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); font-weight: 700; }
 .muted { color: var(--muted); }
 .mono { font-family: var(--f-mono); font-weight: 600; }
 .num { font-variant-numeric: tabular-nums; }
 
-.top { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; padding-top: 28px; flex-wrap: wrap; }
-.top .meta { color: var(--muted); max-width: 62ch; margin-top: 8px; }
-.theme-btn { font: inherit; font-size: 13px; color: var(--fg); background: var(--surface); border: 1px solid var(--line); border-radius: 999px; padding: 6px 12px; cursor: pointer; }
+.app { height: 100vh; height: 100dvh; max-width: 1160px; margin: 0 auto; display: flex; flex-direction: column;
+  padding: env(safe-area-inset-top, 0px) max(12px, env(safe-area-inset-right, 0px)) 0 max(12px, env(safe-area-inset-left, 0px)); }
+/* Titre : seulement hors de l'appli (page autonome), où aucun onglet ne nomme la page. */
+.top { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding-top: 10px; }
+.top h1 { font-size: 20px; }
+.in-app .top { display: none; }
+.pill { font: inherit; font-size: 13px; color: var(--fg); background: var(--surface); border: 1px solid var(--line); border-radius: 999px; padding: 6px 12px; cursor: pointer; white-space: nowrap; }
 
-/* Progression */
-.progress { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); padding: 16px; display: flex; flex-direction: column; gap: 10px; }
-.progress .head { display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; align-items: baseline; }
-.progress .big { font-family: var(--f-display); font-size: 26px; font-weight: 700; font-variant-numeric: tabular-nums; }
-.bar { display: flex; height: 10px; border-radius: 999px; overflow: hidden; background: var(--line); }
-.bar span { display: block; height: 100%; }
-.bar .ok { background: var(--ok); } .bar .ko { background: var(--bad); }
-.legend { display: flex; flex-wrap: wrap; gap: 4px 16px; font-size: 13px; color: var(--muted); }
-.legend i { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 6px; vertical-align: -1px; }
-.sync { font-size: 13px; color: var(--muted); }
-.sync.warn { color: var(--warn); }
+/* Barre : progression à gauche, filtres et aide à droite */
+.bar { position: relative; display: flex; align-items: center; gap: 8px; padding: 8px 0; width: 100%; max-width: 640px; align-self: center; }
+.prog { flex: 1; min-width: 0; display: flex; align-items: center; gap: 10px; }
+.prog b { font-family: var(--f-display); font-size: 17px; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.prog .lbl { font-size: 13px; color: var(--muted); white-space: nowrap; }
+.pbar { flex: 1; min-width: 24px; max-width: 320px; display: flex; height: 8px; border-radius: 999px; overflow: hidden; background: var(--line); }
+.pbar span { display: block; height: 100%; }
+.pbar .ok { background: var(--ok); } .pbar .ko { background: var(--bad); }
+.filters summary { list-style: none; display: flex; align-items: center; gap: 6px; max-width: 58vw; }
+.filters summary::-webkit-details-marker { display: none; }
+.filters summary::after { content: "▾"; color: var(--muted); }
+.filters[open] summary { border-color: var(--accent); }
+.fsum { overflow: hidden; text-overflow: ellipsis; }
+.fbody { position: absolute; right: 0; top: calc(100% - 2px); z-index: 30; width: min(460px, 100%); max-height: calc(100dvh - 70px); overflow-y: auto;
+  background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 14px; box-shadow: 0 12px 32px rgba(0, 0, 0, .18);
+  display: flex; flex-direction: column; gap: 12px; }
+.fgroup { display: flex; flex-direction: column; gap: 6px; }
+.eyebrow { font-size: 12px; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); font-weight: 700; }
+.seg { display: flex; flex-wrap: wrap; gap: 6px; }
+.seg button { font: inherit; font-size: 14px; border: 1px solid var(--line); border-radius: 999px; background: var(--bg); color: var(--fg); padding: 7px 12px; cursor: pointer; min-height: 36px; }
+.seg button i { font-style: normal; color: var(--muted); font-variant-numeric: tabular-nums; margin-left: 4px; }
+.seg button[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: var(--bg); font-weight: 700; }
+.seg button[aria-pressed="true"] i { color: inherit; opacity: .8; }
+.sync { font-size: 12px; color: var(--warn); padding-bottom: 6px; }
 
-/* Filtres */
-.filters summary { display: none; }
-.fbody { display: flex; flex-wrap: wrap; gap: 10px 16px; align-items: center; }
-.seg { display: inline-flex; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; background: var(--surface); flex-wrap: wrap; }
-.seg button { font: inherit; font-size: 14px; border: 0; background: none; color: var(--fg); padding: 6px 12px; cursor: pointer; }
-.seg button[aria-pressed="true"] { background: var(--accent); color: var(--bg); font-weight: 700; }
-
-/* Exercice */
-.ex { display: grid; grid-template-columns: 1fr; gap: 20px; align-items: start; }
-@media (min-width: 860px) { .ex { grid-template-columns: minmax(0, 540px) minmax(0, 1fr); } }
-.board-wrap { position: relative; width: 100%; max-width: 540px; margin: 0 auto; display: flex; flex-direction: column; gap: 8px; }
+/* Scène : la place restante. Son format (cqw, cqh) fixe la taille de l'échiquier. */
+.stage { flex: 1; min-height: 0; container-type: size; display: flex; flex-direction: column; gap: 8px;
+  padding-bottom: max(8px, env(safe-area-inset-bottom, 0px));
+  /* consigne + verdict (au moins) + boutons + espacements */
+  --b: max(200px, min(100cqw, 640px, 100cqh - 190px)); }
+.panel { display: contents; }
+/* Tablette tenue en hauteur : tout reste aligné sur la largeur de l'échiquier. */
+.ex-head, .scroll, .actions { width: 100%; max-width: 640px; align-self: center; }
+.ex-head { order: 1; display: flex; align-items: center; gap: 8px; min-height: 26px; }
+.sw { width: 16px; height: 16px; border-radius: 50%; border: 1px solid var(--faint); flex: none; }
+.ttl { flex: 1; min-width: 0; display: flex; flex-wrap: wrap; align-items: baseline; gap: 0 8px; }
+.ttl b { font-family: var(--f-display); font-size: 17px; line-height: 1.2; }
+.ttl span { font-size: 14px; color: var(--muted); }
+.counter { font-size: 13px; color: var(--muted); white-space: nowrap; }
+.board-col { order: 2; align-self: center; position: relative; width: var(--b); flex: none; }
 .board { display: grid; grid-template-columns: repeat(8, minmax(0, 1fr)); grid-template-rows: repeat(8, minmax(0, 1fr)); aspect-ratio: 1; width: 100%; border-radius: 6px; overflow: hidden; container-type: inline-size; touch-action: manipulation; }
-.board button { all: unset; position: relative; aspect-ratio: 1; min-width: 0; min-height: 0; overflow: hidden; display: flex; align-items: center; justify-content: center; font-size: 10.5cqi; line-height: 1; user-select: none; -webkit-tap-highlight-color: transparent; cursor: default; }
+.board button { all: unset; position: relative; aspect-ratio: 1; min-width: 0; min-height: 0; overflow: hidden; display: flex; align-items: center; justify-content: center; font-size: 10.5cqi; line-height: 1; user-select: none; -webkit-user-select: none; -webkit-tap-highlight-color: transparent; cursor: default; }
 .board button.can { cursor: pointer; }
 .board .l { background: var(--sq-light); } .board .d { background: var(--sq-dark); }
 .board button::after { content: ""; position: absolute; inset: 0; pointer-events: none; }
@@ -100,132 +116,132 @@ a { color: var(--accent); }
 .board .co { position: absolute; font-size: 2.4cqi; font-weight: 700; font-family: var(--f-body); pointer-events: none; z-index: 1; }
 .board .co.f { right: 6%; bottom: 3%; } .board .co.r { left: 6%; top: 3%; }
 .board .l .co { color: var(--sq-dark); } .board .d .co { color: var(--sq-light); }
-.promo { display: flex; gap: 8px; align-items: center; font-size: 14px; }
-.promo button { font: inherit; font-size: 28px; line-height: 1; width: 48px; height: 48px; border-radius: 8px; border: 1px solid var(--line); background: var(--surface); color: var(--fg); cursor: pointer; font-family: "Segoe UI Symbol", "DejaVu Sans", "Noto Sans Symbols 2", sans-serif; }
-.under { display: flex; justify-content: space-between; font-size: 13px; color: var(--muted); }
-
-.panel { display: flex; flex-direction: column; gap: 14px; }
-.ex-head { display: flex; flex-direction: column; align-items: flex-start; gap: 10px; }
-/* Verdict posé sur l'échiquier : visible sans faire défiler. */
-.verdict { position: absolute; top: -14px; right: -14px; z-index: 5; width: 52px; height: 52px; border-radius: 50%; display: grid; place-items: center; font-size: 30px; font-weight: 700; color: #fff; box-shadow: 0 4px 14px rgba(0,0,0,.3); pointer-events: none; animation: pop .35s cubic-bezier(.2,1.6,.4,1); }
+/* Choix de la promotion : par-dessus l'échiquier, rien ne bouge autour. */
+.promo { position: absolute; inset: 0; z-index: 6; display: flex; flex-direction: column; gap: 10px; align-items: center; justify-content: center; background: rgba(0, 0, 0, .45); border-radius: 6px; color: #fff; font-weight: 700; }
+.promo div { display: flex; gap: 8px; }
+.promo button { font: inherit; font-size: 32px; line-height: 1; width: 56px; height: 56px; border-radius: 10px; border: 0; background: var(--sq-light); cursor: pointer; font-family: "Segoe UI Symbol", "DejaVu Sans", "Noto Sans Symbols 2", sans-serif; }
+/* Verdict posé sur le coin de l'échiquier */
+.verdict { position: absolute; top: -10px; right: -8px; z-index: 5; width: 42px; height: 42px; border-radius: 50%; display: grid; place-items: center; font-size: 24px; font-weight: 700; color: #fff; box-shadow: 0 4px 14px rgba(0,0,0,.3); pointer-events: none; animation: pop .35s cubic-bezier(.2,1.6,.4,1); }
 .verdict.ok { background: var(--ok); } .verdict.ko { background: var(--bad); }
 @keyframes pop { from { transform: scale(.3); opacity: 0; } to { transform: none; opacity: 1; } }
 @media (prefers-reduced-motion: reduce) { .verdict { animation: none; } }
-.panel .theme { display: inline-flex; align-self: flex-start; font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: var(--accent); background: var(--accent-soft); border-radius: 999px; padding: 3px 10px; }
-.turn { display: flex; align-items: center; gap: 10px; font-size: 17px; font-weight: 700; }
-.turn .sw { width: 18px; height: 18px; border-radius: 50%; border: 1px solid var(--faint); flex: none; }
+
+/* Zone du verdict : seule partie qui défile si le texte est long. */
+.scroll { order: 3; flex: 1; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; overscroll-behavior: contain; }
 .nudge { font-size: 14px; font-weight: 700; color: var(--bad); }
-.ctx { color: var(--muted); font-size: 14px; }
-.state { font-size: 13px; color: var(--muted); }
-.fb { border-radius: var(--r); padding: 12px 14px; display: flex; flex-direction: column; gap: 6px; border: 1px solid var(--line); background: var(--surface); }
+.ctx, .state { color: var(--muted); font-size: 14px; }
+.fb { border-radius: var(--r); padding: 10px 12px; display: flex; flex-direction: column; gap: 4px; border: 1px solid var(--line); background: var(--surface); font-size: 14px; }
 .fb.ok { background: var(--ok-soft); border-color: transparent; }
 .fb.ko { background: var(--bad-soft); border-color: transparent; }
 .fb .v { font-weight: 700; font-size: 16px; }
 .fb.ok .v { color: var(--ok); } .fb.ko .v { color: var(--bad); }
-.fb dl { display: grid; grid-template-columns: auto 1fr; gap: 4px 12px; margin: 4px 0 0; font-size: 14px; }
-.fb dt { color: var(--muted); } .fb dd { margin: 0; }
-.actions { display: flex; flex-wrap: wrap; gap: 8px; }
-.btn { font: inherit; font-size: 15px; border-radius: 8px; padding: 9px 16px; cursor: pointer; border: 1px solid var(--line); background: var(--surface); color: var(--fg); min-height: 44px; }
+.fb p b { color: var(--muted); font-weight: 400; }
+.links { display: flex; gap: 6px 16px; flex-wrap: wrap; font-size: 14px; }
+.actions { order: 4; display: flex; gap: 8px; }
+.btn { font: inherit; font-size: 15px; border-radius: 10px; padding: 8px 10px; cursor: pointer; border: 1px solid var(--line); background: var(--surface); color: var(--fg); min-height: 46px;
+  flex: 1 1 auto; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-align: center; }
 .btn.primary { background: var(--accent); color: var(--bg); border-color: var(--accent); font-weight: 700; }
-.btn[disabled] { opacity: .45; cursor: default; }
-.links { display: flex; gap: 16px; flex-wrap: wrap; font-size: 14px; }
-.empty { background: var(--surface); border: 1px dashed var(--line); border-radius: var(--r); padding: 28px 16px; text-align: center; color: var(--muted); }
-/* Mobile : l'échiquier d'abord, le verdict dessous, les boutons toujours à portée du pouce. */
-@media (max-width: 859px) {
-  .wrap { gap: 14px; }
-  .top { padding-top: 14px; align-items: center; flex-wrap: nowrap; }
-  .top .eyebrow, .top .meta { display: none; }
-  h1 { font-size: 22px; }
-  .theme-btn { flex: none; padding: 4px 10px; font-size: 12px; }
-  .progress { padding: 10px 12px; gap: 6px; }
-  .progress .big { font-size: 18px; }
-  .progress .head { font-size: 13px; gap: 2px 12px; }
-  #pDoneLbl { white-space: nowrap; }
-  .sync:not(.warn), .legend { display: none; }
-  .sync { font-size: 12px; }
-  .filters { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); }
-  .filters summary { display: flex; gap: 10px; align-items: center; padding: 10px 12px; cursor: pointer; list-style: none; font-size: 14px; min-height: 44px; }
-  .filters summary::-webkit-details-marker { display: none; }
-  .filters summary::after { content: "▾"; margin-left: auto; color: var(--muted); transition: transform .2s; }
-  .filters[open] summary::after { transform: rotate(180deg); }
-  .flbl { font-weight: 700; }
-  .fsum { color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
-  .fbody { padding: 0 12px 12px; gap: 8px; }
-  .seg button { padding: 8px 12px; }
-  .ex { gap: 10px; }
-  .panel { display: contents; }
-  .ex-head { order: 1; flex-direction: row; align-items: center; flex-wrap: wrap; gap: 6px 10px; scroll-margin-top: 8px; }
-  .turn { font-size: 15px; }
-  .board-wrap { order: 2; }
-  .nudge { order: 3; }
-  .fb { order: 4; scroll-margin-bottom: 84px; }
-  .state { order: 5; } .ctx { order: 6; } .links { order: 7; }
-  .actions { order: 9; position: sticky; bottom: 0; z-index: 20; flex-wrap: nowrap; margin: 0 -16px; padding: 10px 16px calc(10px + env(safe-area-inset-bottom, 0px)); background: var(--bg); border-top: 1px solid var(--line); box-shadow: 0 -6px 16px rgba(0,0,0,.06); }
-  .actions .btn { flex: 1 1 0; min-width: 0; padding: 8px 6px; font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .actions .btn[disabled] { display: none; }
-  .verdict { width: 40px; height: 40px; font-size: 22px; top: -10px; right: -8px; }
-}
-footer { font-size: 13px; color: var(--muted); border-top: 1px solid var(--line); padding-top: 16px; }
-</style>
+.btn[disabled] { display: none; }
+.empty { margin: auto; max-width: 440px; text-align: center; color: var(--muted); display: flex; flex-direction: column; gap: 14px; align-items: center; padding: 24px 0; }
+.empty .btn { flex: none; padding: 8px 18px; }
 
-<div class="wrap">
+@media (min-aspect-ratio: 6/5) and (min-width: 640px) {
+  .app { padding-inline: max(20px, env(safe-area-inset-left, 0px)) max(20px, env(safe-area-inset-right, 0px)); }
+  .stage { flex-direction: row; justify-content: center; gap: 24px; padding-bottom: 14px; --b: max(160px, min(100cqh, 100cqw - 344px, 760px)); }
+  .board-col { order: 0; align-self: flex-start; }
+  .panel { display: flex; flex-direction: column; gap: 12px; flex: 1; min-width: 0; max-width: 460px; height: var(--b); }
+  .bar, .ex-head, .scroll, .actions { max-width: none; align-self: auto; }
+  .ex-head { align-items: flex-start; }
+  .ex-head .sw { margin-top: 4px; }
+  .ttl { flex-direction: column; gap: 2px; }
+  .ttl b { font-size: 22px; }
+  .ttl span { font-size: 15px; }
+  .fb { padding: 12px 14px; }
+  .verdict { width: 52px; height: 52px; font-size: 30px; top: -14px; right: -14px; }
+}
+/* Très peu de hauteur (téléphone couché, clavier) : on laisse défiler plutôt que d'écraser l'échiquier. */
+@media (max-height: 380px) and (max-aspect-ratio: 6/5) {
+  .app { height: auto; min-height: 100dvh; }
+  .stage { container-type: inline-size; --b: min(100cqw, 300px); }
+  .scroll { overflow: visible; }
+}
+
+dialog { border: 1px solid var(--line); border-radius: 14px; background: var(--surface); color: var(--fg); padding: 20px; max-width: min(560px, calc(100vw - 24px)); font-size: 15px; }
+dialog::backdrop { background: rgba(0, 0, 0, .45); }
+dialog h2 { font-size: 20px; margin-bottom: 10px; }
+dialog ul { margin: 0 0 12px; padding-left: 18px; display: flex; flex-direction: column; gap: 6px; }
+dialog .note { font-size: 13px; color: var(--muted); margin-bottom: 14px; }
+dialog .btn { flex: none; padding: 8px 18px; }
+</style>
+<script>
+// Avant le premier affichage : dans l'appli (iframe) ou page autonome, et thème choisi.
+(() => {
+  const r = document.documentElement;
+  try { if (window.parent !== window && window.parent.chessApp) r.classList.add("in-app"); } catch (e) {}
+  try { const t = localStorage.getItem("theme"); if (t === "clair") r.dataset.theme = "light"; else if (t === "sombre") r.dataset.theme = "dark"; } catch (e) {}
+})();
+</script>
+
+<div class="app">
   <header class="top">
-    <div>
-      <div class="eyebrow" id="eyebrow">Exercices tirés de tes parties</div>
-      <h1 id="title"></h1>
-      <p class="meta" id="meta"></p>
-    </div>
-    <button class="theme-btn" id="themeBtn" type="button">Thème : auto</button>
+    <h1 id="title"></h1>
+    <button class="pill" id="themeBtn" type="button">Thème : auto</button>
   </header>
 
-  <section class="progress" aria-label="Progression">
-    <div class="head">
-      <div><span class="big" id="pDone"></span> <span class="muted" id="pDoneLbl"></span></div>
-      <div class="sync" id="sync">Chargement de ta progression…</div>
+  <div class="bar">
+    <div class="prog" id="prog" role="group" aria-label="Progression">
+      <b id="pDone"></b><span class="lbl" id="pDoneLbl">faits</span>
+      <div class="pbar" id="pBar"></div>
     </div>
-    <div class="bar" id="pBar"></div>
-    <div class="legend" id="pLegend"></div>
-  </section>
+    <details class="filters" id="filters">
+      <summary class="pill"><span class="fsum" id="fSum"></span></summary>
+      <div class="fbody">
+        <div class="fgroup"><span class="eyebrow">Statut</span><div class="seg" id="fStatus" role="group" aria-label="Statut"></div></div>
+        <div class="fgroup"><span class="eyebrow">Thème</span><div class="seg" id="fTheme" role="group" aria-label="Thème"></div></div>
+        <div class="fgroup" id="gTc"><span class="eyebrow">Cadence</span><div class="seg" id="fTc" role="group" aria-label="Cadence"></div></div>
+      </div>
+    </details>
+    <button class="pill" id="bHelp" type="button" aria-label="Comment ça marche">?</button>
+  </div>
+  <p class="sync" id="sync" role="status" hidden></p>
 
-  <details class="filters" id="filters" open>
-    <summary><span class="flbl">Filtres</span><span class="fsum" id="fSum"></span></summary>
-    <div class="fbody">
-      <div class="seg" id="fTheme" role="group" aria-label="Thème"></div>
-      <div class="seg" id="fTc" role="group" aria-label="Cadence"></div>
-      <div class="seg" id="fStatus" role="group" aria-label="Statut"></div>
-    </div>
-  </details>
-
-  <section class="ex" id="ex">
-    <div class="board-wrap">
+  <section class="stage" id="ex">
+    <div class="board-col">
       <div class="board" id="board" role="grid" aria-label="Échiquier"></div>
       <div class="verdict" id="verdict" aria-hidden="true" hidden></div>
       <div class="promo" id="promo" hidden></div>
-      <div class="under"><span id="counter" class="num"></span><span id="orient"></span></div>
     </div>
     <div class="panel">
       <div class="ex-head">
-        <span class="theme" id="theme"></span>
-        <div class="turn"><span class="sw" id="sw"></span><span id="turnTxt"></span></div>
+        <span class="sw" id="sw"></span>
+        <div class="ttl"><b id="theme"></b><span id="turnTxt"></span></div>
+        <span class="counter num" id="counter"></span>
       </div>
-      <p class="nudge" id="nudge" role="status" aria-live="polite" hidden></p>
-      <p class="ctx" id="ctx"></p>
-      <p class="state" id="state"></p>
-      <div class="fb" id="fb" hidden></div>
+      <div class="scroll" id="scroll">
+        <p class="nudge" id="nudge" role="status" aria-live="polite" hidden></p>
+        <div class="fb" id="fb" aria-live="polite" hidden></div>
+        <div class="links" id="links" hidden></div>
+        <p class="state" id="state"></p>
+        <p class="ctx" id="ctx"></p>
+      </div>
       <div class="actions">
         <button class="btn" id="bHint" type="button">Indice</button>
         <button class="btn" id="bSol" type="button">Solution</button>
-        <button class="btn" id="bRetry" type="button" hidden>Réessayer</button>
+        <button class="btn primary" id="bRetry" type="button" hidden>Réessayer</button>
         <button class="btn" id="bErr" type="button" hidden>Voir mon erreur</button>
-        <button class="btn primary" id="bNext" type="button">Suivant</button>
+        <button class="btn" id="bNext" type="button">Passer</button>
       </div>
-      <div class="links" id="links" hidden></div>
     </div>
   </section>
   <div class="empty" id="empty" hidden></div>
-
-  <footer id="foot"></footer>
 </div>
+
+<dialog id="help">
+  <h2>Comment ça marche</h2>
+  <ul id="helpList"></ul>
+  <p class="note" id="helpNote"></p>
+  <form method="dialog"><button class="btn primary" type="submit">Compris</button></form>
+</dialog>
 
 <script>
 const D = __DATA__;
@@ -238,18 +254,21 @@ const GLYPH = { k: "♚", q: "♛", r: "♜", b: "♝", n: "♞", p: "♟" };
 const FILES = "abcdefgh";
 const APP = (() => { try { return window.parent !== window ? window.parent.chessApp : null; } catch (e) { return null; } })();
 
-// ---------- En-tête ----------
+// ---------- Titre et aide ----------
 $("title").textContent = `${D.player} · Exercices`;
 document.title = `Exercices ${D.player}`;
 const sinceD = new Date(D.since);
-$("meta").textContent = `${D.items.length} positions où tu as fait une erreur ou une gaffe depuis ${MOIS[sinceD.getMonth()]} ${sinceD.getFullYear()}. `
-  + `Rejoue-les : touche une pièce puis sa case d'arrivée. Tous les coups ont été évalués par Stockfish 19 (profondeur ${D.depth}).`;
-if (D.more) $("meta").textContent += " D'autres exercices sont en préparation : ils apparaîtront dans une minute environ, quand tu reviendras sur cet onglet.";
-$("foot").textContent = `Un coup est accepté s'il perd moins de ${D.tolerance} points de % de gain par rapport au meilleur coup ; `
-  + `pour « ${D.themes.mate} », il faut un mat aussi rapide (un coup de plus toléré à partir du mat en 3). Pour un mat en plusieurs coups, l'adversaire répond par sa meilleure défense et tu continues jusqu'au mat. Exercice réussi = sans aucune erreur, indice ni solution. `
-  + `Données du ${D.generated.replace(" ", " à ")}, issues de l'API publique chess.com (site non affilié à chess.com).`;
+$("helpList").innerHTML = [
+  `${D.items.length} positions tirées de tes parties depuis ${MOIS[sinceD.getMonth()]} ${sinceD.getFullYear()}, là où tu as fait une erreur ou une gaffe. À toi de trouver mieux.`,
+  "Touche une pièce, puis sa case d'arrivée.",
+  `Un coup est accepté s'il perd moins de ${D.tolerance} points de % de gain par rapport au meilleur coup de Stockfish 19 (profondeur ${D.depth}).`,
+  `« ${esc(D.themes.mate)} » : il faut un mat aussi rapide (un coup de plus toléré à partir du mat en 3). L'adversaire répond par sa meilleure défense et tu continues jusqu'au mat.`,
+  "Réussi = du premier coup, sans indice ni solution. Sinon l'exercice passe dans « À revoir ».",
+].map(t => `<li>${t}</li>`).join("");
+$("bHelp").addEventListener("click", () => $("help").showModal());
+$("help").addEventListener("click", e => { if (e.target === $("help")) $("help").close(); });
 
-// ---------- Thème ----------
+// ---------- Thème (hors appli : dans l'appli, il se règle dans le menu du compte) ----------
 const THEMES = ["auto", "clair", "sombre"];
 let theme = "auto";
 try { theme = localStorage.getItem("theme") || "auto"; } catch (e) {}
@@ -274,7 +293,13 @@ let progress = {};
 try { progress = JSON.parse(localStorage.getItem(LS_KEY) || "{}") || {}; } catch (e) {}
 let remote = null, writing = false, dirty = false;
 
-function setSync(txt, warn) { $("sync").textContent = txt; $("sync").classList.toggle("warn", !!warn); }
+// L'état normal (synchronisé) ne prend pas de place : il est rappelé dans l'aide. Seuls les soucis s'affichent.
+function setSync(txt, warn) {
+  $("sync").textContent = txt; $("sync").hidden = !warn;
+  $("helpNote").textContent = `${txt}${/[.!?]$/.test(txt) ? "" : "."} Données du ${D.generated.replace(" ", " à ")}, issues de l'API publique chess.com (site non affilié à chess.com).`
+    + (D.more ? " D'autres exercices sont en préparation : ils apparaîtront dans une minute environ." : "");
+}
+setSync("Chargement de ta progression…");
 function saveLocal() { try { localStorage.setItem(LS_KEY, JSON.stringify(progress)); } catch (e) {} }
 
 let retryT = null;
@@ -309,9 +334,7 @@ function record(id, ok) {
 // Document de progression : celui du compte Google dans l'appli Firebase (page affichée
 // dans son iframe), sinon celui du viewer sur claude.ai.
 async function progressRef() {
-  let host = null;
-  try { host = window.parent !== window ? window.parent.chessApp : null; } catch (e) {}
-  if (host?.progressDoc) return host.progressDoc();
+  if (APP?.progressDoc) return APP.progressDoc();
   if (!window.claude?.use) return null;
   const [db, user] = await Promise.all([claude.use("db"), claude.use("user")]);
   const uid = user ? await user.id() : null;
@@ -348,47 +371,41 @@ const filt = { th: "all", tc: "all", st: "todo" };
 // Filtre de départ (bouton « S'entraîner » d'un bilan) : transmis par l'appli, ou dans l'adresse #th=…&tc=…
 (() => {
   let f = null;
-  try { f = window.parent !== window ? window.parent.chessApp?.takeExerciseFilter?.() : null; } catch (e) {}
+  try { f = APP?.takeExerciseFilter?.() || null; } catch (e) {}
   if (!f && location.hash.includes("th=")) f = Object.fromEntries(new URLSearchParams(location.hash.slice(1)));
   if (f?.th && (f.th === "all" || f.th in D.themes)) filt.th = f.th;
   if (f?.tc && tcs.includes(f.tc)) filt.tc = f.tc;
 })();
+function matches(x, f) {
+  if (f.th !== "all" && x.th !== f.th) return false;
+  if (f.tc !== "all" && x.tc !== f.tc) return false;
+  const s = progress[x.id]?.s;
+  return f.st === "all" || f.st === "any" || (f.st === "todo" ? !s : s === f.st);
+}
+const inFilter = (x, ignoreStatus) => matches(x, ignoreStatus ? { ...filt, st: "any" } : filt);
+const ST = { todo: "À faire", ko: "À revoir", all: "Tous" };
+// Chaque choix affiche le nombre d'exercices qu'il donnerait, les autres filtres restant en place.
 function seg(el, key, opts) {
-  $(el).innerHTML = opts.map(([v, l]) => `<button type="button" data-v="${v}" aria-pressed="${filt[key] === v}">${esc(l)}</button>`).join("");
+  $(el).innerHTML = opts.map(([v, l]) => `<button type="button" data-v="${v}" aria-pressed="${filt[key] === v}">${esc(l)}`
+    + `<i>${D.items.filter(x => matches(x, { ...filt, [key]: v })).length}</i></button>`).join("");
   $(el).onclick = e => {
     const b = e.target.closest("button"); if (!b) return;
     filt[key] = b.dataset.v;
-    $(el).querySelectorAll("button").forEach(x => x.setAttribute("aria-pressed", x === b));
-    filterSummary(); goFirst();
+    goFirst();
   };
 }
-seg("fTheme", "th", [["all", "Tous les thèmes"], ...Object.entries(D.themes)]);
-if (tcs.length > 1) seg("fTc", "tc", [["all", "Toutes cadences"], ...tcs.map(t => [t, D.tcLabels[t]])]);
-else $("fTc").hidden = true;
-seg("fStatus", "st", [["todo", "À faire"], ["ko", "À revoir"], ["all", "Tous"]]);
-const MOBILE = matchMedia("(max-width: 859px)");
-function filterSummary() {
-  $("fSum").textContent = [filt.th === "all" ? "Tous thèmes" : D.themes[filt.th],
-    ...(tcs.length > 1 ? [filt.tc === "all" ? "Toutes cadences" : D.tcLabels[filt.tc]] : []),
-    { todo: "À faire", ko: "À revoir", all: "Tous" }[filt.st]].join(" · ");
+function renderFilters() {
+  seg("fStatus", "st", Object.entries(ST));
+  seg("fTheme", "th", [["all", "Tous les thèmes"], ...Object.entries(D.themes).filter(([t]) => D.items.some(x => x.th === t))]);
+  if (tcs.length > 1) seg("fTc", "tc", [["all", "Toutes cadences"], ...tcs.map(t => [t, D.tcLabels[t]])]);
+  else $("gTc").hidden = true;
+  $("fSum").textContent = [ST[filt.st], ...(filt.th === "all" ? [] : [D.themes[filt.th]]),
+    ...(filt.tc === "all" ? [] : [D.tcLabels[filt.tc]])].join(" · ");
 }
-filterSummary();
-if (MOBILE.matches) $("filters").open = false;
-// Sur mobile, on garde l'exercice à l'écran : début de l'exercice en haut, verdict visible.
-function reveal(el, block) {
-  if (!MOBILE.matches || !el) return;
-  const r = el.getBoundingClientRect();
-  if (block === "start" ? r.top < 0 || r.top > innerHeight * .4 : r.bottom > innerHeight - 84 || r.top < 0)
-    el.scrollIntoView({ block, behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" });
-}
-
-function inFilter(x, ignoreStatus) {
-  if (filt.th !== "all" && x.th !== filt.th) return false;
-  if (filt.tc !== "all" && x.tc !== filt.tc) return false;
-  if (ignoreStatus) return true;
-  const s = progress[x.id]?.s;
-  return filt.st === "all" || (filt.st === "todo" ? !s : s === "ko");
-}
+// Panneau des filtres : se referme en touchant ailleurs ou avec Échap.
+document.addEventListener("pointerdown", e => { if ($("filters").open && !$("filters").contains(e.target)) $("filters").open = false; });
+document.addEventListener("keydown", e => { if (e.key === "Escape") $("filters").open = false; });
+$("filters").addEventListener("toggle", () => { if ($("filters").open) renderFilters(); });
 
 function renderProgress() {
   const list = D.items.filter(x => inFilter(x, true));
@@ -396,11 +413,10 @@ function renderProgress() {
   const ko = list.filter(x => progress[x.id]?.s === "ko").length;
   const n = list.length || 1;
   $("pDone").textContent = `${ok + ko} / ${list.length}`;
-  $("pDoneLbl").textContent = "exercices faits" + (filt.th !== "all" || filt.tc !== "all" ? " dans cette sélection" : "");
+  $("prog").title = `${ok} réussi${ok > 1 ? "s" : ""} du premier coup, ${ko} à revoir, ${list.length - ok - ko} à faire`
+    + (filt.th !== "all" || filt.tc !== "all" ? " dans cette sélection" : "");
   $("pBar").innerHTML = `<span class="ok" style="width:${ok / n * 100}%"></span><span class="ko" style="width:${ko / n * 100}%"></span>`;
-  $("pLegend").innerHTML = `<span><i style="background:var(--ok)"></i>${ok} réussi${ok > 1 ? "s" : ""} du premier coup</span>`
-    + `<span><i style="background:var(--bad)"></i>${ko} à revoir</span>`
-    + `<span><i style="background:var(--line)"></i>${list.length - ok - ko} à faire</span>`;
+  if (!$("filters").open) renderFilters();
 }
 
 // ---------- Position ----------
@@ -434,16 +450,26 @@ let cur = {};   // { x, pos, sel, last, marks, done, tried, assisted, locked }
 
 function goFirst() {
   order = D.items.filter(x => inFilter(x));
-  renderProgress();
+  renderFilters(); renderProgress();
   load(0);
 }
 function load(i) {
   $("promo").hidden = true;
   if (!order.length) {
     $("ex").hidden = true; $("empty").hidden = false;
-    $("empty").textContent = filt.st === "ko" ? "Rien à revoir dans cette sélection."
-      : filt.st === "todo" ? "Tous les exercices de cette sélection sont faits. Passe sur « À revoir » pour retravailler tes ratés."
-      : "Aucun exercice dans cette sélection.";
+    const n = st => D.items.filter(x => matches(x, { ...filt, st })).length;
+    const [todo, ko, all] = [n("todo"), n("ko"), n("all")];
+    // Plutôt qu'un cul-de-sac : les suites possibles, la plus utile en premier.
+    const outs = [
+      ...(filt.st !== "ko" && ko ? [["ko", ko > 1 ? `Retravailler mes ${ko} ratés` : "Retravailler mon raté"]] : []),
+      ...(filt.st !== "todo" && todo ? [["todo", `Continuer : ${todo} à faire`]] : []),
+      ...(filt.st !== "all" && all && !todo ? [["all", `Tout refaire (${all})`]] : []),
+      ...(filt.th !== "all" || filt.tc !== "all" ? [["reset", "Voir tous les thèmes"]] : []),
+    ];
+    $("empty").innerHTML = `<p>${filt.st === "ko" ? "Rien à revoir dans cette sélection."
+        : filt.st === "todo" && all ? "Bravo, tous les exercices de cette sélection sont faits."
+        : "Aucun exercice dans cette sélection."}</p>`
+      + outs.map(([st, label], k) => `<button class="btn${k ? "" : " primary"}" type="button" data-st="${st}">${label}</button>`).join("");
     return;
   }
   $("ex").hidden = false; $("empty").hidden = true;
@@ -456,24 +482,33 @@ function load(i) {
           pos: parseFen(x.fen), sel: null, last: null, marks: {}, done: false, tried: false, assisted: false, locked: false };
   const white = x.c === "w", g = D.themes[x.th];
   $("theme").textContent = x.th === "mate" ? `${g} en ${x.mv[0][5]}` : g;
-  $("verdict").hidden = true;
   $("sw").style.background = white ? "#fff" : "#111";
-  $("turnTxt").textContent = `Tu as les ${white ? "blancs" : "noirs"}, ` + (x.chk ? "ton roi est en échec" : "à toi de jouer");
+  $("turnTxt").textContent = `Tu as les ${white ? "blancs" : "noirs"}` + (x.chk ? ", ton roi est en échec" : "");
   $("ctx").textContent = x.rep
     ? `${x.rep.name ? x.rep.name + " : " : ""}${x.rep.path || "position de départ"}. Tu as joué ${x.ps} ici ${x.rep.n} fois, `
       + `en perdant en moyenne ${String(x.rep.l).replace(".", ",")} points de % de gain. Dernière fois : contre ${x.o} (${x.oe}), ${dateLabel(x.d)} · ${D.tcLabels[x.tc]}.`
     : `Coup ${x.n} contre ${x.o} (${x.oe}), ${dateLabel(x.d)} · ${D.tcLabels[x.tc]}. `
     + `Avant ton coup, tu avais ${pct(x.wb)} de gain.`;
-  $("counter").textContent = `Exercice ${idx + 1} sur ${order.length}`;
-  $("orient").textContent = white ? "" : "Échiquier vu des noirs";
+  $("counter").textContent = `${idx + 1} / ${order.length}`;
+  $("counter").title = `Exercice ${idx + 1} sur ${order.length} dans cette sélection`;
+  $("board").setAttribute("aria-label", `Échiquier vu des ${white ? "blancs" : "noirs"}`);
   $("fb").hidden = true; $("links").hidden = true; $("bRetry").hidden = true; $("nudge").hidden = true;
   $("bErr").hidden = true; $("bErr").textContent = "Voir mon erreur";
   $("bHint").disabled = false; $("bSol").disabled = false; $("verdict").hidden = true;
+  $("bNext").textContent = "Passer"; $("bNext").classList.remove("primary");
+  $("scroll").scrollTop = 0;
   renderState(); drawBoard();
 }
+$("empty").addEventListener("click", e => {
+  const b = e.target.closest("button[data-st]"); if (!b) return;
+  if (b.dataset.st === "reset") Object.assign(filt, { th: "all", tc: "all", st: "todo" });
+  else filt.st = b.dataset.st;
+  goFirst();
+});
 function renderState() {
   const p = progress[cur.x?.id];
-  $("state").textContent = !p ? "" : p.s === "ok" ? `Déjà réussi (${p.t}).` : `Raté la dernière fois (${p.t}) : à toi de le réussir du premier coup.`;
+  $("state").textContent = !p ? "" : p.s === "ok" ? `Déjà réussi le ${dateLabel(p.t)}.` : `Raté le ${dateLabel(p.t)} : à toi de le réussir du premier coup.`;
+  $("state").hidden = !p;
 }
 
 function legalFrom(sq) { return cur.node.mv.filter(m => m[0].slice(0, 2) === sq); }
@@ -550,19 +585,20 @@ function blocked(n) {
   clearTimeout(c.flashT);
   c.flashT = setTimeout(() => { if (cur === c) { c.flash = null; drawBoard(); } }, 1400);
 }
-function nudge(t) { $("nudge").textContent = t; $("nudge").hidden = false; }
+function nudge(t) { $("nudge").textContent = t; $("nudge").hidden = false; $("scroll").scrollTop = 0; }
 
 function askPromo(cands) {
   const white = cur.x.c === "w";
-  $("promo").innerHTML = `<span>Promotion :</span>` + ["q", "r", "b", "n"].map(p => {
+  $("promo").innerHTML = `<span>Promotion en…</span><div>` + ["q", "r", "b", "n"].map(p => {
     const m = cands.find(c => c[0][4] === p);
     return m ? `<button type="button" data-u="${m[0]}" aria-label="${{ q: "dame", r: "tour", b: "fou", n: "cavalier" }[p]}" style="color:${white ? "#fff" : "#111"};text-shadow:0 0 1px #000,0 0 1px #000">${GLYPH[p]}︎</button>` : "";
-  }).join("");
+  }).join("") + "</div>";
   $("promo").hidden = false;
   $("promo").onclick = e => {
-    const b = e.target.closest("button[data-u]"); if (!b) return;
+    const b = e.target.closest("button[data-u]");
     $("promo").hidden = true;
-    play(cands.find(c => c[0] === b.dataset.u));
+    if (b) play(cands.find(c => c[0] === b.dataset.u));
+    else { cur.sel = null; drawBoard(); }       // toucher à côté : on annule
   };
 }
 
@@ -577,6 +613,10 @@ function accepted(m) {
 
 function setVerdict(ok) {
   $("verdict").className = "verdict " + (ok ? "ok" : "ko"); $("verdict").textContent = ok ? "✓" : "✗"; $("verdict").hidden = false;
+}
+function showFb(cls, html) {
+  $("fb").className = "fb" + (cls ? " " + cls : ""); $("fb").innerHTML = html; $("fb").hidden = false;
+  $("scroll").scrollTop = 0;
 }
 function play(m) {
   const x = cur.x, node = cur.node, ok = accepted(m), clean = !cur.tried && !cur.assisted;
@@ -619,10 +659,8 @@ function play(m) {
   cur.locked = true; cur.busy = true;
   drawBoard();
   const left = child.mv[0][5];
-  $("fb").className = "fb ok";
-  $("fb").innerHTML = `<div class="v">${esc(m[1])} : bien joué !</div><p>L'adversaire répond <span class="mono">${esc(child.rs)}</span>. `
-    + `Continue : il reste un mat en ${left}.</p>`;
-  $("fb").hidden = false;
+  showFb("ok", `<div class="v">${esc(m[1])} : bien joué !</div><p>L'adversaire répond <span class="mono">${esc(child.rs)}</span>. `
+    + `Continue : il reste un mat en ${left}.</p>`);
   $("bRetry").hidden = true;
   setTimeout(() => {
     if (cur.node !== node) return;
@@ -638,6 +676,7 @@ function play(m) {
 
 // Coups de la ligne : ceux du joueur en gras, les réponses en plus discret.
 const seqHtml = seq => seq.map((s, i) => i % 2 ? `<span class="muted">${esc(s)}</span>` : `<span class="mono">${esc(s)}</span>`).join(" ");
+const rowsHtml = lines => lines.map(([t, d]) => `<p><b>${t} :</b> ${d}</p>`).join("");
 
 function showFeedback(ok, verdict, m) {
   const x = cur.x, b = best();
@@ -656,11 +695,8 @@ function showFeedback(ok, verdict, m) {
     lines.push(["Pourquoi", `${reply}tu tombes à ${pct(m[2])} de gain (contre ${pct(b[2])} avec le meilleur coup).`]);
     if (m[0] === x.pu && cur.node === cur.root) lines.push(["Dans la partie", "c'est exactement le coup que tu avais joué."]);
   }
-  $("fb").className = "fb " + (ok ? "ok" : "ko");
-  $("fb").innerHTML = `<div class="v">${esc(verdict)}</div><dl>${lines.map(([t, d]) => `<dt>${t}</dt><dd>${d}</dd>`).join("")}</dl>`;
-  $("fb").hidden = false;
+  showFb(ok ? "ok" : "ko", `<div class="v">${esc(verdict)}</div>${rowsHtml(lines)}`);
   if (ok) finish();
-  requestAnimationFrame(() => reveal($("fb"), "nearest"));
 }
 function partieTail() {
   const p = cur.x.mv.find(o => o[0] === cur.x.pu);
@@ -669,11 +705,12 @@ function partieTail() {
 function finish() {
   cur.done = true;
   $("bHint").disabled = true; $("bSol").disabled = true; $("bRetry").hidden = true;
+  $("bNext").textContent = "Suivant →"; $("bNext").classList.add("primary");
   const x = cur.x;
   const lichess = "https://lichess.org/analysis/" + x.fen.replace(/ /g, "_") + "?color=" + (x.c === "b" ? "black" : "white");
-  $("links").innerHTML = `<a href="${lichess}" target="_blank" rel="noopener">Analyser sur Lichess</a>`
-    + (APP?.openGame ? `<a href="#" id="lReplay">Rejouer la partie</a>` : "")
-    + `<a href="${esc(x.u)}" target="_blank" rel="noopener">Voir la partie sur chess.com</a>`;
+  $("links").innerHTML = (APP?.openGame ? `<a href="#" id="lReplay">Rejouer la partie</a>` : "")
+    + `<a href="${lichess}" target="_blank" rel="noopener">Analyser sur Lichess ↗</a>`
+    + `<a href="${esc(x.u)}" target="_blank" rel="noopener">chess.com ↗</a>`;
   $("lReplay")?.addEventListener("click", e => {
     e.preventDefault();
     const k = x.id.lastIndexOf("-");
@@ -698,7 +735,7 @@ $("bErr").addEventListener("click", () => {
   c.pos = applyUci(parseFen(x.fen), x.pu);
   c.last = null;
   c.marks = { [x.pu.slice(0, 2)]: "bad", [x.pu.slice(2, 4)]: "bad" };
-  $("bErr").textContent = "Revoir la bonne réponse";
+  $("bErr").textContent = "Voir la solution";
   drawBoard();
   if (p[3]) setTimeout(() => {
     if (cur !== c || !c.saved) return;
@@ -721,9 +758,9 @@ $("bHint").addEventListener("click", () => {
   if (cur.locked) { $("bRetry").click(); }
   cur.marks = { [best()[0].slice(0, 2)]: "hint" };
   drawBoard();
-  const hints = { mate: "Cherche un échec qui ne laisse aucune case au roi.", tactic: "Un seul coup gagne vraiment : regarde les captures et les échecs.", safe: "Plusieurs coups conviennent : vérifie qu'aucune pièce ne reste en prise après ton coup." };
-  $("fb").className = "fb"; $("fb").innerHTML = `<div class="v">Indice</div><p>La pièce à jouer est encadrée. ${hints[cur.x.th]}</p>`; $("fb").hidden = false;
-  reveal($("fb"), "nearest");
+  const hints = { mate: "Cherche un échec qui ne laisse aucune case au roi.", tactic: "Un seul coup gagne vraiment : regarde les captures et les échecs.", safe: "Plusieurs coups conviennent : vérifie qu'aucune pièce ne reste en prise après ton coup.",
+    opening: "Développe une pièce ou tiens le centre, sans rien laisser en prise." };
+  showFb("", `<div class="v">Indice</div><p>La pièce à jouer est encadrée. ${hints[cur.x.th] || ""}</p>`);
 });
 $("bSol").addEventListener("click", () => {
   if (cur.done || cur.busy) return;
@@ -751,17 +788,14 @@ $("bSol").addEventListener("click", () => {
   };
   step(0);
   const others = start.mv.filter(o => o[0] !== b[0] && accepted(o)).slice(0, 4);
-  $("fb").className = "fb";
-  $("fb").innerHTML = (plies.length > 1
-      ? `<div class="v">Solution : ${seqHtml(plies.map(p => p[1]))}</div><dl>`
-      : `<div class="v">Solution : <span class="mono">${esc(b[1])}</span> (${pct(b[2])} de gain)</div><dl>`)
-    + (others.length ? `<dt>Aussi accepté${others.length > 1 ? "s" : ""}</dt><dd>${others.map(o => `<span class="mono">${esc(o[1])}</span>`).join(", ")}</dd>` : "")
-    + `<dt>Dans la partie</dt><dd>tu as joué <span class="mono">${esc(cur.x.ps)}</span>${partieTail()}</dd></dl>`;
-  $("fb").hidden = false;
+  showFb("", (plies.length > 1
+      ? `<div class="v">Solution : ${seqHtml(plies.map(p => p[1]))}</div>`
+      : `<div class="v">Solution : <span class="mono">${esc(b[1])}</span> (${pct(b[2])} de gain)</div>`)
+    + rowsHtml([...(others.length ? [[`Aussi accepté${others.length > 1 ? "s" : ""}`, others.map(o => `<span class="mono">${esc(o[1])}</span>`).join(", ")]] : []),
+        ["Dans la partie", `tu as joué <span class="mono">${esc(cur.x.ps)}</span>${partieTail()}`]]));
   finish();
-  reveal($("fb"), "nearest");
 });
-$("bNext").addEventListener("click", () => {
+function next() {
   // En « À faire » / « À revoir », la liste se recalcule : l'exercice traité en sort.
   const curId = cur.x?.id;
   const sel = D.items.filter(x => inFilter(x, true));
@@ -773,7 +807,12 @@ $("bNext").addEventListener("click", () => {
   }
   order = D.items.filter(x => inFilter(x) && (x.id !== curId || !nextX));
   load(nextX ? order.indexOf(nextX) : 0);
-  reveal(document.querySelector(".ex-head"), "start");
+}
+$("bNext").addEventListener("click", next);
+// Clavier : Entrée passe à l'exercice suivant une fois celui-ci terminé.
+document.addEventListener("keydown", e => {
+  if (e.key !== "Enter" || !cur.done || $("help").open || e.target.closest?.("button, a, summary, input")) return;
+  e.preventDefault(); next();
 });
 
 goFirst();

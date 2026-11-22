@@ -4,7 +4,9 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700&family=Atkinson+Hyperlegible:wght@400;700&family=JetBrains+Mono:wght@400;600&display=swap">
 <style>
-/* Layout : une colonne sur mobile, barre de filtres collante, graphiques en grille 2 colonnes au-delà de 860px. */
+/* Une section à la fois, choisie par onglets (Bilan, Résultats, Ouvertures, Erreurs) : plus de longue page
+   à faire défiler. Les filtres (couleur, période) n'apparaissent que sur les onglets de chiffres.
+   Une colonne sur mobile, grilles à 2 colonnes au-delà de 860px. */
 :root {
   --bg: #f4f5f1; --surface: #fcfcfa; --fg: #171a17; --muted: #586058; --faint: #8a918a;
   --line: #dde1d9; --accent: #3b6a44; --accent-soft: #e3ece2;
@@ -32,16 +34,17 @@
 }
 
 * { box-sizing: border-box; }
+[hidden] { display: none !important; }
 body {
-  background: var(--bg); color: var(--fg); font-family: var(--f-body); font-size: 15px; line-height: 1.5;
+  margin: 0; background: var(--bg); color: var(--fg); font-family: var(--f-body); font-size: 15px; line-height: 1.5;
   padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
-  padding-block: 0 48px;
+  padding-block: 0 40px;
 }
 body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px); z-index: 10; background: var(--bg); }
-.wrap { max-width: 1120px; margin: 0 auto; display: flex; flex-direction: column; gap: 40px; }
+.wrap { max-width: 1120px; margin: 0 auto; display: flex; flex-direction: column; gap: 16px; }
 h1, h2, h3 { font-family: var(--f-display); text-wrap: balance; margin: 0; line-height: 1.15; }
 h1 { font-size: clamp(28px, 6vw, 40px); font-weight: 700; letter-spacing: -.01em; }
-h2 { font-size: 24px; font-weight: 700; }
+h2 { font-size: 22px; font-weight: 700; }
 h3 { font-size: 17px; font-weight: 600; }
 p { margin: 0; }
 a { color: var(--accent); }
@@ -51,30 +54,38 @@ a { color: var(--accent); }
 .mono { font-family: var(--f-mono); }
 .num { font-variant-numeric: tabular-nums; }
 
-/* En-tête */
-.top { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; padding-top: 28px; flex-wrap: wrap; }
-.top .meta { color: var(--muted); max-width: 62ch; margin-top: 8px; }
+/* En-tête : seulement hors de l'appli (page autonome), où aucun onglet ne nomme la page. */
+.top { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; padding-top: 20px; flex-wrap: wrap; }
+.top h1 { font-size: clamp(24px, 5vw, 34px); }
+.in-app .top { display: none; }
 .theme-btn { font: inherit; font-size: 13px; color: var(--fg); background: var(--surface); border: 1px solid var(--line); border-radius: 999px; padding: 6px 12px; cursor: pointer; }
 
-/* Barre de filtres */
-.filters {
-  position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5; background: var(--bg);
-  margin: 0 calc(-1 * max(16px, env(safe-area-inset-left, 0px))); padding: 10px max(16px, env(safe-area-inset-left, 0px));
-  border-bottom: 1px solid var(--line); display: flex; flex-direction: column; gap: 8px;
-}
-.filters .row { display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: center; max-width: 1120px; margin: 0 auto; width: 100%; }
+/* Barre : cadence, onglets, filtres. Ordinateur : une ligne collante. Téléphone : seuls les onglets collent. */
+.head { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5; background: var(--bg); display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; padding: 8px 0; border-bottom: 1px solid var(--line); }
+.tabs { display: flex; gap: 2px; }
+.tabs button { font: inherit; font-weight: 700; color: var(--muted); background: none; border: 0; border-radius: 8px; padding: 8px 12px; cursor: pointer; white-space: nowrap; min-height: 40px; }
+.tabs button:hover { color: var(--fg); }
+.tabs button[aria-selected="true"] { color: var(--fg); background: var(--accent-soft); }
+.frow { display: flex; flex-wrap: wrap; gap: 8px 12px; align-items: center; margin-left: auto; }
 .seg { display: inline-flex; border: 1px solid var(--line); border-radius: 999px; overflow: hidden; background: var(--surface); }
-.seg button { font: inherit; font-size: 14px; border: 0; background: none; color: var(--fg); padding: 6px 12px; cursor: pointer; }
+.seg button { font: inherit; font-size: 14px; border: 0; background: none; color: var(--fg); padding: 6px 12px; cursor: pointer; min-height: 34px; }
 .seg button[aria-pressed="true"] { background: var(--accent); color: var(--bg); font-weight: 700; }
 .period { display: flex; gap: 6px; align-items: center; font-size: 14px; }
-select { font: inherit; font-size: 14px; color: var(--fg); background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 5px 8px; }
-.jump { display: flex; gap: 14px; font-size: 14px; overflow-x: auto; white-space: nowrap; scrollbar-width: none; }
-.jump a { color: var(--muted); text-decoration: none; }
-.jump a:hover { color: var(--fg); }
+select { font: inherit; font-size: 14px; color: var(--fg); background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 5px 8px; min-height: 34px; }
+@media (max-width: 859px) {
+  .head { display: contents; }
+  #tcSeg { align-self: flex-start; margin-top: 10px; }
+  .tabs { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5; background: var(--bg); border-bottom: 1px solid var(--line);
+    margin: 0 calc(-1 * max(16px, env(safe-area-inset-left, 0px))); padding: 6px max(10px, env(safe-area-inset-left, 0px)); overflow-x: auto; scrollbar-width: none; }
+  .in-app #tcSeg[hidden] + .tabs { margin-top: 0; }
+  .tabs button { flex: 1 0 auto; padding: 8px 10px; }
+  .frow { margin-left: 0; }
+}
 
-section { display: flex; flex-direction: column; gap: 18px; scroll-margin-top: 110px; }
+section { display: flex; flex-direction: column; gap: 14px; }
 .sec-head { display: flex; flex-direction: column; gap: 4px; }
-.sec-head p { color: var(--muted); max-width: 68ch; }
+.sec-head h2 { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; }
+.sec-head p { color: var(--muted); max-width: 75ch; font-size: 14px; }
 
 /* Tuiles */
 .tiles { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
@@ -97,6 +108,7 @@ section { display: flex; flex-direction: column; gap: 18px; scroll-margin-top: 1
 .card { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); padding: 16px; display: flex; flex-direction: column; gap: 10px; min-width: 0; }
 .card .cap { font-size: 13px; color: var(--muted); }
 .chart-box { position: relative; height: 240px; }
+@media (max-width: 600px) { .chart-box { height: 200px; } }
 
 /* Ouvertures */
 .alert { border: 1px solid var(--line); border-left: 4px solid var(--loss); background: var(--surface); border-radius: var(--r); padding: 14px 16px; display: flex; flex-direction: column; gap: 10px; }
@@ -133,18 +145,31 @@ tr.fam[aria-expanded="true"] .caret { transform: rotate(90deg); }
 
 .pos-links { display: flex; gap: 16px; flex-wrap: wrap; font-size: 14px; }
 .empty { background: var(--surface); border: 1px dashed var(--line); border-radius: var(--r); padding: 20px; color: var(--muted); }
-/* Diagnostic */
-.diag { display: flex; flex-direction: column; gap: 14px; }
-.adv { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); padding: 16px; display: flex; flex-direction: column; gap: 12px; min-width: 0; }
-.adv-head { display: flex; flex-direction: column; gap: 6px; }
+/* Diagnostic : chaque constat est une fiche repliable (titre et chiffre clé toujours visibles). */
+.diag { display: flex; flex-direction: column; gap: 10px; }
+.adv { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); min-width: 0; }
+.adv summary { list-style: none; cursor: pointer; display: grid; grid-template-columns: minmax(0, 1fr) auto 18px; gap: 2px 14px; align-items: center; padding: 12px 14px; }
+.adv summary::-webkit-details-marker { display: none; }
+.adv summary::after { content: "›"; grid-column: 3; grid-row: 1 / span 2; color: var(--faint); font-size: 22px; line-height: 1; transition: transform .15s; justify-self: center; }
+.adv[open] summary::after { transform: rotate(90deg); }
+.adv summary .lvl { grid-column: 1; }
+.adv summary h3 { grid-column: 1; }
+.adv-metric { grid-column: 2; grid-row: 1 / span 2; display: flex; flex-direction: column; align-items: flex-end; text-align: right; max-width: 220px; }
+.adv-metric .v { font-family: var(--f-display); font-size: 26px; font-weight: 700; line-height: 1.1; font-variant-numeric: tabular-nums; }
+.adv-metric .l { color: var(--muted); font-size: 12px; line-height: 1.3; }
 .lvl { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); }
 .lvl::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: var(--dot); }
 .lvl-priority { --dot: var(--loss); } .lvl-info { --dot: var(--inacc); } .lvl-good { --dot: var(--win); }
-.adv-body { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 16px 28px; }
-@media (max-width: 760px) { .adv-body { grid-template-columns: minmax(0, 1fr); } }
-.adv-metric { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
-.adv-metric .v { font-family: var(--f-display); font-size: 34px; font-weight: 700; line-height: 1; font-variant-numeric: tabular-nums; }
-.adv-metric .l { color: var(--muted); font-size: 14px; }
+.adv-body { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 14px 28px; padding: 2px 14px 14px; }
+.adv-body > div { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+.adv-body.one { grid-template-columns: minmax(0, 1fr); }
+@media (max-width: 760px) {
+  .adv-body { grid-template-columns: minmax(0, 1fr); }
+  .adv summary { grid-template-columns: minmax(0, 1fr) 18px; }
+  .adv summary::after { grid-column: 2; grid-row: 1 / span 3; }
+  .adv-metric { grid-column: 1; grid-row: auto; flex-direction: row; align-items: baseline; gap: 8px; text-align: left; max-width: none; margin-top: 2px; }
+  .adv-metric .v { font-size: 22px; }
+}
 .adv ul { margin: 0; padding-left: 18px; display: flex; flex-direction: column; gap: 6px; }
 .adv .todo { background: var(--accent-soft); border-radius: 8px; padding: 12px 14px; display: flex; flex-direction: column; gap: 8px; }
 .adv .todo h4 { margin: 0; font-size: 13px; text-transform: uppercase; letter-spacing: .06em; color: var(--accent); }
@@ -157,7 +182,6 @@ tr.fam[aria-expanded="true"] .caret { transform: rotate(90deg); }
 .hbar .val { font-variant-numeric: tabular-nums; color: var(--muted); white-space: nowrap; }
 .auto-tag { vertical-align: middle; margin-left: 8px; font-family: var(--f-body); font-size: 12px; font-weight: 700;
   color: var(--muted); padding: 3px 10px; border-radius: 999px; border: 1px solid var(--line); white-space: nowrap; }
-.auto-note { margin: 0 0 12px; padding: 10px 14px; border-radius: var(--r); background: var(--surface); border: 1px dashed var(--line); max-width: 75ch; }
 .ai-tag { display: inline-flex; align-items: center; gap: 4px; vertical-align: middle; margin-left: 8px; font-family: var(--f-body);
   font-size: 12px; font-weight: 700; letter-spacing: .02em; color: #fff; padding: 3px 10px; border-radius: 999px;
   background: linear-gradient(135deg, #7c5cff, #2aa7c9); white-space: nowrap; }
@@ -184,47 +208,57 @@ tr.fam[aria-expanded="true"] .caret { transform: rotate(90deg); }
 .ai-cards i { height: 56px; border-radius: 10px; }
 @keyframes ai-shimmer { from { background-position: 200% 0; } to { background-position: -200% 0; } }
 @media (prefers-reduced-motion: reduce) { .ai-wait, .ai-spark, .ai-skel i, .ai-cards i { animation: none; } }
-.bilan { display: flex; flex-direction: column; gap: 16px; }
-.bilan .lead { font-size: 17px; max-width: 70ch; }
-.bilan .progress-note { background: var(--accent-soft); border-radius: var(--r); padding: 12px 14px; max-width: 70ch; }
-.strengths { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
-@media (max-width: 700px) { .strengths { grid-template-columns: minmax(0, 1fr); } }
-.strength { background: var(--surface); border: 1px solid var(--line); border-left: 4px solid var(--win); border-radius: var(--r); padding: 12px 14px; display: flex; flex-direction: column; gap: 4px; }
+.bilan { display: flex; flex-direction: column; gap: 14px; }
+.bilan .lead { font-size: 17px; max-width: 80ch; }
+.bilan .progress-note { background: var(--accent-soft); border-radius: var(--r); padding: 12px 14px; max-width: 80ch; }
+/* Priorités à gauche ; points forts, plan et objectifs à droite (l'un sous l'autre sur téléphone). */
+.bgrid { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr); gap: 14px 24px; align-items: start; }
+@media (max-width: 900px) { .bgrid { grid-template-columns: minmax(0, 1fr); } }
+.bcol { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+.strength { background: var(--surface); border: 1px solid var(--line); border-left: 4px solid var(--win); border-radius: var(--r); padding: 10px 14px; display: flex; flex-direction: column; gap: 2px; }
 .strength b { font-size: 15px; }
 .strength span { color: var(--muted); font-size: 14px; }
-.prio { display: flex; flex-direction: column; gap: 10px; }
+.prio-body { display: flex; flex-direction: column; gap: 10px; padding: 0 14px 14px; }
 .prio .act { background: var(--accent-soft); border-radius: 8px; padding: 10px 12px; }
 .prio .row { display: flex; flex-wrap: wrap; gap: 8px 18px; align-items: center; font-size: 14px; }
 .train { display: inline-flex; align-items: center; gap: 6px; font-weight: 700; text-decoration: none; background: var(--accent); color: var(--bg); border-radius: 8px; padding: 8px 12px; }
-.bilan h3.sub { font-size: 16px; margin: 4px 0 0; }
-.bilan table { max-width: 760px; }
+.bilan h3.sub { font-size: 13px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); font-family: var(--f-body); font-weight: 700; margin-top: 6px; }
+.bilan .bcol > h3.sub:first-child { margin-top: 0; }
+.bilan .card-t { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); padding: 4px 8px; }
+.bilan .card-t tr:last-child td { border-bottom: 0; }
 details.constats { border-top: 1px solid var(--line); padding-top: 12px; }
-details.constats summary { cursor: pointer; font-weight: 700; color: var(--accent); }
-details.constats .diag { margin-top: 14px; }
+details.constats > summary { cursor: pointer; font-weight: 700; color: var(--accent); }
+details.constats .diag { margin-top: 12px; }
 footer { font-size: 13px; color: var(--muted); border-top: 1px solid var(--line); padding-top: 16px; }
 @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
 </style>
 
+<script>
+// Avant le premier affichage : dans l'appli (iframe) ou page autonome, et thème choisi.
+(() => {
+  const r = document.documentElement;
+  try { if (window.parent !== window && window.parent.chessApp) r.classList.add("in-app"); } catch (e) {}
+  try { const t = localStorage.getItem("theme"); if (t === "clair") r.dataset.theme = "light"; else if (t === "sombre") r.dataset.theme = "dark"; } catch (e) {}
+})();
+</script>
 <div class="wrap">
   <header class="top">
     <div>
       <div class="eyebrow" id="eyebrow">Analyse chess.com</div>
       <h1 id="title">Kiuyte</h1>
-      <p class="meta" id="meta"></p>
     </div>
     <button class="theme-btn" id="themeBtn" type="button">Thème : auto</button>
   </header>
 
-  <section id="diag">
-    <div class="sec-head">
-      <h2 id="diagTitle">Diagnostic et conseils</h2>
-      <p id="diagIntro"></p>
+  <div class="head">
+    <div class="seg" id="tcSeg" role="group" aria-label="Cadence" hidden></div>
+    <div class="tabs" id="tabs" role="tablist" aria-label="Sections">
+      <button type="button" role="tab" data-tab="diag" id="navDiag" aria-selected="true">Conseils</button>
+      <button type="button" role="tab" data-tab="overview" aria-selected="false">Résultats</button>
+      <button type="button" role="tab" data-tab="openings" aria-selected="false">Ouvertures</button>
+      <button type="button" role="tab" data-tab="errors" aria-selected="false">Erreurs</button>
     </div>
-    <div class="diag" id="diagList"></div>
-  </section>
-
-  <nav class="filters" aria-label="Filtres">
-    <div class="row">
+    <div class="frow" id="frow" hidden>
       <div class="seg" role="group" aria-label="Couleur" id="colorSeg">
         <button type="button" data-v="all" aria-pressed="true">Toutes</button>
         <button type="button" data-v="w" aria-pressed="false">Blancs</button>
@@ -235,13 +269,17 @@ footer { font-size: 13px; color: var(--muted); border-top: 1px solid var(--line)
         <label for="to">au</label><select id="to"></select>
       </div>
     </div>
-    <div class="row jump">
-      <a href="#diag" id="navDiag">Conseils</a><a href="#overview">Vue d'ensemble</a><a href="#openings">Ouvertures</a><a href="#errors">Erreurs par phase</a>
-    </div>
-  </nav>
+  </div>
 
-  <section id="overview">
-    <div class="sec-head"><h2>Vue d'ensemble</h2></div>
+  <section id="diag">
+    <div class="sec-head">
+      <h2 id="diagTitle">Diagnostic et conseils</h2>
+      <p id="diagIntro"></p>
+    </div>
+    <div class="diag" id="diagList"></div>
+  </section>
+
+  <section id="overview" hidden>
     <div class="tiles" id="tiles"></div>
     <div class="charts">
       <div class="card">
@@ -256,20 +294,14 @@ footer { font-size: 13px; color: var(--muted); border-top: 1px solid var(--line)
     </div>
   </section>
 
-  <section id="openings">
-    <div class="sec-head">
-      <h2>Ouvertures</h2>
-      <p id="opIntro"></p>
-    </div>
+  <section id="openings" hidden>
+    <div class="sec-head"><p id="opIntro"></p></div>
     <div id="opAlert"></div>
     <div class="op-cols" id="opCols"></div>
   </section>
 
-  <section id="errors">
-    <div class="sec-head">
-      <h2>Erreurs par phase</h2>
-      <p id="errIntro"></p>
-    </div>
+  <section id="errors" hidden>
+    <div class="sec-head"><p id="errIntro"></p></div>
     <div id="errBody"></div>
   </section>
 
@@ -296,18 +328,30 @@ const months = [...new Set(D.games.map(g => g.m))].sort();
 const state = { color: "all", from: months[0], to: months[months.length - 1] };
 const charts = {};
 
-// ---------- En-tête ----------
+// ---------- En-tête et pied ----------
+const APP = (() => { try { return window.parent !== window ? window.parent.chessApp : null; } catch (e) { return null; } })();
 const engineTxt = D.engine.depth ? `profondeur ${D.engine.depth}` : `${D.engine.time} s par position`;
 $("eyebrow").textContent = `Analyse chess.com · ${D.tcLabel}`;
 $("title").textContent = `${D.player} · ${D.tcLabel}`;
 document.title = `Échecs ${D.player} ${D.tcLabel}`;
 const nAn = D.games.filter(g => g.a).length;
 const sinceD = new Date(D.since);
-$("meta").textContent = `${D.games.length} parties classées depuis ${MOIS_LONG[sinceD.getMonth()]} ${sinceD.getFullYear()}. `
-  + `Mes coups analysés par Stockfish 19 (${engineTxt}) dans ${nAn} parties. Données du ${D.generated.replace(" ", " à ")}.`;
-$("foot").innerHTML = `Source : API publique chess.com (site non affilié à chess.com). Le % de gain vient de l'évaluation en centipawns : `
+$("foot").innerHTML = `${D.games.length} parties classées en ${esc(D.tcLabel.toLowerCase())} depuis ${MOIS_LONG[sinceD.getMonth()]} ${sinceD.getFullYear()}. `
+  + `Tes coups analysés par Stockfish 19 (${engineTxt}) dans ${nAn} parties. Données du ${D.generated.replace(" ", " à ")}.<br>`
+  + `Source : API publique chess.com (site non affilié à chess.com). Le % de gain vient de l'évaluation en centipawns : `
   + `50 + 50 × (2 / (1 + e<sup>−0,00368 × cp</sup>) − 1). Une imprécision coûte au moins ${D.thresholds.inaccuracy} points de % de gain, `
   + `une erreur ${D.thresholds.mistake}, une gaffe ${D.thresholds.blunder}.`;
+
+// Cadences (dans l'appli) : un dashboard par cadence, on passe de l'un à l'autre ici.
+const dashes = (() => { try { return APP?.dashboards?.() || []; } catch (e) { return []; } })();
+if (dashes.length > 1) {
+  $("tcSeg").hidden = false;
+  $("tcSeg").innerHTML = dashes.map(d => `<button type="button" data-id="${esc(d.id)}" aria-pressed="${d.id === "dashboard-" + D.tc}">${esc(d.label)}</button>`).join("");
+  $("tcSeg").addEventListener("click", e => {
+    const b = e.target.closest("button[data-id]");
+    if (b && b.getAttribute("aria-pressed") !== "true") APP.go(b.dataset.id);
+  });
+}
 
 // ---------- Thème ----------
 const THEMES = ["auto", "clair", "sombre"];
@@ -442,7 +486,7 @@ function groupOpenings(list) {
 const isLow = t => t.n >= D.openings.minGames && t.score * 100 < D.openings.lowScore;
 function renderOpenings(list) {
   const { minGames, lowScore } = D.openings;
-  $("opIntro").textContent = `Regroupées par famille, puis par variante (touchez une famille pour voir ses variantes). `
+  $("opIntro").textContent = `Regroupées par famille : touche une famille pour voir ses variantes. `
     + `En rouge : jouée au moins ${minGames} fois avec un score sous ${lowScore} %.`;
   const colors = state.color === "all" ? ["w", "b"] : [state.color];
   const low = [];
@@ -491,9 +535,9 @@ $("opCols").addEventListener("keydown", e => { if ((e.key === "Enter" || e.key =
 function renderErrors(list) {
   const analyzed = list.filter(g => g.a);
   const th = D.thresholds;
-  $("errIntro").textContent = `Mes coups seulement, classés selon le % de gain perdu : imprécision ≥ ${th.inaccuracy} points, erreur ≥ ${th.mistake}, gaffe ≥ ${th.blunder}. `
+  $("errIntro").textContent = `Tes coups seulement, classés selon le % de gain perdu : imprécision ≥ ${th.inaccuracy} points, erreur ≥ ${th.mistake}, gaffe ≥ ${th.blunder}. `
     + `Ouverture = 12 premiers coups ; finale = un camp n'a plus que 13 points de pièces ou moins (hors pions).`;
-  if (!analyzed.length) { $("errBody").innerHTML = `<div class="empty">Aucune partie analysée par le moteur sur cette sélection. L'analyse se complète à chaque relance de <span class="mono">run.py</span>.</div>`; return; }
+  if (!analyzed.length) { $("errBody").innerHTML = `<div class="empty">Aucune partie analysée par le moteur sur cette sélection. L'analyse se complète à chaque mise à jour.</div>`; return; }
   const s = phaseStats(analyzed);
   const rate = (p, k) => p[0] ? p[k] / p[0] * 100 : 0;
   $("errBody").innerHTML = `<div class="charts">
@@ -503,11 +547,11 @@ function renderErrors(list) {
       <div class="tbl-wrap"><table><thead><tr><th>Phase</th><th class="r">Coups</th><th class="r">Impr.</th><th class="r">Erreurs</th><th class="r">Gaffes</th></tr></thead><tbody>
       ${s.map((p, i) => `<tr><td>${PH[i]}</td><td class="r">${p[0]}</td><td class="r">${fmt1(rate(p, 1))}</td><td class="r">${fmt1(rate(p, 2))}</td><td class="r rate">${fmt1(rate(p, 3))}</td></tr>`).join("")}
       </tbody></table></div>
-      <p class="cap">Taux pour 100 de mes coups dans la phase.</p></div>
+      <p class="cap">Taux pour 100 de tes coups dans la phase.</p></div>
     <div class="card"><h3>Erreurs + gaffes pour 100 coups, mois par mois</h3>
       <div class="legend"><span><i style="background:var(--s1)"></i>Ouverture</span><span><i style="background:var(--s2)"></i>Milieu</span><span><i style="background:var(--s3)"></i>Finale</span></div>
       <div class="chart-box"><canvas id="cTrend" aria-label="Évolution mensuelle des erreurs par phase"></canvas></div>
-      <p class="cap">Un point n'est tracé que si le mois compte au moins 30 de mes coups dans la phase.</p></div>
+      <p class="cap">Un point n'est tracé que si le mois compte au moins 30 de tes coups dans la phase.</p></div>
   </div>
   <p class="note">${analyzed.length} parties analysées sur ${list.length}. Les coups joués dans une position déjà perdue (moins de 5 % de gain) ou déjà gagnée et qui le reste (plus de 95 %, puis plus de 90 % après le coup) ne sont pas comptés.</p>`;
 
@@ -538,27 +582,28 @@ function renderErrors(list) {
 
 // ---------- Diagnostic (toute la période, non filtré) ----------
 const LVL = { priority: "Priorité", info: "À surveiller", good: "Point fort" };
-function card(c, lvl, withActions) {
+function card(c, lvl, withActions, open) {
   const max = Math.max(...c.bars.map(b => b.value), 1);
   const bars = c.bars.length ? `<div class="hbars"><span class="t">${esc(c.barsTitle)}</span>${c.bars.map(b =>
     `<div class="hbar"><span>${esc(b.label)}</span><span class="track"><span class="fill" style="width:${b.value / max * 100}%;display:block"></span></span><span class="val">${esc(b.text)}</span></div>`).join("")}</div>` : "";
   const links = withActions && c.links.length ? `<div class="pos-links">${c.links.map(l => `<a href="${esc(l.url)}" target="_blank" rel="noopener">${esc(l.label)} ↗</a>`).join("")}</div>` : "";
-  return `<article class="adv">
-    <div class="adv-head"><span class="lvl lvl-${c.level}">${lvl}</span><h3>${esc(c.title)}</h3></div>
-    <div class="adv-body"${withActions ? "" : ' style="grid-template-columns:minmax(0,1fr)"'}>
-      <div style="display:flex;flex-direction:column;gap:12px;min-width:0">
-        <div class="adv-metric"><span class="v">${esc(c.metric.value)}</span><span class="l">${esc(c.metric.label)}</span></div>
+  // Titre et chiffre clé toujours visibles ; le détail se déplie.
+  return `<details class="adv"${open ? " open" : ""}>
+    <summary><span class="lvl lvl-${c.level}">${lvl}</span><h3>${esc(c.title)}</h3>
+      <span class="adv-metric"><span class="v">${esc(c.metric.value)}</span><span class="l">${esc(c.metric.label)}</span></span></summary>
+    <div class="adv-body${withActions ? "" : " one"}">
+      <div>
         <ul>${c.facts.map(f => `<li>${esc(f)}</li>`).join("")}</ul>
         ${bars}
       </div>
-      <div style="display:flex;flex-direction:column;gap:12px;min-width:0">
+      <div>
         ${withActions ? `<div class="todo"><h4>Ce que tu peux faire</h4><ul>${c.actions.map(a => `<li>${esc(a)}</li>`).join("")}</ul></div>` : ""}
         ${links}
         ${withActions && c.train ? `<div>${trainLink(c.train)}</div>` : ""}
         ${c.note ? `<p class="note">${esc(c.note)}</p>` : ""}
       </div>
     </div>
-  </article>`;
+  </details>`;
 }
 
 // Bilan IA (Claude) : remplace les conseils automatiques ; les constats chiffrés restent en dessous, repliés.
@@ -568,22 +613,26 @@ function renderBilan() {
   const B = D.bilan, [y, m, j] = B.date.split("-");
   $("diagTitle").innerHTML = `Ton bilan <span class="ai-tag">✦ Bilan IA · ${+j} ${MOIS[+m - 1]} · ${D.games.length} parties</span>`;
   $("navDiag").textContent = "Bilan";
-  $("diagIntro").textContent = "";
+  $("diagIntro").hidden = true;
+  // Grand écran : les trois priorités dépliées. Téléphone : la première, les autres d'un toucher.
+  const wide = matchMedia("(min-width: 901px)").matches;
   let html = `<div class="bilan"><p class="lead">${esc(B.portrait)}</p>`;
   if (B.progres) html += `<p class="progress-note"><b>Depuis le dernier bilan</b> : ${esc(B.progres)}</p>`;
-  html += `<div class="strengths">${B.points_forts.map(p => `<div class="strength"><b>${esc(p.titre)}</b><span>${esc(p.detail)}</span></div>`).join("")}</div>`;
-  html += B.priorites.map((p, i) => `<article class="adv prio">
-      <div class="adv-head"><span class="lvl lvl-priority">Priorité ${i + 1}</span><h3>${esc(p.titre)}</h3></div>
-      <p>${esc(p.constat)}</p>
-      <p class="act">→ ${esc(p.action)}</p>
-      <div class="row">${p.entrainement ? trainLink(p.entrainement) : ""}
-        ${p.exemple ? `<span><a href="${esc(p.exemple.lien)}" target="_blank" rel="noopener">Voir un exemple dans tes parties ↗</a> — ${esc(p.exemple.explication)}</span>` : ""}</div>
-    </article>`).join("");
-  html += `<h3 class="sub">Ton plan sur 2 semaines</h3><div class="tbl-wrap"><table><tbody>${B.plan.map(x =>
-    `<tr><td>${esc(x.quand)}</td><td class="r">${x.minutes} min</td><td>${esc(x.activite)}${x.entrainement ? `<br>${trainLink(x.entrainement)}` : ""}</td></tr>`).join("")}</tbody></table></div>`;
-  html += `<h3 class="sub">Objectifs pour le prochain bilan</h3><div class="tbl-wrap"><table><thead><tr><th>Indicateur</th><th class="r">Aujourd'hui</th><th class="r">Cible</th></tr></thead><tbody>${B.objectifs.map(o =>
-    `<tr><td>${esc(o.indicateur)}</td><td class="r">${esc(o.actuel)}</td><td class="r">${esc(o.cible)}</td></tr>`).join("")}</tbody></table></div>`;
-  if (D.diag.length) html += `<details class="constats"><summary>Les constats chiffrés de Stockfish (${D.diag.length})</summary><div class="diag">${D.diag.map(c => card(c, LVL[c.level], false)).join("")}</div></details>`;
+  html += `<div class="bgrid"><div class="bcol"><h3 class="sub">Tes ${B.priorites.length} priorités</h3>` + B.priorites.map((p, i) => `<details class="adv prio"${wide || !i ? " open" : ""}>
+      <summary><span class="lvl lvl-priority">Priorité ${i + 1}</span><h3>${esc(p.titre)}</h3></summary>
+      <div class="prio-body">
+        <p>${esc(p.constat)}</p>
+        <p class="act">→ ${esc(p.action)}</p>
+        <div class="row">${p.entrainement ? trainLink(p.entrainement) : ""}
+          ${p.exemple ? `<span><a href="${esc(p.exemple.lien)}" target="_blank" rel="noopener">Voir un exemple dans tes parties ↗</a> — ${esc(p.exemple.explication)}</span>` : ""}</div>
+      </div>
+    </details>`).join("") + "</div>";
+  html += `<div class="bcol"><h3 class="sub">Tes points forts</h3>${B.points_forts.map(p => `<div class="strength"><b>${esc(p.titre)}</b><span>${esc(p.detail)}</span></div>`).join("")}`;
+  html += `<h3 class="sub">Ton plan sur 2 semaines</h3><div class="tbl-wrap card-t"><table><tbody>${B.plan.map(x =>
+    `<tr><td>${esc(x.quand)}</td><td class="r" style="white-space:nowrap">${x.minutes} min</td><td>${esc(x.activite)}${x.entrainement ? `<br>${trainLink(x.entrainement)}` : ""}</td></tr>`).join("")}</tbody></table></div>`;
+  html += `<h3 class="sub">Objectifs pour le prochain bilan</h3><div class="tbl-wrap card-t"><table><thead><tr><th>Indicateur</th><th class="r">Aujourd'hui</th><th class="r">Cible</th></tr></thead><tbody>${B.objectifs.map(o =>
+    `<tr><td>${esc(o.indicateur)}</td><td class="r">${esc(o.actuel)}</td><td class="r">${esc(o.cible)}</td></tr>`).join("")}</tbody></table></div></div></div>`;
+  if (D.diag.length) html += `<details class="constats"><summary>Les constats chiffrés de Stockfish (${D.diag.length})</summary><div class="diag">${D.diag.map(c => card(c, LVL[c.level], false, false)).join("")}</div></details>`;
   $("diagList").innerHTML = html + "</div>";
 }
 // Boutons « S'entraîner » (bilan IA ou diagnostic automatique) : dans l'appli, ouvrent l'onglet Exercices
@@ -601,7 +650,7 @@ window.__reloadOnUpdate = !D.bilan && !!D.bilanPending;
 function renderBilanPending() {
   $("diagTitle").textContent = "Ton bilan";
   $("navDiag").textContent = "Bilan";
-  $("diagIntro").textContent = "";
+  $("diagIntro").hidden = true;
   const n = D.games.length, tc = D.tcLabel.toLowerCase();
   const lines = [`Je relis tes ${n} parties de ${tc}…`, "Je repère ce qui te coûte le plus de points…",
     "Je compare tes ouvertures, ta pendule et tes erreurs par phase…", "Je choisis des exemples dans tes parties…",
@@ -626,27 +675,44 @@ function renderDiag() {
   if (D.bilanPending) return renderBilanPending();
   // Pas de bilan IA (trop peu de parties) : diagnostic automatique, et on le dit.
   $("diagTitle").innerHTML = `Diagnostic automatique <span class="auto-tag">sans IA</span>`;
-  if (D.bilanMin && D.games.length < D.bilanMin)
-    $("diagList").insertAdjacentHTML("beforebegin", `<p class="auto-note">✦ Ton bilan IA personnalisé arrivera à partir de ${D.bilanMin} parties `
-      + `en ${D.tcLabel.toLowerCase()} (tu en as ${D.games.length}). En attendant, voici un diagnostic calculé automatiquement à partir de tes parties.</p>`);
-  $("diagIntro").textContent = `Calculé sur toutes tes parties ${D.tcLabel.toLowerCase()} depuis ${MOIS_LONG[sinceD.getMonth()]} ${sinceD.getFullYear()}, `
-    + `blancs et noirs confondus : les filtres plus bas ne s'appliquent pas ici. Les priorités sont classées par nombre de parties en jeu.`;
+  const tc = D.tcLabel.toLowerCase();
+  $("diagIntro").textContent = (D.bilanMin && D.games.length < D.bilanMin
+      ? `Ton bilan IA personnalisé arrivera à partir de ${D.bilanMin} parties en ${tc} (tu en as ${D.games.length}). En attendant, voici un diagnostic calculé `
+      : "Calculé ")
+    + `sur toutes tes parties ${tc} depuis ${MOIS_LONG[sinceD.getMonth()]} ${sinceD.getFullYear()}, blancs et noirs confondus. Touche un constat pour le déplier.`;
   if (!D.diag.length) { $("diagList").innerHTML = `<div class="empty">Pas encore assez de parties analysées pour un diagnostic.</div>`; return; }
   let p = 0;
-  $("diagList").innerHTML = D.diag.map(c => card(c, c.level === "priority" ? `${LVL.priority} ${++p}` : LVL[c.level], true)).join("");
+  $("diagList").innerHTML = D.diag.map((c, i) => card(c, c.level === "priority" ? `${LVL.priority} ${++p}` : LVL[c.level], true, !i)).join("");
 }
 renderDiag();
 
-// ---------- Rendu ----------
+// ---------- Onglets et rendu ----------
+// Un seul onglet est affiché (et dessiné : Chart.js a besoin d'un canevas visible). L'onglet choisi est gardé
+// le temps de la visite, y compris en changeant de cadence.
+const TABS = ["diag", "overview", "openings", "errors"];
+let tab = "diag";
+try { const t = sessionStorage.getItem("dash-tab"); if (TABS.includes(t)) tab = t; } catch (e) {}
 let pending = false;
 function render() {
   if (pending) return; pending = true;
   requestAnimationFrame(() => {
     pending = false;
     const list = D.games.filter(inScope);
-    renderOverview(list); renderOpenings(list); renderErrors(list);
+    if (tab === "overview") renderOverview(list);
+    else if (tab === "openings") renderOpenings(list);
+    else if (tab === "errors") renderErrors(list);
   });
 }
-render();
+function showTab(t, byUser) {
+  tab = t;
+  if (byUser) try { sessionStorage.setItem("dash-tab", t); } catch (e) {}
+  for (const id of TABS) $(id).hidden = id !== t;
+  for (const b of $("tabs").children) b.setAttribute("aria-selected", String(b.dataset.tab === t));
+  $("frow").hidden = t === "diag";
+  if (byUser) scrollTo(0, 0);
+  render();
+}
+$("tabs").addEventListener("click", e => { const b = e.target.closest("button[data-tab]"); if (b) showTab(b.dataset.tab, true); });
+showTab(tab);
 })();
 </script>

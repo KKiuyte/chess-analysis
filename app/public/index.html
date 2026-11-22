@@ -10,8 +10,9 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700&family=Atkinson+Hyperlegible:wght@400;700&display=swap">
 <style>
-/* L'appli : une barre (compte + onglets) et, dessous, la page d'analyse dans une iframe.
-   Les pages (dashboards, exercices) sont les templates du pipeline, remplis avec les
+/* L'appli : une barre (onglets + compte) et la page d'analyse dans une iframe par onglet.
+   Ordinateur : barre en haut. Téléphone : onglets en bas, sous le pouce, et toute la hauteur pour la page.
+   Les pages (dashboards, exercices, parties, répertoire) sont les templates du pipeline, remplis avec les
    données Firestore. */
 :root {
   --bg: #f4f5f1; --surface: #fcfcfa; --fg: #171a17; --muted: #586058; --line: #dde1d9;
@@ -37,25 +38,42 @@ h1 { font-family: var(--f-display); font-size: clamp(28px, 6vw, 40px); line-heig
 p { margin: 0; }
 :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 
-.bar { border-bottom: 1px solid var(--line); background: var(--surface);
-  padding: max(8px, env(safe-area-inset-top)) max(16px, env(safe-area-inset-right)) 0 max(16px, env(safe-area-inset-left));
-  display: grid; grid-template-columns: 1fr auto; grid-template-areas: "brand me" "nav nav"; align-items: center; column-gap: 16px; }
-.brand { grid-area: brand; font-family: var(--f-display); font-weight: 700; font-size: 18px; color: var(--fg); text-decoration: none; padding: 6px 0; white-space: nowrap; }
-.me { grid-area: me; position: relative; }
-.me summary { list-style: none; cursor: pointer; display: flex; align-items: center; gap: 6px; padding: 8px 10px; border: 1px solid var(--line); border-radius: 999px; font-size: 14px; font-weight: 700; max-width: 46vw; }
+.bar { border-bottom: 1px solid var(--line); background: var(--surface); flex: none;
+  padding: max(6px, env(safe-area-inset-top)) max(16px, env(safe-area-inset-right)) 6px max(16px, env(safe-area-inset-left));
+  display: flex; align-items: center; gap: 16px; }
+.brand { font-family: var(--f-display); font-weight: 700; font-size: 18px; color: var(--fg); text-decoration: none; padding: 6px 0; white-space: nowrap; }
+nav { display: flex; gap: 2px; flex: 1; min-width: 0; }
+nav a { flex: none; display: flex; align-items: center; gap: 6px; padding: 8px 12px; border-radius: 8px; color: var(--muted); text-decoration: none; font-weight: 700; }
+nav a:hover { color: var(--fg); background: var(--accent-soft); }
+nav a[aria-current="page"] { color: var(--fg); background: var(--accent-soft); }
+nav svg, .me summary svg { width: 22px; height: 22px; flex: none; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; display: none; }
+.me { position: relative; margin-left: auto; }
+.me summary { list-style: none; cursor: pointer; display: flex; align-items: center; gap: 6px; padding: 8px 12px; border: 1px solid var(--line); border-radius: 999px; font-size: 14px; font-weight: 700; max-width: 46vw; }
 .me summary::-webkit-details-marker { display: none; }
 .me summary::after { content: "▾"; color: var(--muted); }
 .me .who { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.me .menu { position: absolute; right: 0; top: calc(100% + 6px); z-index: 5; background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 6px; display: flex; flex-direction: column; min-width: 200px; box-shadow: 0 8px 24px rgba(0, 0, 0, .12); }
-.me .menu button { font: inherit; text-align: left; background: none; border: 0; color: var(--fg); padding: 10px 12px; border-radius: 6px; cursor: pointer; }
+.me .lbl, .menu-who { display: none; }
+.me .menu { position: absolute; right: 0; top: calc(100% + 6px); z-index: 40; background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 6px; display: flex; flex-direction: column; min-width: 230px; box-shadow: 0 8px 24px rgba(0, 0, 0, .16); }
+.me .menu button { font: inherit; text-align: left; background: none; border: 0; color: var(--fg); padding: 11px 12px; border-radius: 8px; cursor: pointer; }
 .me .menu button:hover { background: var(--accent-soft); }
+.menu-who { padding: 8px 12px 6px; font-weight: 700; border-bottom: 1px solid var(--line); margin-bottom: 4px; overflow: hidden; text-overflow: ellipsis; }
+.menu-note { padding: 0 12px 8px; font-size: 12px; color: var(--muted); }
 .link { font: inherit; font-size: 13px; background: none; border: 0; color: var(--accent); cursor: pointer; padding: 6px 4px; text-decoration: underline; text-underline-offset: 2px; }
-nav { grid-area: nav; display: flex; gap: 2px; overflow-x: auto; scrollbar-width: none; margin: 0 -4px; }
-nav a { flex: none; padding: 8px 12px 10px; color: var(--muted); text-decoration: none; font-weight: 700; border-bottom: 3px solid transparent; }
-nav a[aria-current="page"] { color: var(--fg); border-bottom-color: var(--accent); }
-@media (min-width: 760px) {
-  .bar { grid-template-columns: auto 1fr auto; grid-template-areas: "brand nav me"; padding-top: max(0px, env(safe-area-inset-top)); }
-  nav { margin: 0; align-self: end; }
+/* Téléphone, une fois l'analyse disponible : la barre passe en bas et devient une barre d'onglets. */
+@media (max-width: 759px) {
+  body.has-nav { padding-top: env(safe-area-inset-top); }      /* plus de barre en haut pour protéger l'encoche */
+  body.has-nav .bar { order: 3; border-bottom: 0; border-top: 1px solid var(--line); gap: 0;
+    padding: 0 max(2px, env(safe-area-inset-right)) env(safe-area-inset-bottom) max(2px, env(safe-area-inset-left)); }
+  body.has-nav .brand { display: none; }
+  body.has-nav nav { gap: 0; }
+  body.has-nav nav a, body.has-nav .me summary { flex: 1 1 0; min-width: 0; flex-direction: column; gap: 2px; padding: 7px 2px 6px; border: 0; border-radius: 0;
+    font-size: 11px; font-weight: 700; color: var(--muted); background: none; max-width: none; justify-content: center; }
+  body.has-nav nav a[aria-current="page"], body.has-nav .me[open] summary { color: var(--accent); }
+  body.has-nav nav svg, body.has-nav .me summary svg { display: block; }
+  body.has-nav .me { flex: 0 0 19%; margin: 0; }
+  body.has-nav .me summary::after, body.has-nav .me .who { display: none; }
+  body.has-nav .me .lbl, body.has-nav .menu-who { display: block; }
+  body.has-nav .me .menu { top: auto; bottom: calc(100% + 6px); right: 6px; }
 }
 
 main { flex: 1; display: flex; flex-direction: column; min-height: 0; }
@@ -76,8 +94,16 @@ input { font: inherit; font-size: 17px; padding: 12px 14px; border-radius: 10px;
 .spin { width: 22px; height: 22px; border-radius: 50%; border: 3px solid var(--line); border-top-color: var(--accent); animation: spin 1s linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }
 @media (prefers-reduced-motion: reduce) { .spin { animation-duration: 3s; } }
-.upd { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 8px max(16px, env(safe-area-inset-right)) 8px max(16px, env(safe-area-inset-left)); background: var(--accent-soft); font-size: 14px; }
+/* Bandeau : un seul à la fois (mise à jour en cours > échec > nouveautés > information), sur une ligne. */
+.upd { flex: none; display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 4px max(8px, env(safe-area-inset-right)) 4px max(16px, env(safe-area-inset-left)); background: var(--accent-soft); font-size: 14px; }
 .upd.ko { background: color-mix(in srgb, var(--bad) 14%, var(--bg)); }
+.upd.info { background: var(--surface); border-bottom: 1px solid var(--line); }
+#updTxt { min-width: 0; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; padding: 4px 0; }
+.upd-act { display: flex; align-items: center; gap: 2px; flex: none; }
+.upd .link { font-size: 14px; font-weight: 700; padding: 6px 8px; white-space: nowrap; }
+.x { font: inherit; font-size: 15px; line-height: 1; width: 36px; height: 36px; border: 0; border-radius: 50%; background: none; color: var(--muted); cursor: pointer; }
+.x:hover { background: color-mix(in srgb, var(--fg) 8%, transparent); color: var(--fg); }
+@media (max-width: 759px) { .upd { font-size: 13px; padding-left: max(12px, env(safe-area-inset-left)); } }
 /* Écran d'attente */
 .wait { width: 100%; max-width: 1000px; margin: 0 auto; padding: 40px 16px 48px; display: grid; grid-template-columns: minmax(0, 1fr); gap: 32px; align-items: start; }
 @media (min-width: 820px) { .wait { grid-template-columns: minmax(0, 380px) minmax(0, 1fr); gap: 48px; padding-top: 56px; } }
@@ -118,8 +144,6 @@ input { font: inherit; font-size: 17px; padding: 12px 14px; border-radius: 10px;
 .steps .todo .t { font-weight: 400; }
 .steps .d { grid-column: 2; font-size: 14px; color: var(--muted); display: flex; flex-direction: column; gap: 6px; margin-top: 2px; }
 .num { font-variant-numeric: tabular-nums; }
-.upd.info { background: var(--surface); border-bottom: 1px solid var(--line); }
-.news-act { display: flex; gap: 8px; flex: none; }
 .prog { height: 8px; border-radius: 999px; background: var(--line); overflow: hidden; }
 .prog span { display: block; height: 100%; background: var(--accent); transition: width .4s; }
 /* Page d'accueil (non connecté) */
@@ -162,7 +186,18 @@ input { font: inherit; font-size: 17px; padding: 12px 14px; border-radius: 10px;
 .cta-end .btn { align-self: center; }
 .land .foot { text-align: center; }
 @media (max-width: 600px) { .land { gap: 40px; padding-top: 24px; } .demo-ex { grid-template-columns: 110px minmax(0, 1fr); } }
-iframe { flex: 1; width: 100%; border: 0; display: block; background: var(--bg); }
+#frames { flex: 1; min-height: 0; display: flex; }
+iframe { flex: 1; width: 100%; height: 100%; border: 0; display: block; background: var(--bg); }
+/* Téléphone : l'avancement d'abord, l'échiquier animé ensuite (il poussait la jauge hors de l'écran). */
+@media (max-width: 819px) {
+  .wait { padding-top: 20px; gap: 18px; }
+  .wait-main { display: contents; }
+  .wait-main > * { order: 5; }
+  .wait #pendEyebrow { order: 1; margin-bottom: -10px; } .wait h1 { order: 2; } .wait #gauge { order: 3; }
+  .wait #pendTxt { order: 3; } .wait #pendErr, .wait #bRetry, .wait #retryErr { order: 3; }
+  .wait-board { order: 4; max-width: 300px; }
+  .wait.failed .wait-board { display: none; }
+}
 </style>
 </head>
 <body>
@@ -170,17 +205,19 @@ iframe { flex: 1; width: 100%; border: 0; display: block; background: var(--bg);
   <a class="brand" href="#">♞ Analyse d'échecs</a>
   <nav id="nav" aria-label="Pages" hidden></nav>
   <details class="me" id="me" hidden>
-    <summary><span class="who" id="who">Compte</span></summary>
+    <summary><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 3.6-7 8-7s8 3 8 7"/></svg><span class="who" id="who">Compte</span><span class="lbl">Compte</span></summary>
     <div class="menu">
+      <div class="menu-who" id="menuWho"></div>
       <button type="button" id="bUpdate">Mettre à jour mes parties</button>
+      <p class="menu-note" id="updNote" hidden></p>
+      <button type="button" id="bTheme">Thème : auto</button>
       <button type="button" id="bPseudo">Changer de pseudo</button>
       <button type="button" id="bOut">Déconnexion</button>
     </div>
   </details>
 </header>
 
-<div class="upd" id="upd" role="status" aria-live="polite" hidden><span id="updTxt"></span><button class="link" id="updClose" type="button" hidden>Fermer</button></div>
-<div class="upd info" id="news" role="status" hidden><span id="newsTxt"></span><span class="news-act"><a class="link" href="#games" id="newsGo">Voir les parties</a><button class="link" id="newsClose" type="button">Fermer</button></span></div>
+<div class="upd" id="upd" role="status" aria-live="polite" hidden><span id="updTxt"></span><span class="upd-act"><a class="link" href="#games" id="updGo" hidden>Voir</a><button class="x" id="updClose" type="button" aria-label="Fermer" hidden>✕</button></span></div>
 
 <main>
   <section class="screen" id="vLoading" aria-live="polite">
@@ -206,7 +243,7 @@ iframe { flex: 1; width: 100%; border: 0; display: block; background: var(--bg);
       <figure class="demo" aria-label="Exemple de ce que tu retrouves le matin">
         <div class="demo-card">
           <div class="demo-head"><span class="eyebrow">Ce matin</span><span class="note">exemple</span></div>
-          <p class="demo-big">12 nouvelles parties · 7 V, 1 N, 4 D</p>
+          <p class="demo-big">12 nouvelles parties · 7&nbsp;V, 1&nbsp;N, 4&nbsp;D</p>
           <p class="demo-prio"><b>Priorité :</b> tu gaffes surtout en finale, deux fois plus qu'en ouverture.
             Active ton roi tôt quand les dames ont disparu.</p>
         </div>
@@ -288,7 +325,7 @@ iframe { flex: 1; width: 100%; border: 0; display: block; background: var(--bg);
     </figure>
     <div class="wait-main">
       <div class="eyebrow" id="pendEyebrow">Analyse en cours</div>
-      <h1>On analyse tes parties, <span id="pendWho"></span></h1>
+      <h1 id="pendTitle"></h1>
       <p class="lead" id="pendTxt"></p>
       <div class="gauge" id="gauge">
         <svg viewBox="0 0 120 120" aria-hidden="true"><circle class="trk" cx="60" cy="60" r="52"/><circle class="val" id="ringVal" cx="60" cy="60" r="52"/></svg>
@@ -303,7 +340,7 @@ iframe { flex: 1; width: 100%; border: 0; display: block; background: var(--bg);
     </div>
   </section>
 
-  <iframe id="frame" title="Analyse" hidden></iframe>
+  <div id="frames" hidden></div>
 </main>
 
 <script type="module">
@@ -324,31 +361,50 @@ const auth = getAuth(fb), db = getFirestore(fb);
 // Administrateur (même liste que firestore.rules) : seul compte qui peut changer de pseudo.
 const ADMINS = ["rxtIlspbUSc7QPuwop2OnIFHRWF3"];
 const $ = id => document.getElementById(id);
-const VIEWS = ["vLoading", "vLogin", "vPseudo", "vInvite", "vPending", "frame"];
+const VIEWS = ["vLoading", "vLogin", "vPseudo", "vInvite", "vPending", "frames"];
 const show = id => VIEWS.forEach(v => $(v).hidden = v !== id);
 
-// Thème : celui choisi dans les pages (même clé localStorage, même origine que l'iframe).
+// Thème : réglé ici (menu du compte) pour l'appli et pour les pages affichées (même origine, même
+// clé localStorage que les pages autonomes).
+const THEMES = ["auto", "clair", "sombre"];
+let theme = "auto";
+try { theme = localStorage.getItem("theme") || "auto"; } catch (e) {}
 function applyTheme() {
-  let t = "auto";
-  try { t = localStorage.getItem("theme") || "auto"; } catch (e) {}
-  const r = document.documentElement;
-  if (t === "clair") r.setAttribute("data-theme", "light");
-  else if (t === "sombre") r.setAttribute("data-theme", "dark");
-  else r.removeAttribute("data-theme");
+  const set = r => {
+    if (theme === "clair") r.setAttribute("data-theme", "light");
+    else if (theme === "sombre") r.setAttribute("data-theme", "dark");
+    else r.removeAttribute("data-theme");
+  };
+  set(document.documentElement);
+  for (const f of frames.values()) try { set(f.el.contentDocument.documentElement); } catch (e) {}
+  $("bTheme").textContent = "Thème : " + theme;
 }
-applyTheme();
-window.addEventListener("storage", e => { if (e.key === "theme") applyTheme(); });
+$("bTheme").addEventListener("click", () => {
+  theme = THEMES[(THEMES.indexOf(theme) + 1) % 3];
+  try { localStorage.setItem("theme", theme); } catch (e) {}
+  applyTheme();
+});
+window.addEventListener("storage", e => { if (e.key === "theme") { theme = e.newValue || "auto"; applyTheme(); } });
 
-let uid = null, pseudo = null, player = null, unsubPlayer = null, unsubReq = null, req = null, shown = null;
+let uid = null, pseudo = null, player = null, unsubPlayer = null, unsubReq = null, req = null;
 const tpl = {};
+// Une iframe par page ouverte, gardée en vie : changer d'onglet est immédiat et ne perd rien
+// (exercice en cours, partie ouverte, position dans une liste).
+const frames = new Map();          // id de page → { el, key (version affichée) }
+let current = null, routeSeq = 0;  // page affichée ; numéro du dernier chargement lancé
+applyTheme();
 
-// Utilisé par les pages dans l'iframe : progression des exercices dans le compte, et boutons
-// « S'entraîner » des bilans (ouvrent l'onglet Exercices avec un filtre).
-let exerciseFilter = null, gameTarget = null;
+// Utilisé par les pages dans leur iframe : progression des exercices dans le compte, boutons
+// « S'entraîner » (ouvrent l'onglet Exercices avec un filtre), relecture d'une partie, choix de la cadence.
+let exerciseFilter = null, gameTarget = null, progressUnsubs = [];
+const hasPage = id => !!player?.pages.some(pg => pg.id === id);
+const isDash = id => id.startsWith("dashboard");
+const stopProgress = () => { progressUnsubs.forEach(u => u()); progressUnsubs = []; };
 window.chessApp = {
   openExercises(f) {
-    if (!player?.pages.some(pg => pg.id === "exercises")) return;
+    if (!hasPage("exercises")) return;
     exerciseFilter = f;
+    dropFrames("exercises");          // rechargée avec le filtre demandé
     location.hash = "#exercises";
   },
   takeExerciseFilter() { const f = exerciseFilter; exerciseFilter = null; return f; },
@@ -359,22 +415,26 @@ window.chessApp = {
     return s.data().json;
   },
   openGame(id, ply) {
-    if (!player?.pages.some(pg => pg.id === "games")) return false;
-    gameTarget = { id, ply };
-    // Onglet Parties déjà affiché : la page ouvre la partie elle-même.
-    if (shown?.startsWith(`${pseudo}/games/`) && !$("frame").hidden) {
-      try { $("frame").contentWindow.__openGame?.(id, ply); gameTarget = null; } catch (e) {}
-      return true;
-    }
+    if (!hasPage("games")) return false;
+    // Onglet Parties déjà chargé et à jour : la page ouvre la partie elle-même.
+    const f = frames.get("games");
+    let direct = false;
+    if (f && f.key === pageKey("games")) try { direct = !!f.el.contentWindow.__openGame?.(id, ply); } catch (e) {}
+    if (!direct) { gameTarget = { id, ply }; dropFrames("games"); }
     location.hash = "#games";
     return true;
   },
   takeGameTarget() { const t = gameTarget; gameTarget = null; return t; },
+  // Dashboards disponibles (un par cadence) : chaque dashboard affiche ce choix lui-même.
+  dashboards() { return (player?.pages || []).filter(pg => isDash(pg.id)).map(pg => ({ id: pg.id, label: pg.label })); },
+  go(id) { if (hasPage(id)) location.hash = "#" + id; },
+  // Début de la visite précédente (ms) : les parties jouées depuis sont marquées « nouveau ».
+  visitSince() { return visitSince; },
   progressDoc() {
     if (!uid) return null;
     const ref = doc(db, "progress", uid);
     return {
-      onSnapshot: (cb, err) => onSnapshot(ref, s => cb({ exists: s.exists(), data: () => s.data() }), err),
+      onSnapshot: (cb, err) => { const u = onSnapshot(ref, s => cb({ exists: s.exists(), data: () => s.data() }), err); progressUnsubs.push(u); return u; },
       // Copie dans le contexte de l'appli : Firestore refuse les objets créés dans l'iframe
       // (« custom Object »), même identiques.
       set: v => setDoc(ref, JSON.parse(JSON.stringify(v))),
@@ -421,10 +481,10 @@ $("bLogin2").addEventListener("click", login);
 $("bOut").addEventListener("click", () => { $("me").open = false; signOut(auth); });
 
 onAuthStateChanged(auth, async u => {
-  unsubPlayer?.(); unsubPlayer = null; unsubReq?.(); unsubReq = null; player = null; req = null; shown = null;
-  $("upd").hidden = true; $("news").hidden = true; newsShown = false; visitSince = null;
-  $("frame").removeAttribute("srcdoc");
-  $("nav").hidden = true;
+  unsubPlayer?.(); unsubPlayer = null; unsubReq?.(); unsubReq = null; player = null; req = null;
+  $("upd").hidden = true; news = null; newsDone = false; visitSince = null;
+  dropFrames();
+  setNav(false);
   $("me").hidden = !u;
   uid = u?.uid || null;
   $("bPseudo").hidden = !ADMINS.includes(uid);
@@ -445,16 +505,23 @@ onAuthStateChanged(auth, async u => {
 });
 // Dernière visite : users/{uid}.seen (connexion) et lastVisit (la précédente, à plus d'une heure d'écart :
 // recharger la page ne fait pas disparaître le bandeau « depuis ta dernière visite »).
-let visitSince = null, newsShown = false;
+let visitSince = null, news = null, newsDone = false;
 function trackVisit(ud) {
   const prev = ud.seen?.toMillis?.() ?? null;
   if (prev && Date.now() - prev < 3600e3) return ud.lastVisit?.toMillis?.() ?? null;
   updateDoc(doc(db, "users", uid), { seen: serverTimestamp(), lastVisit: ud.seen ?? null }).catch(e => console.error(e));
   return prev;
 }
-async function showNews() {
-  if (newsShown || !visitSince || !player?.pages.some(pg => pg.id === "games")) return;
-  newsShown = true;
+// Bandeaux déjà fermés (par appareil) : ils ne reviennent pas à chaque chargement.
+const closedKey = "bandeaux-fermes";
+const closed = () => { try { return JSON.parse(localStorage.getItem(closedKey) || "[]"); } catch (e) { return []; } };
+const isClosed = k => closed().includes(k);
+const close = k => { try { localStorage.setItem(closedKey, JSON.stringify([...closed().filter(x => x !== k), k].slice(-20))); } catch (e) {} };
+async function loadNews() {
+  if (newsDone || !visitSince || !hasPage("games")) return;
+  newsDone = true;
+  const key = `news:${pseudo}:${visitSince}`;
+  if (isClosed(key)) return;
   try {
     const snap = await getDoc(doc(db, "players", pseudo, "pages", "games"));
     if (!snap.exists()) return;
@@ -462,16 +529,13 @@ async function showNews() {
     if (!items.length) return;
     const n = r => items.filter(x => x.r === r).length;
     const blunders = items.reduce((a, x) => a + x.q[2], 0), ex = items.reduce((a, x) => a + (x.ex || 0), 0);
-    const d = new Date(visitSince);
-    $("newsTxt").textContent = `Depuis ta dernière visite (${d.toLocaleDateString("fr-FR", { day: "numeric", month: "long" })}) : `
-      + [plural(items.length, "nouvelle partie").replace("nouvelle parties", "nouvelles parties"),
-         `${n("W")} V, ${n("D")} N, ${n("L")} D`, plural(blunders, "gaffe"),
-         ex ? plural(ex, "nouvel exercice").replace("nouvel exercices", "nouveaux exercices") : ""].filter(Boolean).join(" · ") + ".";
-    $("news").hidden = false;
+    // Court : le bandeau doit tenir sur une ligne de téléphone. La date de la visite précédente est en infobulle.
+    news = { key, title: `Depuis ta dernière visite, le ${new Date(visitSince).toLocaleDateString("fr-FR", { day: "numeric", month: "long" })}`,
+      txt: `${items.length > 1 ? `${items.length} nouvelles parties` : "1 nouvelle partie"} : ${n("W")} V, ${n("D")} N, ${n("L")} D`
+        + ` · ${blunders ? plural(blunders, "gaffe") : "aucune gaffe"}` + (ex ? ` · ${ex > 1 ? `${ex} nouveaux exercices` : "1 nouvel exercice"}` : "") };
+    renderUpd();
   } catch (e) { console.error(e); }
 }
-$("newsClose").addEventListener("click", () => { $("news").hidden = true; });
-$("newsGo").addEventListener("click", () => { $("news").hidden = true; });
 
 // Invitation : par compte (uid) ou par adresse Gmail. La règle Firestore fait foi, ceci n'est que l'affichage.
 async function isInvited(u) {
@@ -519,7 +583,7 @@ $("fPseudo").addEventListener("submit", async e => {
 // ---------- Analyse du joueur ----------
 function watch(p) {
   unsubPlayer?.(); unsubReq?.();
-  shown = null; req = null; player = null; $("upd").hidden = true;
+  dropFrames(); req = null; player = null; $("upd").hidden = true;
   // L'écran d'attente n'est décidé qu'une fois les deux documents (joueur, demande) connus.
   let reqLoaded = false, playerLoaded = false, asked = false;
   const maybePending = () => {
@@ -533,16 +597,16 @@ function watch(p) {
     maybePending();
     renderUpd();
   }, e => console.error(e));
-  $("who").textContent = p;
+  $("who").textContent = $("menuWho").textContent = p;
   loading("Chargement de ton analyse…");
   unsubPlayer = onSnapshot(doc(db, "players", p), snap => {
     playerLoaded = true;
-    if (!snap.exists()) { player = null; $("nav").hidden = true; return maybePending(); }
+    if (!snap.exists()) { player = null; setNav(false); return maybePending(); }
     player = snap.data();
     renderUpd();
     renderNav();
     route(true);
-    showNews();
+    loadNews();
   }, fail);
 }
 
@@ -725,14 +789,15 @@ function whyDenied() {
 
 // Joueur pas encore publié : écran d'attente, alimenté en direct par requests/{pseudo}.
 function pending(p) {
-  $("pendWho").textContent = p;
+  $("pendTitle").textContent = req?.status === "error" ? "L'analyse s'est arrêtée" : `On analyse tes parties, ${p}`;
   show("vPending");
   setMini(req);
-  if (!req) { $("pendTxt").textContent = "Envoi de ta demande…"; $("steps").innerHTML = ""; $("pendErr").hidden = $("bRetry").hidden = true; return; }
+  if (!req) { $("pendTxt").hidden = false; $("pendTxt").textContent = "Envoi de ta demande…"; $("steps").innerHTML = ""; $("pendErr").hidden = $("bRetry").hidden = true; return; }
   const err = req.status === "error";
+  $("vPending").classList.toggle("failed", err);
   $("pendEyebrow").textContent = err ? "Analyse interrompue" : "Analyse en cours";
-  $("pendTxt").textContent = err ? "L'analyse n'a pas abouti."
-    : req.status === "running" ? "Chacun de tes coups est passé au crible : tes dashboards, tes exercices et ton bilan arrivent."
+  $("pendTxt").hidden = err;
+  $("pendTxt").textContent = req.status === "running" ? "Chacun de tes coups est passé au crible : tes dashboards, tes exercices et ton bilan arrivent."
     : "Démarrage de l'analyse, quelques secondes…";
   renderSteps(req);
   $("steps").hidden = err && !req.found;
@@ -747,20 +812,30 @@ $("bRetry").addEventListener("click", async () => {
   catch (e) { $("retryErr").textContent = e.code === "permission-denied" ? "Tu pourras relancer 10 minutes après l'échec." : "Relance impossible, réessaie plus tard."; $("retryErr").hidden = false; }
 });
 
-// Joueur déjà publié : bandeau quand une mise à jour tourne ou vient d'échouer.
-let skipClosed = null;
+// Joueur déjà publié : un seul bandeau à la fois, du plus important au moins important.
+//   message ponctuel > mise à jour en cours > mise à jour en échec > nouveautés depuis la dernière visite
+//   > cadences sans dashboard. Les deux derniers se ferment une fois pour toutes (par appareil).
+let banner = null, koClosed = null;
 function renderUpd(msg) {
-  const ko = !msg && req?.status === "error" && player && req.finished && (!player.updated || req.finished.toMillis() > player.updated.toMillis());
-  const skip = !msg && !ko && !busy(req) && player?.skipped?.length && skipClosed !== pseudo
-    ? `Pas de dashboard pour ${skippedTxt(player.skipped).replace(/ · /g, " ; ")}.` : "";
-  const txt = msg || (player && busy(req) ? `Mise à jour en cours — ${stepTxt(req)}` : ko ? `Mise à jour impossible : ${req.error}` : skip);
-  $("updTxt").textContent = txt;
-  $("upd").classList.toggle("ko", !!ko);
-  $("upd").classList.toggle("info", !!skip && txt === skip);
-  $("updClose").hidden = !msg && !ko && !skip;
-  $("upd").hidden = !txt;
+  const ko = req?.status === "error" && player && req.finished && (!player.updated || req.finished.toMillis() > player.updated.toMillis());
+  const skipKey = player?.skipped?.length ? `skip:${pseudo}:${player.skipped.map(x => x.tc + x.n).join()}` : null;
+  banner = msg ? { txt: msg, x: true }
+    : player && busy(req) ? { txt: `Mise à jour en cours — ${stepTxt(req)}` }
+    : ko && koClosed !== req.finished.toMillis() ? { txt: `Mise à jour impossible : ${req.error}`, cls: "ko", x: true, onClose: () => { koClosed = req.finished.toMillis(); } }
+    : news && !isClosed(news.key) ? { txt: news.txt, title: news.title, cls: "info", x: true, go: true, onClose: () => close(news.key) }
+    : skipKey && !isClosed(skipKey) ? { txt: `Pas de dashboard pour ${skippedTxt(player.skipped).replace(/ · /g, " ; ")}.`, cls: "info", x: true, onClose: () => close(skipKey) }
+    : null;
+  $("upd").hidden = !banner;
+  if (!banner) return;
+  $("updTxt").textContent = banner.txt;
+  $("updTxt").title = banner.title || "";
+  $("upd").className = "upd" + (banner.cls ? " " + banner.cls : "");
+  $("updClose").hidden = !banner.x;
+  $("updGo").hidden = !banner.go;
 }
-$("updClose").addEventListener("click", () => { if ($("upd").classList.contains("info")) skipClosed = pseudo; $("upd").hidden = true; });
+function closeBanner() { banner?.onClose?.(); renderUpd(); }
+$("updClose").addEventListener("click", closeBanner);
+$("updGo").addEventListener("click", closeBanner);
 $("bUpdate").addEventListener("click", async () => {
   $("me").open = false;
   if (!pseudo) return;
@@ -768,45 +843,105 @@ $("bUpdate").addEventListener("click", async () => {
   try { await requestAnalysis(pseudo); }
   catch (e) { renderUpd(e.code === "permission-denied" ? whyDenied() : "Mise à jour impossible pour l'instant."); }
 });
+// Menu du compte : date de la dernière mise à jour, rappelée sous le bouton.
+$("me").addEventListener("toggle", () => {
+  const t = player?.updated;
+  $("updNote").hidden = !t?.toDate;
+  if (t?.toDate) $("updNote").textContent = `Dernière analyse : ${fmtTime(t)}. Tes nouvelles parties sont analysées chaque nuit.`;
+});
 
+// ---------- Onglets ----------
+// Un onglet « Bilan » pour tous les dashboards (la cadence se choisit dans la page), puis un par page.
+const ICONS = {
+  bilan: '<path d="M3 20h18M6 20v-8M12 20V5M18 20v-11"/>',
+  exercises: '<circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="4.5"/><circle cx="12" cy="12" r=".8"/>',
+  games: '<rect x="3.5" y="3.5" width="17" height="17" rx="2"/><path d="M12 3.5v17M3.5 12h17"/>',
+  repertoire: '<path d="M12 6.5C10 5 7.5 4.5 4 4.5v13c3.5 0 6 .5 8 2 2-1.5 4.5-2 8-2v-13c-3.5 0-6 .5-8 2zM12 6.5v13"/>',
+};
+const LABELS = { exercises: "Exercices", games: "Parties", repertoire: "Répertoire" };
+function tabs() {
+  const out = [], dash = player.pages.filter(pg => isDash(pg.id));
+  if (dash.length) out.push({ key: "bilan", label: "Bilan", ids: dash.map(pg => pg.id) });
+  for (const pg of player.pages) if (!isDash(pg.id)) out.push({ key: pg.id, label: LABELS[pg.id] || pg.label, ids: [pg.id] });
+  return out;
+}
+// Dashboard ouvert par l'onglet « Bilan » : la dernière cadence consultée.
+function lastDash(ids) {
+  let id = null;
+  try { id = localStorage.getItem("cadence"); } catch (e) {}
+  return ids.includes(id) ? id : ids[0];
+}
+function setNav(on) { $("nav").hidden = !on; document.body.classList.toggle("has-nav", on); }
 function renderNav() {
-  $("nav").innerHTML = player.pages.map(pg => `<a href="#${pg.id}">${pg.label}</a>`).join("");
-  $("nav").hidden = false;
+  $("nav").innerHTML = tabs().map(t => `<a href="#${t.key === "bilan" ? lastDash(t.ids) : t.key}" data-ids="${t.ids.join(" ")}">`
+    + `<svg viewBox="0 0 24 24" aria-hidden="true">${ICONS[t.key] || ICONS.games}</svg><span>${t.label}</span></a>`).join("");
+  setNav(true);
+}
+function markNav(id) {
+  for (const a of $("nav").querySelectorAll("a")) {
+    const on = a.dataset.ids.split(" ").includes(id);
+    on ? a.setAttribute("aria-current", "page") : a.removeAttribute("aria-current");
+    if (on && isDash(id)) { a.setAttribute("href", "#" + id); try { localStorage.setItem("cadence", id); } catch (e) {} }
+  }
 }
 
+// ---------- Pages ----------
+const pageKey = id => `${pseudo}/${id}/${player?.updated?.toMillis?.() ?? ""}`;
+function dropFrames(only) {
+  for (const [id, f] of [...frames]) if (!only || id === only) {
+    if (id === "exercises") stopProgress();
+    f.el.remove(); frames.delete(id);
+  }
+  if (!only) { current = null; routeSeq++; }
+}
+function showFrame(id) {
+  const changed = current !== id || $("frames").hidden;
+  for (const [k, f] of frames) f.el.hidden = k !== id;
+  current = id;
+  show("frames");
+  // Le clavier suit l'onglet (flèches pendant une relecture, Entrée pour l'exercice suivant).
+  if (changed) try { frames.get(id).el.contentWindow.focus(); } catch (e) {}
+}
 // fromUpdate : appel dû à une nouvelle publication. La page affichée n'est jamais rechargée sous les
-// yeux (exercice en cours…) : la nouvelle version vient au prochain changement d'onglet.
+// yeux (exercice en cours…) : la nouvelle version vient quand on revient sur l'onglet.
 async function route(fromUpdate) {
   if (!player) return;
-  const pages = player.pages;
-  const id = pages.some(pg => pg.id === location.hash.slice(1)) ? location.hash.slice(1) : pages[0].id;
-  $("nav").querySelectorAll("a").forEach(a => a.getAttribute("href") === "#" + id ? a.setAttribute("aria-current", "page") : a.removeAttribute("aria-current"));
-  let reloadable = false;   // page qui attend son bilan IA : on peut la recharger sans rien interrompre
-  try { reloadable = !!$("frame").contentWindow?.__reloadOnUpdate; } catch (e) {}
-  if (fromUpdate && !$("frame").hidden && shown?.startsWith(`${pseudo}/${id}/`) && !reloadable) return;
-  // Recharger seulement si la page ou sa version publiée a changé.
-  const key = `${pseudo}/${id}/${player.updated?.toMillis?.() ?? ""}`;
-  if (shown === key) return show("frame");
-  shown = key;
+  const pages = player.pages, want = location.hash.slice(1);
+  const dash = pages.filter(pg => isDash(pg.id)).map(pg => pg.id);
+  const id = pages.some(pg => pg.id === want) ? want : dash.length ? lastDash(dash) : pages[0].id;
+  markNav(id);
+  const key = pageKey(id), f = frames.get(id);
+  if (f) {
+    let reloadable = false;   // page qui attend son bilan IA : on peut la recharger sans rien interrompre
+    try { reloadable = !!f.el.contentWindow?.__reloadOnUpdate; } catch (e) {}
+    if (f.key === key || (fromUpdate === true && current === id && !$("frames").hidden && !reloadable)) return showFrame(id);
+  }
+  const seq = ++routeSeq;
   loading("Chargement de la page…");
   try {
-    const kind = id.startsWith("dashboard") ? "dashboard" : ["games", "repertoire"].includes(id) ? id : "exercises";
+    const kind = isDash(id) ? "dashboard" : ["games", "repertoire"].includes(id) ? id : "exercises";
     tpl[kind] ??= fetch(`views/${kind}.html`).then(r => { if (!r.ok) throw new Error(r.status); return r.text(); });
+    tpl[kind].catch(() => { delete tpl[kind]; });      // un échec n'est pas gardé en cache
     const [html, snap] = await Promise.all([tpl[kind], getDoc(doc(db, "players", pseudo, "pages", id))]);
-    if (shown !== key) return;
+    if (seq !== routeSeq) return;
     if (!snap.exists()) throw new Error("page absente : " + id);
     const json = snap.data().json.replace(/</g, "\\u003c");
     const frag = html.split("__TITLE__").join("Analyse d'échecs").split("__DATA__").join(json);
-    $("frame").srcdoc = '<!doctype html><html lang="fr"><head><meta charset="utf-8">'
+    dropFrames(id);
+    const el = document.createElement("iframe");
+    el.title = pages.find(pg => pg.id === id)?.label || "Analyse";
+    el.srcdoc = '<!doctype html><html lang="fr"><head><meta charset="utf-8">'
       + '<meta name="viewport" content="width=device-width, initial-scale=1">'
       + "<style>[hidden]{display:none!important}</style></head><body>" + frag
       // Une page srcdoc résout « #ancre » contre l'URL de l'appli : on fait défiler nous-mêmes.
       + "<script>document.addEventListener('click',e=>{const a=e.target.closest('a[href^=\"#\"]');if(!a)return;e.preventDefault();"
-      + "document.getElementById(a.getAttribute('href').slice(1))?.scrollIntoView({behavior:'smooth'});});<\/script></body></html>";
-    show("frame");
-  } catch (e) { shown = null; fail(e); }
+      + "const t=a.getAttribute('href').slice(1);t&&document.getElementById(t)?.scrollIntoView({behavior:'smooth'});});<\/script></body></html>";
+    $("frames").appendChild(el);
+    frames.set(id, { el, key });
+    showFrame(id);
+  } catch (e) { if (seq === routeSeq) fail(e); }
 }
-window.addEventListener("hashchange", route);
+window.addEventListener("hashchange", () => route(false));
 </script>
 </body>
 </html>
