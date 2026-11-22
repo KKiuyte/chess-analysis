@@ -3,7 +3,9 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700&family=Atkinson+Hyperlegible:wght@400;700&family=JetBrains+Mono:wght@400;600&display=swap">
 <style>
-/* Parties : liste filtrable, puis relecture d'une partie (échiquier, courbe d'évaluation, coups annotés).
+/* Parties : une liste filtrable (elle défile), puis la relecture d'une partie sur un seul écran, sans
+   défilement : échiquier dimensionné à la place disponible, courbe, explication du coup, coups, commandes.
+   Écran en hauteur : tout empilé, commandes en bas. Écran en largeur : échiquier à gauche, panneau à droite.
    La fiche de chaque partie est chargée à la demande par l'appli (players/{pseudo}/games/{id}). */
 :root {
   --bg: #f4f5f1; --surface: #fcfcfa; --fg: #171a17; --muted: #586058; --faint: #8a918a;
@@ -38,63 +40,93 @@
   color-scheme: dark;
 }
 * { box-sizing: border-box; }
-body {
-  background: var(--bg); color: var(--fg); font-family: var(--f-body); font-size: 15px; line-height: 1.5; margin: 0;
-  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
-  padding-block: 0 48px;
-}
-.wrap { max-width: 1040px; margin: 0 auto; display: flex; flex-direction: column; gap: 20px; }
-h1, h2, h3 { font-family: var(--f-display); text-wrap: balance; margin: 0; line-height: 1.15; }
-h1 { font-size: clamp(28px, 6vw, 40px); font-weight: 700; letter-spacing: -.01em; }
-h2 { font-size: 22px; font-weight: 700; }
+[hidden] { display: none !important; }
+html, body { height: 100%; }
+body { margin: 0; background: var(--bg); color: var(--fg); font-family: var(--f-body); font-size: 15px; line-height: 1.45; }
+h1, h2 { font-family: var(--f-display); margin: 0; line-height: 1.15; }
 p { margin: 0; }
 a { color: var(--accent); }
 :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
-.eyebrow { font-size: 12px; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); font-weight: 700; }
 .muted { color: var(--muted); }
 .mono { font-family: var(--f-mono); font-weight: 600; }
 .num { font-variant-numeric: tabular-nums; }
-.top { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; padding-top: 28px; flex-wrap: wrap; }
-.top .meta { color: var(--muted); max-width: 62ch; margin-top: 8px; }
-.theme-btn { font: inherit; font-size: 13px; color: var(--fg); background: var(--surface); border: 1px solid var(--line); border-radius: 999px; padding: 6px 12px; cursor: pointer; }
 
-/* Liste */
-.fbody { display: flex; flex-wrap: wrap; gap: 10px 16px; align-items: center; }
-.seg { display: inline-flex; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; background: var(--surface); flex-wrap: wrap; }
-.seg button { font: inherit; font-size: 14px; border: 0; background: none; color: var(--fg); padding: 8px 12px; cursor: pointer; min-height: 40px; }
+.app { min-height: 100%; max-width: 1160px; margin: 0 auto; display: flex; flex-direction: column;
+  padding: env(safe-area-inset-top, 0px) max(12px, env(safe-area-inset-right, 0px)) 0 max(12px, env(safe-area-inset-left, 0px)); }
+/* Titre : seulement hors de l'appli, où aucun onglet ne nomme la page. */
+.top { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding-top: 10px; }
+.top h1 { font-size: 20px; }
+.in-app .top { display: none; }
+.pill { font: inherit; font-size: 13px; color: var(--fg); background: var(--surface); border: 1px solid var(--line); border-radius: 999px; padding: 6px 12px; cursor: pointer; white-space: nowrap; }
+
+/* ---------- Liste ---------- */
+#vList { display: flex; flex-direction: column; padding-bottom: 32px; }
+.lbar { position: sticky; top: 0; z-index: 5; background: var(--bg); display: flex; flex-wrap: wrap; gap: 8px; align-items: center; padding: 8px 0; }
+.seg { display: inline-flex; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; background: var(--surface); }
+.seg button { font: inherit; font-size: 14px; border: 0; background: none; color: var(--fg); padding: 7px 11px; cursor: pointer; min-height: 38px; }
 .seg button[aria-pressed="true"] { background: var(--accent); color: var(--bg); font-weight: 700; }
-.count { font-size: 14px; color: var(--muted); }
+.seg .sm { display: none; }
+.count { font-size: 13px; color: var(--muted); margin-left: auto; white-space: nowrap; }
+.note { font-size: 14px; background: var(--accent-soft); border-radius: var(--r); padding: 10px 12px; margin-bottom: 8px; }
 .list { display: flex; flex-direction: column; border: 1px solid var(--line); border-radius: var(--r); overflow: hidden; background: var(--surface); }
-.row { all: unset; box-sizing: border-box; cursor: pointer; display: grid; grid-template-columns: 34px minmax(0, 1fr) auto; gap: 4px 12px; align-items: center; padding: 12px 14px; border-top: 1px solid var(--line); }
+.row { all: unset; box-sizing: border-box; cursor: pointer; display: grid; grid-template-columns: 30px minmax(0, 1fr) auto; grid-template-areas: "res who chips" "res sub sub"; gap: 1px 10px; align-items: center; padding: 9px 12px; border-top: 1px solid var(--line); }
 .row:first-child { border-top: 0; }
 .row:hover { background: var(--accent-soft); }
 .row:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
-.res { width: 34px; height: 34px; border-radius: 8px; display: grid; place-items: center; font-weight: 700; color: #fff; grid-row: span 2; }
+.res { grid-area: res; width: 30px; height: 30px; border-radius: 8px; display: grid; place-items: center; font-weight: 700; color: #fff; }
 .res.W { background: var(--win); } .res.L { background: var(--loss); } .res.D { background: var(--draw); }
-.row .who { font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; display: flex; align-items: center; gap: 8px; }
-.row .who .dot { width: 12px; height: 12px; border-radius: 50%; border: 1px solid var(--faint); flex: none; }
-.row .sub { grid-column: 2; font-size: 13px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.row .right { grid-column: 3; grid-row: 1 / span 2; display: flex; flex-direction: column; align-items: flex-end; gap: 4px; font-size: 13px; color: var(--muted); }
-.chips { display: flex; gap: 4px; }
+.row .who { grid-area: who; font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dot { display: inline-block; width: 11px; height: 11px; border-radius: 50%; border: 1px solid var(--faint); margin-right: 7px; vertical-align: -1px; }
+.row .elo { font-weight: 400; color: var(--muted); }
+.new { display: inline-block; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; color: var(--accent); background: var(--accent-soft); border-radius: 999px; padding: 0 7px; margin-left: 6px; vertical-align: 1px; }
+.row .sub { grid-area: sub; font-size: 13px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.row .meta::after { content: " · "; }
+.chips { grid-area: chips; display: flex; gap: 4px; font-size: 13px; color: var(--muted); white-space: nowrap; }
 .chip { font-size: 12px; font-weight: 700; border-radius: 999px; padding: 1px 8px; }
 .chip.k1 { color: var(--k1); background: var(--k1-bg); } .chip.k2 { color: var(--k2); background: var(--k2-bg); } .chip.k3 { color: var(--k3); background: var(--k3-bg); }
-.more { align-self: center; }
-.btn { font: inherit; font-size: 15px; border-radius: 8px; padding: 9px 16px; cursor: pointer; border: 1px solid var(--line); background: var(--surface); color: var(--fg); min-height: 44px; }
-.btn.primary { background: var(--accent); color: var(--bg); border-color: var(--accent); font-weight: 700; }
-.btn[disabled] { opacity: .45; cursor: default; }
+.more { align-self: center; margin-top: 14px; }
+.btn { font: inherit; font-size: 15px; border-radius: 10px; padding: 8px 16px; cursor: pointer; border: 1px solid var(--line); background: var(--surface); color: var(--fg); min-height: 44px; }
+.btn[disabled] { opacity: .4; cursor: default; }
 .empty { background: var(--surface); border: 1px dashed var(--line); border-radius: var(--r); padding: 28px 16px; text-align: center; color: var(--muted); }
+footer { font-size: 13px; color: var(--muted); padding-top: 18px; }
+@media (min-width: 760px) {
+  .row { grid-template-columns: 30px minmax(0, 1.1fr) minmax(0, 1.4fr) minmax(0, 1fr) 132px; grid-template-areas: "res who open meta chips"; padding: 7px 14px; }
+  .row .sub { display: contents; }
+  .row .open, .row .meta { font-size: 13px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .row .open { grid-area: open; } .row .meta { grid-area: meta; }
+  .row .meta::after { content: none; }
+  .chips { justify-content: flex-end; }
+}
+@media (max-width: 480px) {
+  .seg .lg { display: none; } .seg .sm { display: inline; }
+  /* « nouveau » devient un simple point : le nom de l'adversaire garde la place. */
+  .new { font-size: 0; width: 8px; height: 8px; padding: 0; background: var(--accent); vertical-align: 2px; }
+}
 
-/* Relecture */
-.back { all: unset; cursor: pointer; color: var(--accent); font-weight: 700; padding: 8px 0; align-self: flex-start; }
-.ghead { display: flex; flex-direction: column; gap: 4px; }
-.ghead .meta { color: var(--muted); font-size: 14px; }
-.ghead .meta a { margin-left: 6px; }
-.view { display: grid; grid-template-columns: 1fr; gap: 20px; align-items: start; }
-@media (min-width: 860px) { .view { grid-template-columns: minmax(0, 520px) minmax(0, 1fr); } }
-.board-wrap { position: relative; width: 100%; max-width: 520px; margin: 0 auto; display: flex; flex-direction: column; gap: 6px; }
-.clock { display: flex; justify-content: space-between; font-size: 14px; color: var(--muted); }
+/* ---------- Relecture : un écran ---------- */
+.playing .app { height: 100vh; height: 100dvh; min-height: 0; }
+.game { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+.ghead { display: flex; align-items: center; gap: 10px; padding: 6px 0; min-height: 40px; width: 100%; max-width: 640px; align-self: center; }
+.back { all: unset; cursor: pointer; color: var(--accent); font-weight: 700; white-space: nowrap; padding: 6px 8px 6px 0; }
+.gt { flex: 1; min-width: 0; display: flex; align-items: baseline; gap: 12px; }
+.gt b { font-family: var(--f-display); font-size: 18px; white-space: nowrap; }
+.gt span { font-size: 14px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ghead a { font-size: 14px; white-space: nowrap; }
+.ghead .clock { display: none; flex: 1; min-width: 0; }
+/* Scène : la place restante. Son format (cqw, cqh) fixe la taille de l'échiquier. */
+.stage { flex: 1; min-height: 0; container-type: size; display: flex; flex-direction: column; gap: 6px;
+  padding-bottom: max(6px, env(safe-area-inset-bottom, 0px));
+  /* pendule du bas + courbe + explication (au moins) + coups + commandes + espacements */
+  --b: max(200px, min(100cqw, 640px, 100cqh - 208px)); }
+.board-col, .panel { display: contents; }
+/* Tablette tenue en hauteur : tout reste aligné sur la largeur de l'échiquier. */
+.stage > *, .board-col > *, .panel > * { max-width: 640px; }
+.curve, .info, .moves, .ctrl { width: 100%; align-self: center; }
+.clock { display: flex; justify-content: space-between; align-items: center; gap: 10px; font-size: 14px; color: var(--muted); line-height: 18px; }
+.clock span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .clock b { color: var(--fg); font-family: var(--f-mono); font-weight: 600; }
-.board { position: relative; display: grid; grid-template-columns: repeat(8, minmax(0, 1fr)); aspect-ratio: 1; width: 100%; border-radius: 6px; overflow: hidden; container-type: inline-size; touch-action: pan-y; user-select: none; }
+#clkTop { display: none; }
+.board { order: 2; align-self: center; flex: none; width: var(--b); position: relative; display: grid; grid-template-columns: repeat(8, minmax(0, 1fr)); aspect-ratio: 1; border-radius: 6px; overflow: hidden; container-type: inline-size; touch-action: pan-y; user-select: none; -webkit-user-select: none; cursor: pointer; }
 .board .sq { position: relative; aspect-ratio: 1; min-width: 0; min-height: 0; display: flex; align-items: center; justify-content: center; font-size: 10.5cqi; line-height: 1; }
 .board .l { background: var(--sq-light); } .board .d { background: var(--sq-dark); }
 .board .sq::after { content: ""; position: absolute; inset: 0; pointer-events: none; }
@@ -107,103 +139,136 @@ a { color: var(--accent); }
 .board .co.f { right: 6%; bottom: 3%; } .board .co.r { left: 6%; top: 3%; }
 .board .l .co { color: var(--sq-dark); } .board .d .co { color: var(--sq-light); }
 .arrows { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 2; }
-.ctrl { display: flex; gap: 6px; }
-.ctrl .btn { flex: 1 1 0; padding: 8px 4px; font-size: 18px; line-height: 1; }
-.ctrl .btn.jump { font-size: 13px; }
-.panel { display: flex; flex-direction: column; gap: 14px; min-width: 0; }
-.card { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); padding: 14px; }
-.curve svg { width: 100%; height: 110px; display: block; cursor: pointer; touch-action: pan-y; }
-.curve .lbl { display: flex; justify-content: space-between; font-size: 12px; color: var(--muted); margin-bottom: 4px; }
-.info { display: flex; flex-direction: column; gap: 6px; min-height: 92px; }
+#clkBot { order: 3; align-self: center; width: var(--b); }
+.curve { order: 4; }
+.curve .lbl { display: none; justify-content: space-between; font-size: 12px; color: var(--muted); margin-bottom: 4px; }
+.curve svg { width: 100%; height: 34px; display: block; cursor: ew-resize; touch-action: none; border-radius: 6px; background: var(--surface); border: 1px solid var(--line); }
+.info { order: 5; flex: 1; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; gap: 3px; overscroll-behavior: contain; }
+.vrow { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; }
 .info .v { font-weight: 700; font-size: 16px; }
 .info .v.k1 { color: var(--k1); } .info .v.k2 { color: var(--k2); } .info .v.k3 { color: var(--k3); } .info .v.ok { color: var(--win); }
+.info .w { font-size: 14px; color: var(--muted); white-space: nowrap; }
 .info .d { font-size: 14px; color: var(--muted); }
-.moves { display: grid; grid-template-columns: 40px 1fr 1fr; gap: 2px 4px; max-height: 340px; overflow-y: auto; font-size: 14px; padding: 8px; }
-.moves .no { color: var(--faint); text-align: right; padding: 4px 6px 4px 0; font-variant-numeric: tabular-nums; }
-.moves button { all: unset; cursor: pointer; padding: 4px 8px; border-radius: 6px; font-family: var(--f-mono); font-weight: 400; white-space: nowrap; }
+/* Coups : un ruban horizontal sous l'échiquier, une liste à deux colonnes quand il y a la place. */
+.moves { order: 6; flex: none; display: flex; align-items: center; gap: 2px; overflow-x: auto; white-space: nowrap; scrollbar-width: none; font-size: 14px; height: 30px; }
+.moves::-webkit-scrollbar { display: none; }
+.moves .no { color: var(--faint); font-variant-numeric: tabular-nums; padding-left: 6px; }
+.moves button { all: unset; cursor: pointer; padding: 4px 7px; border-radius: 6px; font-family: var(--f-mono); font-weight: 400; white-space: nowrap; }
 .moves button.mine { font-weight: 600; }
 .moves button:hover { background: var(--accent-soft); }
 .moves button[aria-current="true"] { background: var(--accent); color: var(--bg); }
 .moves .k1 { color: var(--k1); } .moves .k2 { color: var(--k2); } .moves .k3 { color: var(--k3); }
 .moves button[aria-current="true"].k1, .moves button[aria-current="true"].k2, .moves button[aria-current="true"].k3 { color: var(--bg); }
-.legend { display: flex; flex-wrap: wrap; gap: 4px 14px; font-size: 13px; color: var(--muted); }
+.legend { display: none; flex-wrap: wrap; gap: 4px 14px; font-size: 13px; color: var(--muted); }
 .legend span::before { content: ""; display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 6px; vertical-align: -1px; background: currentColor; }
 .legend .k1 { color: var(--k1); } .legend .k2 { color: var(--k2); } .legend .k3 { color: var(--k3); }
 .legend .ar { color: var(--arrow); }
-@media (max-width: 859px) {
-  .wrap { gap: 14px; }
-
-  .top { padding-top: 14px; align-items: center; flex-wrap: nowrap; }
-  .top .eyebrow, .top .meta { display: none; }
-  h1 { font-size: 22px; }
-  .theme-btn { flex: none; padding: 4px 10px; font-size: 12px; }
-  .view { gap: 8px; }
-  .panel, .board-wrap { display: contents; }
-  #clkTop { order: 1; } .board { order: 2; } #clkBot { order: 3; }
-  .info { order: 4; }
-  .curve { order: 5; }
-  .moves { order: 6; max-height: 220px; }
-  .legend { order: 7; }
-  .ctrl { order: 8; position: sticky; bottom: 0; z-index: 20; margin: 0 -16px; padding: 8px 16px calc(8px + env(safe-area-inset-bottom, 0px)); background: var(--bg); border-top: 1px solid var(--line); }
+.ctrl { order: 7; flex: none; display: flex; gap: 6px; }
+.ctrl .btn { flex: 1 1 0; min-width: 0; padding: 6px 2px; font-size: 18px; line-height: 1; min-height: 44px; }
+.ctrl .btn.jump { font-size: 13px; flex: 1.5 1 0; white-space: nowrap; }
+/* Téléphone bas (ou bandeau affiché) : le ruban des coups cède sa place à l'échiquier. */
+@media (max-height: 500px) and (max-aspect-ratio: 6/5) { .moves { display: none; } .stage { --b: max(180px, min(100cqw, 100cqh - 172px)); } }
+@media (max-aspect-ratio: 6/5), (max-width: 639px) {
+  /* L'adversaire prend la ligne du haut, à côté du retour : une ligne de gagnée pour l'échiquier. */
+  .gt, .back span, .info .wide { display: none; }
+  .ghead { padding: 2px 0; min-height: 36px; }
+  .ghead .clock { display: flex; }
+  .back { font-size: 20px; padding-right: 4px; }
 }
-footer { font-size: 13px; color: var(--muted); border-top: 1px solid var(--line); padding-top: 16px; }
+@media (min-aspect-ratio: 6/5) and (min-width: 640px) {
+  .app { padding-inline: max(20px, env(safe-area-inset-left, 0px)) max(20px, env(safe-area-inset-right, 0px)); }
+  .stage { flex-direction: row; justify-content: center; gap: 24px; padding-bottom: 14px; --b: max(160px, min(100cqh - 112px, 100cqw - 384px, 720px)); }
+  .board-col { display: flex; flex-direction: column; gap: 6px; flex: none; width: var(--b); }
+  #clkTop { display: flex; }
+  .board, #clkBot { order: 0; width: 100%; }
+  .ctrl { order: 0; }
+  .ctrl .btn { min-height: 42px; }
+  .stage > *, .board-col > *, .panel > * { max-width: none; }
+  .ghead { max-width: none; }
+  .panel { display: flex; flex-direction: column; gap: 10px; flex: 1; min-width: 0; max-width: 480px; height: calc(var(--b) + 112px); }
+  .info, .curve, .moves { order: 0; background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); padding: 12px 14px; }
+  .info { flex: none; min-height: 88px; gap: 5px; overflow: visible; }
+  .curve .lbl { display: flex; }
+  .curve svg { height: 92px; border: 0; background: none; border-radius: 0; }
+  .moves { flex: 1; min-height: 0; height: auto; display: grid; grid-template-columns: 40px 1fr 1fr; gap: 2px 4px; align-content: start; overflow-x: hidden; overflow-y: auto; white-space: normal; scrollbar-width: thin; padding: 8px; }
+  .moves .no { text-align: right; padding: 4px 6px 4px 0; }
+  .moves button { padding: 4px 8px; }
+  .legend { display: flex; flex: none; }
+}
+/* Écran large mais très bas (téléphone couché) : on ne garde que l'essentiel autour de l'échiquier. */
+@media (min-aspect-ratio: 6/5) and (min-width: 640px) and (max-height: 430px) {
+  .stage { gap: 14px; padding-bottom: 8px; --b: max(140px, min(100cqh - 48px, 100cqw - 300px)); }
+  #clkTop, #clkBot, .legend, .curve .lbl { display: none; }
+  .panel { height: 100cqh; gap: 6px; }
+  .info { min-height: 0; padding: 8px 10px; }
+  .curve { padding: 6px; }
+  .curve svg { height: 34px; }
+  .moves { padding: 4px; }
+  .ctrl .btn { min-height: 38px; }
+  #bStart, #bEnd { display: none; }
+}
 </style>
+<script>
+// Avant le premier affichage : dans l'appli (iframe) ou page autonome, et thème choisi.
+(() => {
+  const r = document.documentElement;
+  try { if (window.parent !== window && window.parent.chessApp) r.classList.add("in-app"); } catch (e) {}
+  try { const t = localStorage.getItem("theme"); if (t === "clair") r.dataset.theme = "light"; else if (t === "sombre") r.dataset.theme = "dark"; } catch (e) {}
+})();
+</script>
 
-<div class="wrap">
+<div class="app">
   <header class="top">
-    <div>
-      <div class="eyebrow">Tes parties, coup par coup</div>
-      <h1 id="title"></h1>
-      <p class="meta" id="meta"></p>
-    </div>
-    <button class="theme-btn" id="themeBtn" type="button">Thème : auto</button>
+    <h1 id="title"></h1>
+    <button class="pill" id="themeBtn" type="button">Thème : auto</button>
   </header>
 
   <section id="vList">
-    <div class="fbody" style="margin-bottom:14px">
+    <div class="lbar">
       <div class="seg" id="fTc" role="group" aria-label="Cadence"></div>
       <div class="seg" id="fRes" role="group" aria-label="Résultat"></div>
       <span class="count" id="count"></span>
     </div>
+    <p class="note" id="lNote" role="status" hidden></p>
     <div class="list" id="list"></div>
     <div class="empty" id="lEmpty" hidden>Aucune partie dans cette sélection.</div>
-    <p style="text-align:center;margin-top:14px"><button class="btn more" id="bMore" type="button" hidden>Afficher plus</button></p>
+    <button class="btn more" id="bMore" type="button" hidden>Afficher plus</button>
+    <footer id="foot"></footer>
   </section>
 
-  <section id="vGame" hidden>
+  <section class="game" id="vGame" hidden>
     <div class="ghead">
-      <button class="back" id="bBack" type="button">← Toutes les parties</button>
-      <h2 id="gTitle"></h2>
-      <p class="meta" id="gMeta"></p>
+      <button class="back" id="bBack" type="button" aria-label="Retour à la liste des parties">←<span> Parties</span></button>
+      <div class="gt"><b id="gTitle"></b><span id="gMeta"></span></div>
+      <div class="clock" id="clkTopM"></div>
+      <a id="gLink" target="_blank" rel="noopener">chess.com ↗</a>
     </div>
-    <div class="view" style="margin-top:14px">
-      <div class="board-wrap">
+    <p class="empty" id="gErr" hidden></p>
+    <div class="stage" id="stage">
+      <div class="board-col">
         <div class="clock" id="clkTop"></div>
         <div class="board" id="board" role="img" aria-label="Échiquier"></div>
         <div class="clock" id="clkBot"></div>
         <div class="ctrl">
           <button class="btn" id="bStart" type="button" aria-label="Début de la partie">⏮</button>
-          <button class="btn jump" id="bPrevErr" type="button">‹ Faute</button>
+          <button class="btn jump" id="bPrevErr" type="button" aria-label="Faute précédente">‹ Faute</button>
           <button class="btn" id="bPrev" type="button" aria-label="Coup précédent">◀</button>
           <button class="btn" id="bNext" type="button" aria-label="Coup suivant">▶</button>
-          <button class="btn jump" id="bNextErr" type="button">Faute ›</button>
+          <button class="btn jump" id="bNextErr" type="button" aria-label="Faute suivante">Faute ›</button>
           <button class="btn" id="bEnd" type="button" aria-label="Fin de la partie">⏭</button>
         </div>
       </div>
       <div class="panel">
-        <div class="card info" id="info" aria-live="polite"></div>
-        <div class="card curve">
-          <div class="lbl"><span>Tes chances de gain</span><span id="curveNow"></span></div>
-          <svg id="curve" viewBox="0 0 400 100" preserveAspectRatio="none" role="img" aria-label="Courbe d'évaluation de la partie"></svg>
+        <div class="info" id="info" aria-live="polite"></div>
+        <div class="curve">
+          <div class="lbl"><span>Tes chances de gain, coup après coup</span><span id="curveNow"></span></div>
+          <svg id="curve" viewBox="0 0 400 100" preserveAspectRatio="none" role="img" aria-label="Courbe de tes chances de gain : touche ou glisse pour aller à un coup"></svg>
         </div>
-        <div class="card moves" id="moves"></div>
+        <div class="moves" id="moves"></div>
         <div class="legend"><span class="k1">Imprécision ?!</span><span class="k2">Erreur ?</span><span class="k3">Gaffe ??</span><span class="ar">Flèche : coup de Stockfish</span></div>
       </div>
     </div>
-    <p class="empty" id="gErr" hidden></p>
   </section>
-
-  <footer id="foot"></footer>
 </div>
 
 <script>
@@ -218,7 +283,7 @@ const FILES = "abcdefgh";
 const START = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR";
 const RES = { W: "Victoire", L: "Défaite", D: "Nulle" };
 const RES1 = { W: "V", L: "D", D: "N" };
-const KLBL = ["", "Imprécision", "Erreur", "Gaffe"], KSYM = ["", "?!", "?", "??"];
+const KLBL = ["", "Imprécision", "Erreur", "Gaffe"], KPL = ["", "imprécision", "erreur", "gaffe"], KSYM = ["", "?!", "?", "??"];
 const HOW = { checkmated: "mat", resigned: "abandon", timeout: "temps", abandoned: "partie abandonnée", agreed: "nulle par accord",
   repetition: "répétition", stalemate: "pat", insufficient: "matériel insuffisant", "50move": "règle des 50 coups",
   timevsinsufficient: "temps contre matériel insuffisant", win: "" };
@@ -226,12 +291,10 @@ const app = (() => { try { return window.parent !== window ? window.parent.chess
 
 $("title").textContent = `${D.player} · Parties`;
 document.title = `Parties ${D.player}`;
-$("meta").textContent = `${D.items.length} parties depuis ${dateLabel(D.since)}. Choisis-en une pour la rejouer : courbe d'évaluation, `
-  + "tes imprécisions, erreurs et gaffes, et le coup que Stockfish aurait joué.";
-$("foot").textContent = "Seuls tes coups sont évalués en détail : les fautes de l'adversaire se lisent sur la courbe. "
+$("foot").textContent = `Tes parties depuis le ${dateLabel(D.since)}. Seuls tes coups sont évalués en détail : les fautes de l'adversaire se lisent sur la courbe. `
   + "Données issues de l'API publique chess.com (site non affilié à chess.com).";
 
-// ---------- Thème ----------
+// ---------- Thème (hors appli : dans l'appli, il se règle dans le menu du compte) ----------
 const THEMES = ["auto", "clair", "sombre"];
 let theme = "auto";
 try { theme = localStorage.getItem("theme") || "auto"; } catch (e) {}
@@ -247,28 +310,32 @@ $("themeBtn").addEventListener("click", () => {
   try { localStorage.setItem("theme", theme); } catch (e) {}
   applyTheme();
 });
-applyTheme();
+if (theme !== "auto") applyTheme();
 
 // ---------- Liste ----------
 const filt = { tc: "all", r: "all" };
 const PAGE = 40;
 let shownN = PAGE;
+// Parties jouées depuis la visite précédente : marquées « nouveau ».
+const since = (() => { try { return app?.visitSince?.() || null; } catch (e) { return null; } })();
 function seg(el, key, opts) {
-  el.innerHTML = opts.map(([v, l]) => `<button type="button" data-v="${v}" aria-pressed="${filt[key] === v}">${esc(l)}</button>`).join("");
+  el.innerHTML = opts.map(([v, l, short]) => `<button type="button" data-v="${v}" aria-pressed="${filt[key] === v}"${short ? ` aria-label="${esc(l)}"` : ""}>`
+    + (short ? `<span class="lg">${esc(l)}</span><span class="sm">${esc(short)}</span>` : esc(l)) + "</button>").join("");
   el.onclick = e => {
     const b = e.target.closest("button"); if (!b) return;
     filt[key] = b.dataset.v; shownN = PAGE;
     el.querySelectorAll("button").forEach(x => x.setAttribute("aria-pressed", x === b));
+    $("lNote").hidden = true;
     renderList();
   };
 }
 const tcs = [...new Set(D.items.map(x => x.tc))];
-if (tcs.length > 1) seg($("fTc"), "tc", [["all", "Toutes cadences"], ...tcs.map(t => [t, D.tcLabels[t] || t])]);
+if (tcs.length > 1) seg($("fTc"), "tc", [["all", "Toutes"], ...tcs.map(t => [t, D.tcLabels[t] || t])]);
 else $("fTc").hidden = true;
-seg($("fRes"), "r", [["all", "Tous résultats"], ["W", "Victoires"], ["D", "Nulles"], ["L", "Défaites"]]);
+seg($("fRes"), "r", [["all", "Tous"], ["W", "Victoires", "V"], ["D", "Nulles", "N"], ["L", "Défaites", "D"]]);
 
 function chipsOf(q) {
-  return [3, 2, 1].filter(k => q[k - 1]).map(k => `<span class="chip k${k}" title="${q[k - 1]} ${KLBL[k].toLowerCase()}${q[k - 1] > 1 ? "s" : ""}">${q[k - 1]} ${KSYM[k]}</span>`).join("");
+  return [3, 2, 1].filter(k => q[k - 1]).map(k => `<span class="chip k${k}" title="${q[k - 1]} ${KPL[k]}${q[k - 1] > 1 ? "s" : ""}">${q[k - 1]} ${KSYM[k]}</span>`).join("");
 }
 function renderList() {
   const rows = D.items.filter(x => (filt.tc === "all" || x.tc === filt.tc) && (filt.r === "all" || x.r === filt.r));
@@ -279,10 +346,9 @@ function renderList() {
     const how = HOW[x.rd] ?? "";
     return `<button class="row" type="button" data-id="${esc(x.id)}">
       <span class="res ${x.r}" aria-label="${RES[x.r]}">${RES1[x.r]}</span>
-      <span class="who"><span class="dot" style="background:${x.c === "w" ? "#fff" : "#111"}" aria-label="${x.c === "w" ? "blancs" : "noirs"}"></span>${esc(x.o)} <span class="muted num" style="font-weight:400">(${x.oe ?? "?"})</span></span>
-      <span class="sub">${esc(x.f || "Ouverture inconnue")}${x.v ? " · " + esc(x.v) : ""}</span>
-      <span class="right"><span>${dateLabel(x.d)} · ${esc(D.tcLabels[x.tc] || x.tc)}${how ? " · " + how : ""}</span>
-        <span class="chips">${x.a ? chipsOf(x.q) || '<span class="muted">sans faute</span>' : '<span class="muted">non analysée</span>'}</span></span>
+      <span class="who"><span class="dot" style="background:${x.c === "w" ? "#fff" : "#111"}" title="Tu avais les ${x.c === "w" ? "blancs" : "noirs"}"></span>${esc(x.o)} <span class="elo num">(${x.oe ?? "?"})</span>${since && x.t * 1000 > since ? '<span class="new">nouveau</span>' : ""}</span>
+      <span class="sub"><span class="meta">${dateLabel(x.d)} · ${esc(D.tcLabels[x.tc] || x.tc)}${how ? " · " + how : ""}</span><span class="open">${esc(x.f || "Ouverture inconnue")}${x.v ? " · " + esc(x.v) : ""}</span></span>
+      <span class="chips">${x.a ? chipsOf(x.q) || "sans faute" : "non analysée"}</span>
     </button>`;
   }).join("");
   $("bMore").hidden = rows.length <= shownN;
@@ -318,30 +384,43 @@ function applyUci(pos, uci) {
 
 // ---------- Relecture ----------
 // G : { x (entrée de la liste), m (demi-coups), pos[i] (position après i demi-coups), w[i] (% de gain après i), i }
-let G = null, loadSeq = 0;
+let G = null, loadSeq = 0, listScroll = 0;
+const howTxt = x => HOW[x.rd] ? ` (${HOW[x.rd]})` : "";
+function setView(game) {
+  document.documentElement.classList.toggle("playing", game);
+  $("vList").hidden = game; $("vGame").hidden = !game;
+}
 async function openGame(id, ply) {
   const x = D.items.find(g => g.id === id);
-  if (!x) return;
+  if (!x) {
+    // Partie hors de la période affichée (exercice tiré d'une partie plus ancienne).
+    backToList();
+    $("lNote").textContent = "Cette partie est plus ancienne que la période affichée : elle n'est plus disponible à la relecture.";
+    $("lNote").hidden = false;
+    return true;
+  }
   const seq = ++loadSeq;
-  $("vList").hidden = true; $("vGame").hidden = false;
+  if ($("vGame").hidden) listScroll = scrollY;
+  setView(true);
+  G = null;
   $("gTitle").textContent = `${x.c === "w" ? D.player : x.o} – ${x.c === "w" ? x.o : D.player}`;
-  const how = HOW[x.rd] ?? "";
-  $("gMeta").innerHTML = `${RES[x.r]}${how ? " (" + how + ")" : ""} · ${dateLabel(x.d)} · ${esc(D.tcLabels[x.tc] || x.tc)} · `
-    + `${esc(x.f || "")}${x.v ? " · " + esc(x.v) : ""} <a href="${esc(x.u)}" target="_blank" rel="noopener">chess.com ↗</a>`;
-  $("info").innerHTML = '<span class="d">Chargement de la partie…</span>';
-  $("gErr").hidden = true;
-  window.scrollTo({ top: 0 });
+  $("gMeta").textContent = `${RES[x.r]}${howTxt(x)} · ${dateLabel(x.d)} · ${D.tcLabels[x.tc] || x.tc}${x.f ? " · " + x.f : ""}${x.v ? " · " + x.v : ""}`;
+  $("gLink").href = x.u;
+  $("info").innerHTML = '<p class="d">Chargement de la partie…</p>';
+  $("gErr").hidden = true; $("stage").hidden = false;
+  $("moves").innerHTML = ""; $("curve").innerHTML = ""; $("board").innerHTML = "";
+  $("clkTop").innerHTML = $("clkTopM").innerHTML = `<span>${esc(x.o)} (${x.oe ?? "?"})</span>`; $("clkBot").innerHTML = "";
   let fiche = null;
   try {
     if (!app?.gameJson) throw new Error("hors appli");
     fiche = JSON.parse(await app.gameJson(id));
   } catch (e) {
-    if (seq !== loadSeq) return;
+    if (seq !== loadSeq) return true;
     $("gErr").textContent = app?.gameJson ? "Partie introuvable pour l'instant : réessaie après la prochaine mise à jour." : "La relecture des parties est disponible dans l'appli.";
-    $("gErr").hidden = false; $("info").innerHTML = "";
-    return;
+    $("gErr").hidden = false; $("stage").hidden = true;
+    return true;
   }
-  if (seq !== loadSeq) return;
+  if (seq !== loadSeq) return true;
   const pos = [parseFen(START)], w = [null];
   fiche.m.forEach((e, p) => {
     pos.push(applyUci(pos[p], e[1]));
@@ -351,8 +430,13 @@ async function openGame(id, ply) {
   G = { x, m: fiche.m, pos, w, i: 0, flip: x.c === "b" };
   renderMoves();
   go(ply != null ? Math.min(ply + 1, fiche.m.length) : 0);
+  return true;
 }
-function backToList() { loadSeq++; G = null; $("vGame").hidden = true; $("vList").hidden = false; }
+// Retour à la liste, là où on l'avait laissée.
+function backToList() {
+  loadSeq++; G = null;
+  if ($("vList").hidden) { setView(false); scrollTo(0, listScroll); }
+}
 $("bBack").addEventListener("click", backToList);
 // Ouverture depuis un autre onglet de l'appli (bouton « Rejouer la partie » d'un exercice) ou par l'appli elle-même.
 window.__openGame = (id, ply) => openGame(id, ply);
@@ -367,8 +451,7 @@ function renderMoves() {
     const k = e.length > 5 ? e[5] : 0;
     h += `<button type="button" data-p="${p}" class="${mine(p) ? "mine" : ""}${k ? " k" + k : ""}">${esc(e[0])}${k ? KSYM[k] : ""}</button>`;
   });
-  if (G.m.length % 2) h += "<span></span>";
-  $("moves").innerHTML = h || '<span class="muted" style="grid-column:1/-1">Aucun coup joué.</span>';
+  $("moves").innerHTML = h || '<span class="muted">Aucun coup joué.</span>';
 }
 $("moves").addEventListener("click", e => { const b = e.target.closest("button[data-p]"); if (b) go(+b.dataset.p + 1); });
 
@@ -377,12 +460,14 @@ function go(i) {
   G.i = Math.max(0, Math.min(G.m.length, i));
   drawBoard(); drawCurve(); renderInfo(); renderClocks();
   $("moves").querySelectorAll("button[aria-current]").forEach(b => b.removeAttribute("aria-current"));
-  const cur = $("moves").querySelector(`button[data-p="${G.i - 1}"]`);
+  const cur = $("moves").querySelector(`button[data-p="${G.i - 1}"]`), box = $("moves");
   if (cur) {
     cur.setAttribute("aria-current", "true");
-    const box = $("moves"), top = cur.offsetTop - box.offsetTop;
-    if (top < box.scrollTop || top > box.scrollTop + box.clientHeight - 30) box.scrollTop = top - box.clientHeight / 2;
-  }
+    // Le coup courant reste visible : au milieu du ruban (horizontal) ou de la liste (verticale).
+    const b = box.getBoundingClientRect(), c = cur.getBoundingClientRect();
+    if (c.left < b.left + 24 || c.right > b.right - 24) box.scrollLeft += c.left - b.left - (b.width - c.width) / 2;
+    if (c.top < b.top || c.bottom > b.bottom) box.scrollTop += c.top - b.top - (b.height - c.height) / 2;
+  } else { box.scrollLeft = 0; box.scrollTop = 0; }
   $("bPrev").disabled = $("bStart").disabled = G.i === 0;
   $("bNext").disabled = $("bEnd").disabled = G.i === G.m.length;
   $("bPrevErr").disabled = errAt(-1) == null;
@@ -434,21 +519,26 @@ function renderClocks() {
   // Pendule de chaque camp après son dernier coup joué jusqu'ici.
   const clk = side => { for (let p = G.i - 1; p >= 0; p--) if ((p % 2 === 0) === (side === "w") && G.m[p][2] != null) return G.m[p][2]; return null; };
   const me = G.x.c, opp = me === "w" ? "b" : "w";
-  const line = (name, side) => `<span>${esc(name)}</span><b>${fmtClock(clk(side))}</b>`;
-  $("clkTop").innerHTML = line(G.x.o, opp);
-  $("clkBot").innerHTML = line(D.player, me);
+  const line = (name, elo, side) => `<span><span class="dot" style="background:${side === "w" ? "#fff" : "#111"}"></span>${esc(name)}${elo ? ` (${elo})` : ""}</span><b>${fmtClock(clk(side))}</b>`;
+  $("clkTop").innerHTML = $("clkTopM").innerHTML = line(G.x.o, G.x.oe, opp);
+  $("clkBot").innerHTML = line(D.player, G.x.me, me);
 }
 
 function renderInfo() {
-  const i = G.i, e = i ? G.m[i - 1] : null;
+  const i = G.i, e = i ? G.m[i - 1] : null, x = G.x;
   const moveNo = p => `${Math.floor(p / 2) + 1}${p % 2 ? "…" : "."}`;
-  let v = "", cls = "", d = [];
+  let v = "", cls = "", w = "", d = [];
   if (!e) {
-    v = "Position de départ";
-    d.push(`Avance avec ▶, les flèches du clavier ou en glissant sur l'échiquier. ${G.m.length ? "Les boutons « Faute » sautent directement à tes erreurs." : ""}`);
+    // Avant le premier coup : la partie en une phrase, et ce qu'il y a à y voir.
+    v = `${RES[x.r]}${howTxt(x)} contre ${x.o}`;
+    d.push(`${dateLabel(x.d)} · ${esc(D.tcLabels[x.tc] || x.tc)}${x.f ? " · " + esc(x.f) : ""}${x.v ? " · " + esc(x.v) : ""}`);
+    const errs = [3, 2, 1].filter(k => x.q[k - 1]).map(k => `${x.q[k - 1]} ${KPL[k]}${x.q[k - 1] > 1 ? "s" : ""}`);
+    d.push(!x.a ? "Partie non analysée par Stockfish : tu peux quand même la rejouer."
+      : errs.length ? `Tes fautes : ${errs.join(", ")}. « Faute › » t'y emmène directement.`
+      : "Aucune faute de ta part dans cette partie.");
   } else if (!mine(i - 1)) {
-    v = `${moveNo(i - 1)} ${e[0]} · coup de ${G.x.o}`;
-    if (G.w[i] != null) d.push(`Tes chances de gain : ${pct(G.w[i])}.`);
+    v = `${moveNo(i - 1)} ${e[0]} · coup de ${x.o}`;
+    if (G.w[i] != null) w = pct(G.w[i]);
   } else if (e.length <= 3) {
     v = `${moveNo(i - 1)} ${e[0]}`;
     d.push("Coup non analysé par Stockfish.");
@@ -457,13 +547,15 @@ function renderInfo() {
     if (k) { v = `${KLBL[k]} : ${moveNo(i - 1)} ${e[0]}${KSYM[k]}`; cls = "k" + k; }
     else if (buci === uci) { v = `${moveNo(i - 1)} ${e[0]} · le coup de Stockfish`; cls = "ok"; }
     else v = `${moveNo(i - 1)} ${e[0]} · bon coup`;
-    d.push(`Tes chances de gain : ${pct(wb)} → ${pct(wa)}.`);
-    if (k && bsan) d.push(`Stockfish préférait <span class="mono">${esc(bsan)}</span> (flèche verte).`);
-    if (kind && D.kinds[kind]) d.push(`Type de faute : ${esc(D.kinds[kind].toLowerCase())}.`);
+    w = `${pct(wb)} → ${pct(wa)}`;
+    if (k && bsan) d.push(`Stockfish préférait <span class="mono">${esc(bsan)}</span><span class="wide"> (flèche verte)</span>`
+      + (kind && kind !== "other" && D.kinds[kind] ? ` · ${esc(D.kinds[kind].toLowerCase())}` : "") + ".");
     if (!k && wb - wa >= 10) d.push("Position déjà jouée d'avance : ce coup n'est pas compté comme une faute.");
   }
-  if (i === G.m.length && i) d.push(`<b>${RES[G.x.r]}</b>${HOW[G.x.rd] ? " (" + HOW[G.x.rd] + ")" : ""}.`);
-  $("info").innerHTML = `<div class="v ${cls}">${esc(v)}</div>` + d.map(t => `<p class="d">${t}</p>`).join("");
+  if (i === G.m.length && i) d.push(`Fin de la partie : <b>${RES[x.r].toLowerCase()}</b>${howTxt(x)}.`);
+  $("info").innerHTML = `<div class="vrow"><span class="v ${cls}">${esc(v)}</span>${w ? `<span class="w num" title="Tes chances de gain">${w}</span>` : ""}</div>`
+    + d.map(t => `<p class="d">${t}</p>`).join("");
+  $("info").scrollTop = 0;
 }
 
 // Courbe : % de gain du joueur après chaque demi-coup (points connus seulement), fautes marquées.
@@ -478,19 +570,20 @@ function drawCurve() {
     line += `<path d="${s.map(([x, y], k) => `${k ? "L" : "M"}${x},${y}`).join(" ")}" fill="none" stroke="var(--accent)" stroke-width="1.6" vector-effect="non-scaling-stroke"/>`;
   }
   let marks = "";
-  G.m.forEach((e, p) => { if (e.length > 5 && e[5]) marks += `<rect x="${X(p + 1) - 1.5}" y="${Y(e[4]) - 4}" width="3" height="8" rx="1" fill="var(--k${e[5]})"/>`; });
+  G.m.forEach((e, p) => { if (e.length > 5 && e[5]) marks += `<rect x="${X(p + 1) - 1.5}" y="${Math.max(0, Math.min(84, Y(e[4]) - 8))}" width="3" height="16" rx="1" fill="var(--k${e[5]})"/>`; });
   const cx = X(G.i);
   $("curve").innerHTML = `<line x1="0" y1="50" x2="400" y2="50" stroke="var(--line)" stroke-dasharray="4 4" vector-effect="non-scaling-stroke"/>`
-    + line + marks + `<line x1="${cx}" y1="0" x2="${cx}" y2="100" stroke="var(--fg)" stroke-width="1" vector-effect="non-scaling-stroke"/>`;
+    + line + marks + `<line x1="${cx}" y1="0" x2="${cx}" y2="100" stroke="var(--fg)" stroke-width="1.5" vector-effect="non-scaling-stroke"/>`;
   let w = null;
   for (let i = G.i; i >= 0 && w == null; i--) w = G.w[i];
   $("curveNow").textContent = w == null ? "" : pct(w);
 }
-$("curve").addEventListener("click", e => {
-  if (!G) return;
-  const r = $("curve").getBoundingClientRect();
-  go(Math.round((e.clientX - r.left) / r.width * G.m.length));
-});
+// Toucher ou glisser sur la courbe : aller au coup sous le doigt.
+let scrub = false;
+const seek = e => { const r = $("curve").getBoundingClientRect(); go(Math.round((e.clientX - r.left) / r.width * G.m.length)); };
+$("curve").addEventListener("pointerdown", e => { if (!G) return; scrub = true; try { $("curve").setPointerCapture(e.pointerId); } catch (err) {} seek(e); });
+$("curve").addEventListener("pointermove", e => { if (scrub && G) seek(e); });
+for (const ev of ["pointerup", "pointercancel"]) $("curve").addEventListener(ev, () => { scrub = false; });
 
 $("bStart").addEventListener("click", () => go(0));
 $("bEnd").addEventListener("click", () => go(G.m.length));
@@ -499,7 +592,9 @@ $("bNext").addEventListener("click", () => go(G.i + 1));
 $("bPrevErr").addEventListener("click", () => { const j = errAt(-1); if (j != null) go(j); });
 $("bNextErr").addEventListener("click", () => { const j = errAt(1); if (j != null) go(j); });
 document.addEventListener("keydown", e => {
-  if (!G || $("vGame").hidden || e.target.closest?.("input, select, textarea")) return;
+  if ($("vGame").hidden || e.target.closest?.("input, select, textarea")) return;
+  if (e.key === "Escape") { e.preventDefault(); return backToList(); }
+  if (!G) return;
   const k = { ArrowLeft: G.i - 1, ArrowRight: G.i + 1, Home: 0, End: G.m.length }[e.key];
   if (k == null) return;
   e.preventDefault(); go(k);

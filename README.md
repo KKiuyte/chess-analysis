@@ -37,7 +37,17 @@ ses exercices. La progression des exercices est gardée dans le compte.
 
 - **Projet Firebase** `analyse-echecs` (plan gratuit Spark) : Hosting + Authentication (Google) + Firestore (eur3).
 - **Appli** : `app/public/index.html`, un seul fichier. Les pages sont les templates de `templates/`, copiés dans
-  `app/public/views/` au déploiement et remplis avec les données Firestore dans une iframe.
+  `app/public/views/` au déploiement et remplis avec les données Firestore, une iframe par onglet (gardée en vie :
+  on retrouve l'exercice ou la partie en cours en revenant sur l'onglet).
+- **Interface** : quatre onglets, en haut sur ordinateur, en bas sur téléphone : *Bilan* (un dashboard par cadence,
+  choisie dans la page ; sections Bilan, Résultats, Ouvertures, Erreurs en onglets), *Exercices*, *Parties*,
+  *Répertoire* (Fuites, Positions). Un exercice ou la relecture d'une partie tient sur un écran, sans défilement :
+  l'échiquier se dimensionne à la place disponible, côte à côte avec le panneau quand l'écran est large. Un seul
+  bandeau à la fois (mise à jour en cours, nouveautés depuis la dernière visite, cadence sans dashboard), fermé une
+  fois pour toutes. Le thème et la mise à jour des parties sont dans le menu du compte.
+- **Dialogue page ↔ appli** : `window.chessApp` (progression des exercices, filtre demandé par « S'entraîner »,
+  partie à ouvrir, dashboards disponibles, date de la visite précédente). Sans lui (GitHub Pages, claude.ai), les
+  pages s'affichent en autonome, avec leur titre et leur bouton de thème.
 - **Firestore** : `players/{pseudo}` et `players/{pseudo}/pages/{id}` (écrits par l'étape `publish`),
   `users/{uid}` (pseudo choisi), `progress/{uid}` (exercices), `requests/{pseudo}` (analyses demandées, pas encore
   traitées automatiquement). Règles dans `firestore.rules`.
@@ -55,7 +65,8 @@ ses exercices. La progression des exercices est gardée dans le compte.
   20 nouvelles parties ou 7 jours, avec le bilan précédent pour suivre les objectifs. Table `bilans` de la base.
   Clé : `secrets/anthropic-api-key` sur la VM (non versionnée), secret `anthropic-api-key` (Secret Manager) dans le
   job. Coût mesuré : ~0,08 $ par bilan. Étape `run.py bilan`.
-- **Déployer** : `firebase deploy --only hosting,firestore:rules,functions`
+- **Déployer** : `firebase deploy --only hosting,firestore:rules,functions` (`--only hosting` suffit après un changement
+  de `app/public/index.html` ou de `templates/`)
 - **Reconstruire l'image du job** après un changement de `chessan/`, `templates/` ou `config.toml` : Cloud Build sur
   le `Dockerfile` → `europe-west1-docker.pkg.dev/analyse-echecs/analyse/worker:latest` (le job prend la dernière image).
 
