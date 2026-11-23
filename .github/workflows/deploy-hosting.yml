@@ -1,0 +1,61 @@
+# Met l'appli en ligne (Firebase Hosting, https://analyse-echecs.web.app) dès qu'un changement de
+# l'interface arrive sur main : app/public/index.html, templates/, firebase.json.
+# Même commande que sur la VM (« firebase deploy --only hosting »), prédéploiement de firebase.json compris.
+#
+# Mise en place, une fois : secret du dépôt FIREBASE_SERVICE_ACCOUNT_ANALYSE_ECHECS = contenu du fichier
+# de clé JSON d'un compte de service du projet analyse-echecs, avec les rôles « Administrateur Firebase
+# Hosting » et « Lecteur de clés API » (voir README).
+# Les règles Firestore et les fonctions ne sont pas déployées ici.
+name: Mise en ligne de l'appli
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "app/**"
+      - "templates/**"
+      - "firebase.json"
+      - ".firebaserc"
+      - ".github/workflows/deploy-hosting.yml"
+  workflow_dispatch:      # bouton « Run workflow » : remettre en ligne sans nouveau commit
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy-hosting
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Firebase Hosting
+    if: github.ref == 'refs/heads/main'       # seule main part en production
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Clé du compte de service
+        env:
+          SA: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_ANALYSE_ECHECS }}
+          GOOGLE_APPLICATION_CREDENTIALS: ${{ runner.temp }}/firebase-sa.json
+        run: |
+          if [ -z "$SA" ]; then
+            echo "::error::Secret FIREBASE_SERVICE_ACCOUNT_ANALYSE_ECHECS absent : l'ajouter dans Settings > Secrets and variables > Actions."
+            exit 1
+          fi
+          printf '%s' "$SA" > "$GOOGLE_APPLICATION_CREDENTIALS"
+          python3 - <<'PY'
+          import json, os, sys
+          try:
+              key = json.load(open(os.environ["GOOGLE_APPLICATION_CREDENTIALS"]))
+              assert key.get("type") == "service_account" and key.get("private_key")
+          except Exception:
+              sys.exit("::error::Le secret FIREBASE_SERVICE_ACCOUNT_ANALYSE_ECHECS n'est pas un fichier de clé JSON complet "
+                       "(il doit commencer par { et finir par }).")
+          PY
+
+      - name: Déployer
+        env:
+          GOOGLE_APPLICATION_CREDENTIALS: ${{ runner.temp }}/firebase-sa.json
+        run: npx --yes firebase-tools@latest deploy --only hosting --project analyse-echecs --non-interactive
