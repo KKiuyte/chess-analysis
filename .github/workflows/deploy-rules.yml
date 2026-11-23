@@ -1,0 +1,32 @@
+# Publie les règles Firestore (firestore.rules) dès qu'elles changent sur main.
+# Même commande que sur la VM (« firebase deploy --only firestore:rules »).
+# Compte de service : rôle « Administrateur des règles Firebase » en plus de ceux de la mise en ligne (voir README).
+name: Règles Firestore
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "firestore.rules"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy-rules
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Règles Firestore
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v5
+      - uses: ./.github/actions/cle
+        with:
+          key: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_ANALYSE_ECHECS }}
+      - name: Déployer
+        run: npx --yes firebase-tools@latest deploy --only firestore:rules --project analyse-echecs --non-interactive
