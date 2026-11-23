@@ -1,0 +1,48 @@
+# Reconstruit l'image du job Cloud Run « analyse » (Dockerfile) dès que son contenu change sur main :
+# chessan/, templates/, config.toml, run.py. L'image est poussée sous l'étiquette « latest », celle que le job
+# utilise : la prochaine analyse la prend. Remplace le Cloud Build lancé à la main.
+# Compte de service : rôle « Rédacteur Artifact Registry » en plus de ceux de la mise en ligne (voir README).
+name: Image du job d'analyse
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "chessan/**"
+      - "templates/**"
+      - "config.toml"
+      - "run.py"
+      - "Dockerfile"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: build-worker
+  cancel-in-progress: true        # une image plus récente remplace celle en cours de construction
+
+env:
+  REGISTRY: europe-west1-docker.pkg.dev
+  IMAGE: europe-west1-docker.pkg.dev/analyse-echecs/analyse/worker:latest
+
+jobs:
+  build:
+    name: Construire et pousser
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v5
+      - uses: ./.github/actions/cle
+        with:
+          key: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_ANALYSE_ECHECS }}
+      - name: Construire
+        run: docker build -t "$IMAGE" .
+      - name: Vérifier l'image
+        # Le job doit démarrer et trouver ses données : modules importables, base d'ouvertures présente.
+        run: docker run --rm --entrypoint python "$IMAGE" -c "from chessan import worker, repertoire; assert repertoire.DATA.exists(), repertoire.DATA; print('image ok')"
+      - name: Pousser
+        run: |
+          docker login -u _json_key --password-stdin "https://$REGISTRY" < "$GOOGLE_APPLICATION_CREDENTIALS"
+          docker push "$IMAGE"

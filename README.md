@@ -67,13 +67,15 @@ ses exercices. La progression des exercices est gardée dans le compte.
   job. Coût mesuré : ~0,08 $ par bilan. Étape `run.py bilan`.
 - **Déployer** : `firebase deploy --only hosting,firestore:rules,functions` (`--only hosting` suffit après un changement
   de `app/public/index.html` ou de `templates/`)
-- **Mise en ligne automatique de l'appli** : `.github/workflows/deploy-hosting.yml` lance `firebase deploy --only hosting`
-  dès qu'un changement de `app/`, `templates/` ou `firebase.json` arrive sur `main` (ou à la main : onglet Actions,
-  « Run workflow »). Secret du dépôt `FIREBASE_SERVICE_ACCOUNT_ANALYSE_ECHECS` : contenu de la clé JSON d'un compte de
-  service du projet, rôles « Administrateur Firebase Hosting » et « Lecteur de clés API ». Les règles Firestore et les
-  fonctions restent déployées depuis la VM.
-- **Reconstruire l'image du job** après un changement de `chessan/`, `templates/` ou `config.toml` : Cloud Build sur
-  le `Dockerfile` → `europe-west1-docker.pkg.dev/analyse-echecs/analyse/worker:latest` (le job prend la dernière image).
+- **Mises en ligne automatiques** (GitHub Actions, sur `main` ; ou à la main : onglet Actions, « Run workflow ») :
+  `deploy-hosting.yml` (l'appli : `app/`, `templates/`, `firebase.json`), `deploy-rules.yml` (`firestore.rules`),
+  `build-worker.yml` (image du job : `chessan/`, `templates/`, `config.toml`, `run.py`, `Dockerfile`). Secret du dépôt
+  `FIREBASE_SERVICE_ACCOUNT_ANALYSE_ECHECS` : clé JSON d'un compte de service du projet, avec les rôles
+  « Administrateur Firebase Hosting » et « Lecteur de clés API » (appli), « Administrateur des règles Firebase »
+  (règles), « Rédacteur Artifact Registry » (image). Les fonctions restent déployées depuis la VM
+  (`firebase deploy --only functions`).
+- **Image du job** : `europe-west1-docker.pkg.dev/analyse-echecs/analyse/worker:latest` (le job prend la dernière
+  image). À la main : Cloud Build sur le `Dockerfile`.
 
 ## Installation (déjà faite sur la VM)
 

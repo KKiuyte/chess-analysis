@@ -1,0 +1,31 @@
+# Étape commune aux mises en ligne : la clé du compte de service (secret du dépôt) est contrôlée, écrite dans un
+# fichier temporaire du runner et désignée par GOOGLE_APPLICATION_CREDENTIALS pour les étapes suivantes.
+name: Clé du compte de service
+description: Contrôle la clé JSON du compte de service de déploiement et l'expose aux étapes suivantes.
+inputs:
+  key:
+    description: Contenu du secret FIREBASE_SERVICE_ACCOUNT_ANALYSE_ECHECS
+    required: true
+runs:
+  using: composite
+  steps:
+    - shell: bash
+      env:
+        SA: ${{ inputs.key }}
+      run: |
+        if [ -z "$SA" ]; then
+          echo "::error::Secret FIREBASE_SERVICE_ACCOUNT_ANALYSE_ECHECS absent : l'ajouter dans Settings > Secrets and variables > Actions."
+          exit 1
+        fi
+        f="$RUNNER_TEMP/firebase-sa.json"
+        printf '%s' "$SA" > "$f"
+        python3 - "$f" <<'PY'
+        import json, sys
+        try:
+            key = json.load(open(sys.argv[1]))
+            assert key.get("type") == "service_account" and key.get("private_key")
+        except Exception:
+            sys.exit("::error::Le secret FIREBASE_SERVICE_ACCOUNT_ANALYSE_ECHECS n'est pas un fichier de clé JSON complet "
+                     "(il doit commencer par { et finir par }).")
+        PY
+        echo "GOOGLE_APPLICATION_CREDENTIALS=$f" >> "$GITHUB_ENV"
